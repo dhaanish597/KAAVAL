@@ -20,12 +20,12 @@ import app.vaakku.ui.theme.VaakkuTheme
  * from a release APK. It is reached from MainActivity by component name behind a
  * BuildConfig.DEBUG guard.
  *
- * Three screens as of P2: the Rung-0 probe (§6.3), Live ASR (§6.3) and the ASR
- * bake-off (§11.3). The NPU benchmark and the config reload (§6.6 item 7) land in
- * the phases that build them; empty placeholders would only make the menu harder
- * to read.
+ * Four screens as of P3: the Rung-0 probe (§6.3), Live ASR (§6.3), the ASR
+ * bake-off (§11.3) and Document scan (§6.4). The NPU benchmark and the config
+ * reload (§6.6 item 7) land in the phases that build them; empty placeholders
+ * would only make the menu harder to read.
  *
- * Navigation is one `var` rather than a nav library. There are four destinations
+ * Navigation is one `var` rather than a nav library. There are five destinations
  * and no deep links, and a dependency added for the Dev menu would end up in the
  * release APK for nothing.
  */
@@ -57,6 +57,9 @@ class DevMenuActivity : ComponentActivity() {
                             onClose = { screen = DevScreen.MENU },
                         )
                         DevScreen.BAKEOFF -> AsrBakeoffScreen(
+                            onClose = { screen = DevScreen.MENU },
+                        )
+                        DevScreen.SCAN -> DocumentScanScreen(
                             onClose = { screen = DevScreen.MENU },
                         )
                     }
