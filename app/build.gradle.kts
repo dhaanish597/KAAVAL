@@ -91,7 +91,60 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // JUnit 5, same engine :domain uses. The ASR subsystem has exactly one
+        // part that is pure arithmetic — SegmentQuality — and it feeds straight
+        // into the reconciler's confidence thresholds, so it is worth being able
+        // to test without a phone attached. Everything else in asr/ needs real
+        // AudioRecord/JNI and is verified on-device instead.
+        unitTests.all { it.useJUnitPlatform() }
     }
+
+    // The §11.1 clips are copied in from testdata/testaudio/ at build time rather
+    // than committed a second time under app/src/. They are already tracked at
+    // their canonical path; a duplicate copy in the source tree is 3.4 MB of
+    // binary that can silently drift out of step with the labels that score it.
+    sourceSets {
+        getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/rehearsalAudio"))
+        getByName("debug").assets.srcDir(layout.buildDirectory.dir("generated/bakeoffAudio"))
+    }
+}
+
+/**
+ * The rehearsal clip, in every build type.
+ *
+ * This one ships in release because §13's own fallback depends on it: if no
+ * engine clears the ASR accuracy threshold, "the demo uses the rehearsal WAV as
+ * primary and live mic as a 'try it' moment". A fallback that only exists in a
+ * debug build is not a fallback.
+ */
+val syncRehearsalAudio by tasks.registering(Sync::class) {
+    description = "Copies the rehearsal pitch clip into :app main assets (§11.1, §13)."
+    from(rootProject.layout.projectDirectory.dir("testdata/testaudio")) {
+        include("R01_demo_pitch.wav")
+    }
+    into(layout.buildDirectory.dir("generated/rehearsalAudio/testaudio"))
+}
+
+/**
+ * T01–T14 and their labels, debug only.
+ *
+ * These exist to feed the bake-off screen, which is behind `BuildConfig.DEBUG`.
+ * Shipping the scoring labels in a release APK would put the answer key next to
+ * the exam for no benefit.
+ */
+val syncBakeoffAudio by tasks.registering(Sync::class) {
+    description = "Copies the §11.1 test clips and labels.json into :app debug assets."
+    from(rootProject.layout.projectDirectory.dir("testdata/testaudio")) {
+        include("T*.wav")
+        include("labels.json")
+    }
+    into(layout.buildDirectory.dir("generated/bakeoffAudio/testaudio"))
+}
+
+// preBuild is the one task every variant runs first, so both syncs land before
+// asset merging regardless of which variant is being assembled.
+tasks.named("preBuild") {
+    dependsOn(syncRehearsalAudio, syncBakeoffAudio)
 }
 
 dependencies {
@@ -127,4 +180,14 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+
+    // sherpa-onnx, as a local AAR (§6.1). Not on Maven at this pin, and the file
+    // is gitignored because it is 50 MB — see models/MANIFEST.md for where it
+    // came from. The AAR carries both the Kotlin API and the arm64-v8a .so set
+    // (libsherpa-onnx-jni, libsherpa-onnx-c-api, libsherpa-onnx-cxx-api,
+    // libonnxruntime); nothing else needs to be declared for the JNI to load.
+    implementation(files("libs/sherpa-onnx-1.13.8.aar"))
+
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }

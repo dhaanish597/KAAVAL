@@ -8,6 +8,9 @@ import app.vaakku.domain.normalize.Normalizer
 import kotlinx.serialization.json.Json
 import java.io.File
 
+/** One instance, reused: building a `Json` format per call is measurably slow. */
+private val labelsJson = Json { ignoreUnknownKeys = true }
+
 /**
  * Entry point for the `:domain:evalTranscripts` Gradle task (build plan
  * §5.10 item 10, §11.3 item 1). Reads `evidence/asr_prescreen/<engine>/<file>.txt`
@@ -73,7 +76,7 @@ fun main() {
     }
 
     val labelsFile = File(repoRoot, "testdata/testaudio/labels.json")
-    val labels = Json { ignoreUnknownKeys = true }.decodeFromString(Labels.serializer(), labelsFile.readText(Charsets.UTF_8))
+    val labels = labelsJson.decodeFromString(Labels.serializer(), labelsFile.readText(Charsets.UTF_8))
     val labelsByFile = labels.files.associateBy { it.file }
 
     val lexicon = LexiconLoader.loadDefault()

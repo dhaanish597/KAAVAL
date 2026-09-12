@@ -24,6 +24,9 @@ import java.io.File
  */
 object EvidenceExport {
 
+    const val MIME_TEXT = "text/plain"
+    const val MIME_CSV = "text/csv"
+
     /**
      * Relative path inside Downloads, as MediaStore wants it (no leading slash).
      *
@@ -35,9 +38,18 @@ object EvidenceExport {
     /**
      * Writes [text] as [fileName] under Download/Vaakku/evidence/.
      *
+     * [mimeType] defaults to plain text; the bake-off passes `text/csv` so the
+     * file opens as a sheet rather than as a wall of commas once the human moves
+     * it to the laptop.
+     *
      * @return a human-readable line: the path on success, the reason on failure.
      */
-    suspend fun writeText(context: Context, fileName: String, text: String): String =
+    suspend fun writeText(
+        context: Context,
+        fileName: String,
+        text: String,
+        mimeType: String = MIME_TEXT,
+    ): String =
         withContext(Dispatchers.IO) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                 return@withContext writeLegacy(fileName, text)
@@ -46,7 +58,7 @@ object EvidenceExport {
                 val resolver = context.contentResolver
                 val values = ContentValues().apply {
                     put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                    put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+                    put(MediaStore.Downloads.MIME_TYPE, mimeType)
                     put(MediaStore.Downloads.RELATIVE_PATH, RELATIVE_DIR)
                     // No IS_PENDING overwrite trick here: MediaStore appends a
                     // " (1)" suffix on a name collision rather than replacing the

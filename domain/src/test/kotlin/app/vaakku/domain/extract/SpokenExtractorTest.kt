@@ -112,8 +112,9 @@ class SpokenExtractorTest {
             "Return guarantee இல்லை sir. Illustration-ல நாலு percent, எட்டு percent ரெண்டு scenario இருக்கு.",
             ClaimType.RETURN_RATE,
         )
-        assertEquals(setOf(BigDecimal("4"), BigDecimal("8")), (r.value as ClaimValue.Rate).percents)
-        assertEquals(RateQualifier.ILLUSTRATIVE, (r.value as ClaimValue.Rate).qualifier)
+        val rate = r.value as ClaimValue.Rate
+        assertEquals(setOf(BigDecimal("4"), BigDecimal("8")), rate.percents)
+        assertEquals(RateQualifier.ILLUSTRATIVE, rate.qualifier)
         assertTrue(!r.hedged, "an honest illustrative quote is not an evasive hedge")
     }
 

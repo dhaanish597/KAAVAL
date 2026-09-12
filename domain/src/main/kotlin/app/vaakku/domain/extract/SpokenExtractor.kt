@@ -408,17 +408,13 @@ class SpokenExtractor(private val lexicon: Lexicon, private val normalizer: Norm
     private fun negationQuality(tokens: List<String>, anchorIdx: Int, radius: Int): Double? {
         var best: Double? = null
         for (d in 1..radius) {
-            val left = anchorIdx - d
-            if (left in tokens.indices) {
-                lexicon.bestTokenMatch(tokens[left], lexicon.data.negation)?.let { q ->
-                    if (best == null || q > best!!) best = q
-                }
-            }
-            val right = anchorIdx + d
-            if (right in tokens.indices) {
-                lexicon.bestTokenMatch(tokens[right], lexicon.data.negation)?.let { q ->
-                    if (best == null || q > best!!) best = q
-                }
+            // Both sides of the anchor, nearest first. The result is a max, so the
+            // order does not matter; pairing them just avoids saying it twice.
+            for (idx in intArrayOf(anchorIdx - d, anchorIdx + d)) {
+                if (idx !in tokens.indices) continue
+                val q = lexicon.bestTokenMatch(tokens[idx], lexicon.data.negation) ?: continue
+                val current = best
+                best = if (current == null) q else maxOf(current, q)
             }
         }
         return best
