@@ -3,6 +3,9 @@ package app.vaakku.dev
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -69,12 +72,22 @@ fun Rung0ProbeScreen(onClose: () -> Unit) {
     // Run once on open so the screen is useful without a tap.
     LaunchedEffect(Unit) { refresh() }
 
+    // Same edge-to-edge story as the Setup screen: without the status-bar inset
+    // the heading is sheared off. This screen produces evidence files, so a
+    // screenshot of it has to be legible.
+    val insets = WindowInsets.safeDrawing.asPaddingValues()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(VaakkuTheme.colors.paper)
             .verticalScroll(rememberScrollState())
-            .padding(24.dp),
+            .padding(
+                start = 24.dp,
+                end = 24.dp,
+                top = 24.dp + insets.calculateTopPadding(),
+                bottom = 24.dp + insets.calculateBottomPadding(),
+            ),
     ) {
         Text("Rung-0 probe", style = VaakkuTypography.titleLarge, color = VaakkuTheme.colors.ink)
         Text(

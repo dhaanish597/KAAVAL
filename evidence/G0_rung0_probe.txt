@@ -1,0 +1,43 @@
+VAAKKU Rung-0 probe — on-device speech recognition
+==================================================
+captured_at: 2026-09-12T12:02:38.179+05:30
+device: vivo I2501 (I2501), SoC=QTI SM8850, rom=PD2505CF_EX_A_16.0.24.1.W30
+android_sdk: 36
+
+-- platform --
+isRecognitionAvailable(): true
+isOnDeviceRecognitionAvailable(): true
+settings voice_recognition_service: com.google.android.tts/com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService
+
+-- installed recognition services (2) --
+  com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiSpeechRecognitionService
+  com.google.android.tts/com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService
+
+-- recognizer: default (createSpeechRecognizer) --
+component: com.google.android.tts/com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService
+available: true
+  ta-IN:
+      error: IllegalStateException: onError(14) — ERROR_CANNOT_CHECK_SUPPORT
+  en-IN:
+      error: IllegalStateException: onError(14) — ERROR_CANNOT_CHECK_SUPPORT
+
+-- recognizer: on-device (createOnDeviceSpeechRecognizer) --
+component: com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiSpeechRecognitionService
+available: true
+  ta-IN:
+      ready_offline: false
+      needs_download: false
+      supported_on_device: en-US, de-DE, es-ES, fr-FR, it-IT, en-AU, en-GB, en-IE, en-SG, ja-JP, de-AT, de-BE, de-CH, en-CA, en-IN, es-US, fr-BE, fr-CA, fr-CH, hi-IN, id-ID, it-CH, ko-KR, pt-BR, th-TH, cmn-Hans-CN, cmn-Hant-TW, pl-PL, ru-RU, tr-TR, vi-VN
+      installed_on_device: (none)
+      pending_on_device:   (none)
+      online_languages:    (none)
+  en-IN:
+      ready_offline: false
+      needs_download: true
+      supported_on_device: en-US, de-DE, es-ES, fr-FR, it-IT, en-AU, en-GB, en-IE, en-SG, ja-JP, de-AT, de-BE, de-CH, en-CA, en-IN, es-US, fr-BE, fr-CA, fr-CH, hi-IN, id-ID, it-CH, ko-KR, pt-BR, th-TH, cmn-Hans-CN, cmn-Hant-TW, pl-PL, ru-RU, tr-TR, vi-VN
+      installed_on_device: (none)
+      pending_on_device:   (none)
+      online_languages:    (none)
+
+-- notes --
+(none)

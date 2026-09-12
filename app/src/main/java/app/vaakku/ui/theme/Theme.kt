@@ -339,9 +339,16 @@ fun VaakkuTheme(
 ) {
     val colors = if (night) NightColors else DayColors
 
+    // primary is INK, not the stamp violet.
+    //
+    // Material gives `primary` to every unstyled Button, Switch, Slider and text
+    // cursor. Wiring the stamp there would put violet on controls that have
+    // nothing to do with a delta, which is exactly what CLAUDE.md #9 forbids —
+    // violet marks DIFFERS and nothing else. The stamp stays reachable as
+    // VaakkuTheme.colors.stamp so a Delta Card has to ask for it by name.
     val scheme = if (night) {
         darkColorScheme(
-            primary = colors.stamp,
+            primary = colors.ink,
             onPrimary = colors.onInk,
             secondary = colors.brand,
             onSecondary = colors.onBrand,
@@ -357,7 +364,7 @@ fun VaakkuTheme(
         )
     } else {
         lightColorScheme(
-            primary = colors.stamp,
+            primary = colors.ink,
             onPrimary = colors.onInk,
             secondary = colors.brand,
             onSecondary = colors.onBrand,

@@ -28,3 +28,7 @@ desktop.ini
 #     Kept on disk so the human can move files around without re-downloading,
 #     but never committed (it is ~70 MB of models, AARs and sample repos).
 handoff/
+
+# Windows shortcuts. One of these gets created by an accidental drag-drop in
+# Explorer; it points at the repo root and is not app source.
+*.lnk

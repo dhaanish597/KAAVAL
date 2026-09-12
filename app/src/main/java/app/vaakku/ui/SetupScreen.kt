@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -85,6 +88,21 @@ fun SetupScreen(
     var selected by rememberSaveable { mutableStateOf(Domain.INSURANCE) }
     var counterparty by rememberSaveable { mutableStateOf("") }
 
+    // targetSdk 36 means the system draws this window edge-to-edge, so the status
+    // bar and the gesture pill sit OVER the content unless their insets are added
+    // back. Without this the Tamil title loses its top, and Tamil headline glyphs
+    // carry marks above the x-height - a sheared line is unreadable, not merely
+    // untidy. Design spec 3.4 ("reserve 30% vertical overflow") is the same rule
+    // stated for type; this is it stated for the window.
+    val safeInsets = WindowInsets.safeDrawing.asPaddingValues()
+    val insetTop = safeInsets.calculateTopPadding()
+    val insetBottom = safeInsets.calculateBottomPadding()
+
+    // The fixed Start bar keeps its 48dp footing on a gesture-nav phone and grows
+    // only if a taller system bar demands it.
+    val bottomBarPad = space.safeBottom.coerceAtLeast(insetBottom + space.md)
+    val scrollBottomPad = bottomBarPad + 64.dp + space.md + space.base
+
     // Live device state. Re-read on a slow tick rather than once, because the
     // human toggles airplane mode while this very screen is open, and a stale
     // "not on" that never updates would look broken at exactly the wrong moment.
@@ -138,7 +156,7 @@ fun SetupScreen(
                 .padding(horizontal = space.gutter)
                 // Bottom inset clears the fixed Start button so the last row is
                 // never trapped underneath it.
-                .padding(top = space.safeTop, bottom = 112.dp),
+                .padding(top = space.safeTop + insetTop, bottom = scrollBottomPad),
         ) {
             // --- Title. Long-press opens the debug Dev menu. ---
             Row(
@@ -381,7 +399,7 @@ fun SetupScreen(
                 .align(Alignment.BottomCenter)
                 .background(colors.paper)
                 .padding(horizontal = space.gutter)
-                .padding(top = space.md, bottom = space.safeBottom),
+                .padding(top = space.md, bottom = bottomBarPad),
         ) {
             Button(
                 onClick = { onStartSession(selected) },

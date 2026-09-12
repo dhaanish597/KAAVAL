@@ -1,6 +1,6 @@
 # STATUS — VAAKKU
 
-Current light: GREEN · Current phase: P0 · Hour: H0–H1
+Current light: GREEN · Current phase: P0 **complete** → P1 next · Hour: H0–H1
 
 Red Light ruling: **unknown** — no organizer statement recorded yet.
 Name ruling: **unknown** — displayed name is VAAKKU, changed by editing the single
@@ -14,7 +14,7 @@ This assumption has not been confirmed by an organizer.
 
 | Gate | Status | Evidence | Time |
 |---|---|---|---|
-| G0 Bootstrap | IN PROGRESS | see below | H0–H1 |
+| G0 Bootstrap | **PASS** | see below | H0–H1 |
 | G1 Domain | NOT STARTED | — | — |
 | G2 ASR decision | NOT STARTED | — | — |
 | G3 OCR | NOT STARTED | — | — |
@@ -30,9 +30,9 @@ This assumption has not been confirmed by an organizer.
 |---|---|---|
 | `:app:assembleDebug` log tail | **done** | `evidence/G0_build.txt` |
 | `scripts/check_manifest.sh` — no INTERNET | **done** | `evidence/G0_manifest_check.txt` |
-| Install success | pending (needs phone) | — |
-| Setup screen screenshot | pending (needs phone) | `evidence/G0_setup.png` |
-| Rung-0 probe export | pending (needs phone) | `evidence/` (exported from the app) |
+| Install success | **done** | `adb install -r` → `Success`; md5 of the installed `base.apk` matches the local APK |
+| Setup screen screenshot | **done** | `evidence/G0_setup.png` |
+| Rung-0 probe export | **done** | `evidence/G0_rung0_probe.txt`, `evidence/G0_rung0_probe.png` |
 
 Build was green on a clean `:app:assembleDebug` (40 tasks) with Gradle 9.3.1 / AGP
 8.13.1 / Kotlin 2.3.0 on a JDK 21 daemon at Java 11 target. `checkBannedWords` is
@@ -136,11 +136,68 @@ load-bearing rather than passing vacuously. Debug APK is 51 MB.
     silently stopped working would cost debugging time at the worst possible moment. The
     flag is `allowOverride = BuildConfig.DEBUG`, so the override state cannot become
     true in a release build.
+19. **Window insets are applied explicitly on every full-screen surface.** targetSdk 36
+    means Android draws the window edge-to-edge with no opt-in, so the status bar and
+    the gesture pill sit *over* the content. The first on-device screenshot caught it:
+    the Tamil title அமர்வு தயாரிப்பு was sheared off at the top. This matters more in
+    Tamil than in English — headline glyphs carry marks above the x-height, so a
+    clipped line is unreadable rather than merely untidy, and design spec §3.4's
+    "reserve 30% vertical overflow" is the same rule stated for type. Both
+    `SetupScreen` and `Rung0ProbeScreen` now read `WindowInsets.safeDrawing` and add
+    the top/bottom insets to their own padding. Any new full-screen composable must do
+    the same; verify it with a screenshot, not by eye in a preview.
+20. **Material `primary` is INK, not the stamp violet.** `VaakkuTheme` previously
+    mapped `primary = colors.stamp`, which meant every unstyled `Button`, `Switch`,
+    `Slider` and text cursor in the app rendered violet — the Dev menu's Refresh button
+    already did. CLAUDE.md #9 reserves violet for a DIFFERS card, so that mapping was a
+    standing trap that would have violated the rule the first time anyone dropped a
+    plain `Button` on a user-facing screen. `primary` is now `colors.ink`; the stamp is
+    reachable only as `VaakkuTheme.colors.stamp`, so a Delta Card has to ask for it by
+    name. Verified on-device: the Refresh button samples `#222222`.
 
-## Measurements (from the human)
+## Measurements
 
-None yet. The Rung-0 probe result will be the first entry and should be pasted here
-verbatim from the exported file.
+### M1 — Rung-0 probe, run on the phone 2026-09-12 12:06 IST
+
+Source: `evidence/G0_rung0_probe.txt`, exported by the app itself (not retyped).
+Device: **vivo I2501 (iQOO 15), SoC QTI SM8850, rom PD2505CF_EX_A_16.0.24.1.W30,
+Android SDK 36.**
+
+| Question | Answer |
+|---|---|
+| `isRecognitionAvailable()` | **true** |
+| `isOnDeviceRecognitionAvailable()` | **true** |
+| recognition services visible | **2** |
+| default recognizer | `com.google.android.tts/…GoogleTTSRecognitionService` |
+| on-device recognizer | `com.google.android.as/…AiAiSpeechRecognitionService` |
+| **ta-IN on-device** | **NOT SUPPORTED** — absent from the list of 31 |
+| **en-IN on-device** | supported, `installed: (none)`, `needs_download: true` |
+
+**The decisive line: `ta-IN` is not in the on-device recognizer's supported set.**
+The full list it returned is en-US, de-DE, es-ES, fr-FR, it-IT, en-AU, en-GB, en-IE,
+en-SG, ja-JP, de-AT, de-BE, de-CH, en-CA, en-IN, es-US, fr-BE, fr-CA, fr-CH, hi-IN,
+id-ID, it-CH, ko-KR, pt-BR, th-TH, cmn-Hans-CN, cmn-Hant-TW, pl-PL, ru-RU, tr-TR,
+vi-VN — 31 languages, including Hindi and Indian English, and **no Tamil**. Note that
+`needs_download` is *false* for ta-IN: it is false because Tamil is not offered at
+all, not because it is ready. This is not a "download it before the event" situation.
+
+**Consequence (build plan §6.3 go/no-go tree): engine 5 `AndroidOnDevice` is OUT for
+Tamil. Rung 1 (sherpa-onnx) carries Tamil ASR.** That was the expected outcome and is
+why the models are already downloaded, but it is now measured rather than assumed.
+
+Two caveats recorded honestly:
+
+- The probe ran with **airplane mode ON**. The *default* (Google TTS) recognizer
+  answered `ERROR_CANNOT_CHECK_SUPPORT` (14) for both languages, which is what an
+  online-capable recognizer does with no network — that result is **inconclusive, not
+  negative**. It does not change the conclusion: the *on-device* recognizer answered
+  fully offline, and it is the one engine 5 would use.
+- `online_languages` is `(none)` everywhere for the same reason. Nothing here says
+  anything about online Tamil, and the product does not care.
+
+Validation of decision 9 as a side effect: the `<queries>` element works — two
+recognition services were visible. Without it this table would have read
+"no recognizer available" and we would have mis-planned the ASR rung.
 
 ## Open issues
 
@@ -166,9 +223,11 @@ verbatim from the exported file.
 4. **The prompt names `docs/versions_from_scratch.txt`** and
    `docs/kaaval-fonts.zip`; both live (or would live) elsewhere. Worth fixing in the
    next prompt so the next session does not re-discover this.
-5. **The phone was not attached at build time** (`adb devices` empty). Install,
-   launch, screenshot and the Rung-0 probe run are all human actions. `scripts/install.sh`
-   and `scripts/push_models.sh` are written and ready for it.
+5. ~~**The phone was not attached at build time.**~~ **RESOLVED.** The iQOO 15
+   (`10BFBK0GN7001GJ`, model I2501) is attached over USB. Build, install, launch,
+   screenshot and the Rung-0 probe all ran on it; see Measurements M1. `push_models.sh`
+   has still never been exercised — models are not yet needed and P1 does not need them
+   either.
 6. **Four permissions beyond the six in §6.2 arrive through library manifest merging.**
    The full requested set is: `RECORD_AUDIO`, `CAMERA`, `FOREGROUND_SERVICE`,
    `FOREGROUND_SERVICE_MICROPHONE`, `VIBRATE`, `POST_NOTIFICATIONS` (all ours, per the
@@ -183,31 +242,58 @@ verbatim from the exported file.
    Note `evidence/G0_manifest_check.txt` lists the requested set, not the
    `android:permission` attributes that merely *guard* library components
    (`INSTALL_PACKAGES`, `DUMP`, `BIND_JOB_SERVICE`) — those are not requested by us.
+7. **`en-IN` on-device speech is supported but not installed, and downloading it needs
+   a network.** This is the one pre-event action with a deadline attached: the Dev menu
+   has a `triggerModelDownload(ta-IN)` button, but for **en-IN**, not Tamil. Whether we
+   want it at all is a real question — Rung 1 (sherpa-onnx) is planned to carry both
+   halves of the code-switched stream, and a second recognizer is a second failure mode.
+   Decide in P2. If the answer is yes, it must happen **before airplane mode goes on**,
+   and there is no way to do it at the venue if the venue Wi-Fi is the only network.
+8. **The Rung-0 probe has only been run with the radio off.** The default recognizer's
+   `ERROR_CANNOT_CHECK_SUPPORT` is therefore inconclusive (see M1). Re-running it once
+   with the radio on would complete the picture and cost about a minute. It would not
+   change the Tamil conclusion, which came from the on-device recognizer and is already
+   definitive — so this is a completeness item, not a blocker.
+9. **The long-press on the screen title did not open the Dev menu on the phone.** The
+   visible "Open Rung-0 probe" button (debug builds only) works and was used for all
+   the evidence above, so nothing is blocked. But the long-press path is what the Red
+   Light test list assumed, and injected long-presses via `adb input` did not trigger it
+   at verified-correct coordinates, while an ordinary `input tap` on the same text
+   worked. Unresolved whether this is a gesture-injection artefact or a real
+   `pointerInput` key-stability bug — `onOpenDevMenu` is a fresh lambda on every
+   composition, which restarts the gesture detector. Worth 10 minutes in P1: key the
+   `pointerInput` on `Unit` and hold the callback in `rememberUpdatedState`. **Do not
+   rely on the long-press during a demo until it has been confirmed by a human finger.**
 
-## Next Red Light test list
+## On-device verification status (P0)
 
-Not yet applicable — no Red Light ruling has been issued, and no build has been
-installed. Once the phone is attached and `scripts/install.sh` has run:
+Verified on the iQOO 15 by driving the real app over adb, each backed by a screenshot
+or a file in `evidence/`:
 
-1. Launch the app. Confirm the Tamil renders in Noto Sans Tamil, **not tofu boxes** —
-   check the title, the six domain labels, and the long offline help line.
-2. Confirm nothing clips. Tamil runs ~30% longer than English; the domain cells are
-   60dp and the labels are the most likely thing to overflow.
-3. Tap through all six domain cells. The selected cell inverts to ink fill; the source
-   line beneath the grid should change with each.
-4. Type in the counterparty field. Confirm the Tamil hint disappears and the underline
-   is visible.
-5. Grant mic and camera. Confirm the row flips to அனுமதிக்கப்பட்டது without a restart.
-6. Toggle airplane mode ON. Confirm the amber offline chip appears and **Start enables**;
-   toggle it off and confirm Start disables again (this is the offline proof).
-7. Tap the offline row. Confirm it opens the real airplane-mode settings panel.
-8. Long-press the debug override line with airplane mode off. Confirm Start enables and
-   the "override armed" line appears — then confirm this line is absent when the radio
-   is on.
-9. Read the accelerator row. It must say அளக்கப்படவில்லை (not measured). If it ever
-   shows an accelerator name before G4, that is a CLAUDE.md #8 violation.
-10. Long-press the screen title → Dev menu → run the Rung-0 probe → export it.
-11. Screenshot for `evidence/G0_setup.png`.
+- [x] Tamil renders in Noto Sans Tamil — **no tofu boxes** anywhere: title, all six
+      domain labels, the long offline help line, the disclosure paragraph.
+- [x] Nothing clips — **after** fixing the inset bug this screenshot exposed
+      (decision 19). Re-verified.
+- [x] Domain selection works: tapping the BNK cell moved the ink fill from
+      காப்பீடு to கடன், verified by sampling cell fills, not by eye.
+- [x] Permission row reads அனுமதிக்கப்பட்டது with mic + camera granted.
+- [x] Airplane mode ON → amber offline chip shows and **Start is enabled**.
+- [x] Accelerator row reads அளக்கப்படவில்லை (not measured) — CLAUDE.md #8 holding.
+- [x] ASR row names the ROM's recognizer and says the app has loaded nothing yet.
+- [x] Dev menu → Rung-0 probe → export produced a real file (M1).
+- [x] `evidence/G0_setup.png`, `evidence/G0_rung0_probe.png` captured.
+
+**Not yet verified — these need a human finger and belong in the next Red Light window:**
+
+- [ ] Toggle airplane mode **off** and confirm Start *disables* again. This is the
+      offline proof and only half of it has been demonstrated; the half that was shown
+      is the half that passes trivially.
+- [ ] Tap the offline row and confirm it opens the real airplane-mode settings panel.
+- [ ] Type in the counterparty field — confirm the Tamil hint disappears, the underline
+      shows, and the soft keyboard does not cover the field.
+- [ ] Tap the remaining four domain cells and confirm the source line changes with each.
+- [ ] Long-press the debug override line with the radio off (see open issue 9).
+- [ ] Long-press the screen title → Dev menu (see open issue 9 — currently unconfirmed).
 
 ## Handoff notes for the next session
 
@@ -215,10 +301,12 @@ installed. Once the phone is attached and `scripts/install.sh` has run:
 - `:domain` has no source yet. P1 writes the domain core and the fixtures; the
   `fixtureReport` task is already wired and will start printing real numbers once
   fixtures exist.
-- The Rung-0 result decides the ASR plan. If `isOnDeviceRecognitionAvailable()` is
-  false, engine 5 (`AndroidOnDevice`) is out and Rung 1 (sherpa-onnx) carries
-  everything — which is the expected outcome and is why the models are already
-  downloaded.
+- **The Rung-0 question is answered — do not re-litigate it.** See M1.
+  `isOnDeviceRecognitionAvailable()` is *true*, but the on-device recognizer does not
+  offer `ta-IN` at all, so engine 5 (`AndroidOnDevice`) is out for Tamil and Rung 1
+  (sherpa-onnx) carries it. The subtlety worth keeping: the availability flag being
+  true is not the same as the language being there, and `needs_download: false` on
+  ta-IN means "never offered", not "ready".
 - `SessionService` is deliberately NOT in the manifest. Declaring it before the class
   exists breaks the build. It arrives in P2 (build plan §6.7) along with the
   `foregroundServiceType="microphone"` attribute.
@@ -239,6 +327,13 @@ installed. Once the phone is attached and `scripts/install.sh` has run:
   `VaakkuTheme.colors` / `.type` / `.space` inside a composable. A top-level `Ink` or
   `Paper` would silently stay in Day colours when Night is active, which is why the
   retired names were removed rather than kept as aliases.
+- **Driving the app over adb works and is worth reusing.** `adb exec-out screencap -p`
+  plus PIL to locate text bands beats guessing tap coordinates, and sampling a
+  region's average colour is how the domain-selection and violet-button checks were
+  verified rather than eyeballed. Two traps: Git Bash rewrites `/sdcard/...` into a
+  Windows path, so export `MSYS_NO_PATHCONV=1` before any `adb shell`/`adb pull` that
+  names a device path; and a tap issued right after a scroll lands during the fling and
+  is swallowed, so let the list settle before tapping.
 - **`checkBannedWords` scans comments too.** Two of its first findings were prose in a
   doc comment ("risk ramp", "never a verdict"), not product strings. The guard was
   right both times. Reword the comment; never touch the list.
