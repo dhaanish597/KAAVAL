@@ -172,6 +172,48 @@ class WrittenExtractorTest {
     }
 
     @Test
+    fun `GUARANTEE - fix round 3 counterexample 1 - "Premium Paid No" (missing "on") must never bridge the gap`() {
+        // Reviewer counterexample: "premium(s) paid" without a leading "on" —
+        // this document reuses that phrase nine more times for unrelated
+        // clauses (Surrender Value, Lapse, Paid-up Value, Free-Look, Revival,
+        // Tax Benefits), none of which is preceded by "on". The locked phrase
+        // requires the literal "on premium(s) paid" ordering, so this must
+        // never match.
+        val obs = extractOne("Guaranteed Returns Premium Paid No")
+        assertTrue(obs.none { it.type == ClaimType.GUARANTEE })
+    }
+
+    @Test
+    fun `GUARANTEE - fix round 3 counterexample 2 - "Premium Paid- No" (colon form, missing "on") must never bridge the gap`() {
+        val obs = extractOne("Guaranteed Returns Premium Paid: No")
+        assertTrue(obs.none { it.type == ClaimType.GUARANTEE })
+    }
+
+    @Test
+    fun `GUARANTEE - fix round 3 counterexample 3 (reordering) - "Paid Premium No" must never bridge the gap`() {
+        // Proves order is now enforced, not just word membership: round 2's
+        // bag-of-words whitelist let this reordering of "on premiums paid"
+        // through; the locked literal phrase cannot.
+        val obs = extractOne("Guaranteed Returns Paid Premium No")
+        assertTrue(obs.none { it.type == ClaimType.GUARANTEE })
+    }
+
+    @Test
+    fun `GUARANTEE - fix round 3 counterexample 4 (repetition) - "paid paid paid paid No" must never bridge the gap`() {
+        // Proves repetition is now impossible, not just bounded: round 2's
+        // whitelist let any connective word repeat up to 4 times; the locked
+        // phrase has no repetition operator at all.
+        val obs = extractOne("Guaranteed Returns paid paid paid paid No")
+        assertTrue(obs.none { it.type == ClaimType.GUARANTEE })
+    }
+
+    @Test
+    fun `GUARANTEE - fix round 3 counterexample 5 (repetition) - "an an an an No" must never bridge the gap`() {
+        val obs = extractOne("Guaranteed Returns an an an an No")
+        assertTrue(obs.none { it.type == ClaimType.GUARANTEE })
+    }
+
+    @Test
     fun `CHARGES - the real §7 2 percent tier (years 2-5) is a separate, deliberate observation`() {
         val obs = extractOne("Premium Allocation Charge Years 2-5 2% of Annualised Premium")
             .single { it.type == ClaimType.CHARGES }

@@ -44,21 +44,28 @@ import java.math.BigDecimal
  *   continuation — see below), instead of being flattened to one line.
  * - **Not** reproduced literally: `pdftotext -layout`'s own column-width
  *   reflow staggers the §5 table's "At 4%/8%" *data* cells away from their
- *   true row. Verified by cross-checking the printed rupee figures against
- *   compound growth at 4%/8% on ₹1,20,000/year: the offset between year N's
- *   label row (Policy-Year/Premium/Total-Premium cells) and its true
- *   non-guaranteed values *grows* with N — +2 output lines for year 1, +3
- *   for year 2, +4 for year 3, +5 for year 4 — then plateaus at +6 for years
- *   5-10 (the table has exactly six trailing, label-less value-only lines
- *   left for those six years, so the growth stops once they're all it is).
- *   Year 1's values additionally land on the *same* printed line as the
- *   header's wrapped "guaranteed)" continuation (offset +2 from a label row
- *   that itself starts 2 lines below the 2-line header). That is an artifact
- *   of the extractor's column-width text-flow, not of the document (a photo
- *   of the real page would show every cell of one printed row at one
- *   vertical position) — reproducing it literally would encode a tool bug as
- *   if it were page content. [PageBuilder.row] below instead uses three
- *   representative data rows (years 1, 5, 10) with their correctly
+ *   true row. Verified two ways: cross-checking the printed rupee figures
+ *   against compound growth at 4%/8% on ₹1,20,000/year to attribute each
+ *   value to its true year, and separately counting output lines directly in
+ *   `pdftotext -layout -f 5 -l 5 ...` (fix round 3, correcting a wrong count
+ *   from fix round 2). The offset between year N's label row
+ *   (Policy-Year/Premium/Total-Premium cells) and its true non-guaranteed
+ *   values **grows linearly with N, with no plateau**: +2, +3, +4, +5, +6,
+ *   +7, +8, +9, +10, +11 output lines for years 1-10 respectively. The
+ *   reason it never levels off: label rows are one output line apart
+ *   throughout (lines 12-21 in that dump), but the six trailing, label-less
+ *   value-only lines that hold years 5-10's figures are *two* output lines
+ *   apart — a blank line between each (lines 22, 24, 26, 28, 30, 32) — so the
+ *   gap widens by one line every single year, both before and after the
+ *   handoff from "value shares a line with a later label" (years 1-4) to
+ *   "value has no label on its line at all" (years 5-10). Year 1's values
+ *   additionally land on the *same* printed line as the header's wrapped
+ *   "guaranteed)" continuation (line 12, its offset-+2 destination). That is
+ *   an artifact of the extractor's column-width text-flow, not of the
+ *   document (a photo of the real page would show every cell of one printed
+ *   row at one vertical position) — reproducing it literally would encode a
+ *   tool bug as if it were page content. [PageBuilder.row] below instead
+ *   uses three representative data rows (years 1, 5, 10) with their correctly
  *   attributed values, at consistent single-row positions; none of the other
  *   7 data rows (or these three) contain a "%" sign or any other regex
  *   keyword, so this carries no risk to any assertion either way.

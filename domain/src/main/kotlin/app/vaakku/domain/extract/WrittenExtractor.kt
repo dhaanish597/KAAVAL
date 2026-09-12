@@ -44,25 +44,38 @@ class WrittenExtractor {
         // exactly the shape RowAssembler produces when a multi-column table
         // row puts an unrelated column's "No" cell after the "Guaranteed
         // Returns" label, which this table-heavy document risks for real.
+        // Round 2's fix — a *whitelist* of individual connective words,
+        // repeatable up to 4 times — was itself still wrong: it was a bag of
+        // words, not a phrase. Order was not enforced and any word could
+        // repeat, so "Guaranteed Returns Paid Premium No" (reordered) and
+        // "Guaranteed Returns paid paid paid paid No" (pure repetition) both
+        // still matched. Worse, "premium(s) paid" alone (without "on") is
+        // reused throughout this document for entirely unrelated clauses —
+        // Surrender Value, Lapse, Paid-up Value, Free-Look, Revival, Tax
+        // Benefits (`grep -in paid <the whole document>`, fix round 3) — so a
+        // RowAssembler join of the "Guaranteed Returns" label with any of
+        // *those* cells' "No" was a real, not hypothetical, false-positive
+        // path.
         //
-        // The one real gap in this whole document (checked: every "Guaranteed
-        // Returns" occurrence on pages 3-8, via
-        // `pdftotext -layout -f 3 -l 8 ... | grep -i guaranteed`) is "on
-        // premiums paid" — a preposition plus two domain nouns, not arbitrary
-        // prose. The gap is now a bounded whitelist of exactly that shape:
-        // prepositions, articles, and the document's own "premium(s)/paid"
-        // vocabulary — nothing else can bridge label to value. "do", "not",
-        // "mean", "maturity", "Loan", "Facility" are not in it, so both new
-        // counterexamples now break the match before "no" and go silent, the
-        // same as fix round 1's two counterexamples. If a genuinely different
-        // real connective ever turns up, it should be added to this list by
-        // name, with its own source citation — never re-opened back to \S+.
+        // Fix round 3: the gap is now the single literal ordered phrase "on
+        // [the] premium(s) paid", not a repeatable set. Verified this is the
+        // *only* place in the whole document (all 10 pages) where "on" is
+        // immediately followed by "premium(s) paid"
+        // (`grep -inE "on (the )?premiums? paid" <the whole document>` finds
+        // exactly one line: the real §6 sentence). Every other "premium(s)
+        // paid" occurrence is preceded by "the", "total", "any", or starts a
+        // sentence — never "on" — so none of them can complete this phrase,
+        // no matter what RowAssembler joins them with. Reordering, repeating,
+        // or dropping "on" all now break the match before "no" is even
+        // reachable. If a genuinely different real connective phrase ever
+        // turns up, it should be added as its own literal alternative, cited
+        // by source line — never loosened back into a repeatable word class.
         // GUARANTEE_TRUE is deliberately left tight: widening it too is not
         // needed by any known document text, and a tight positive match is the
         // safer default (a missed "yes" is silence; a loose one risks reading
         // an unrelated "yes" nearby as this policy's guarantee).
         val GUARANTEE_FALSE = Regex(
-            """not guaranteed|non-guaranteed|guaranteed returns?(?:\s+(?:on|of|for|to|in|the|a|an|premiums?|paid)\b){0,4}\s*:?\s*no\b(?=[\s.,;:)'"]*$)""",
+            """not guaranteed|non-guaranteed|guaranteed returns?(?:\s+on\s+(?:the\s+)?premiums?\s+paid)?\s*:?\s*no\b(?=[\s.,;:)'"]*$)""",
             RegexOption.IGNORE_CASE,
         )
         val GUARANTEE_TRUE = Regex("""guaranteed returns?\s*:?\s*(yes|\d)""", RegexOption.IGNORE_CASE)
