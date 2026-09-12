@@ -84,6 +84,7 @@ fun SetupScreen(
     val colors = VaakkuTheme.colors
     val type = VaakkuTheme.type
     val space = VaakkuTheme.space
+    val language = LocalAppLanguage.current.value
 
     var selected by rememberSaveable { mutableStateOf(Domain.INSURANCE) }
     var counterparty by rememberSaveable { mutableStateOf("") }
@@ -166,7 +167,7 @@ fun SetupScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = stringResource(R.string.setup_title),
+                    text = localized(R.string.setup_title, R.string.setup_title_en),
                     style = type.title,
                     color = colors.ink,
                     modifier = Modifier.pointerInput(onOpenDevMenu) {
@@ -179,7 +180,7 @@ fun SetupScreen(
 
             // --- 1. Domain picker ---
             Text(
-                text = stringResource(R.string.setup_choose_document),
+                text = localized(R.string.setup_choose_document, R.string.setup_choose_document_en),
                 style = type.caption,
                 color = colors.inkSoft,
                 modifier = Modifier.padding(top = space.xs),
@@ -187,7 +188,7 @@ fun SetupScreen(
             Spacer(Modifier.height(space.sm + 2.dp))
             DomainGrid(selected = selected, onSelect = { selected = it })
             Text(
-                text = stringResource(selected.source),
+                text = localized(selected.source, selected.sourceEn),
                 style = type.caption,
                 color = colors.inkFaint,
                 modifier = Modifier.padding(top = space.md),
@@ -196,29 +197,24 @@ fun SetupScreen(
             Spacer(Modifier.height(space.base))
             HorizontalDivider(color = colors.rule)
 
-            // --- 2. Language: locked in v1, shown so the scope is legible. ---
-            FieldRow(
-                label = stringResource(R.string.setup_language),
-                value = stringResource(R.string.setup_language_value),
-                trailing = {
-                    Text(
-                        text = stringResource(R.string.setup_locked),
-                        style = type.mono,
-                        color = colors.inkFaint,
-                    )
-                },
-            )
+            // --- 2. Language: unlocked on request — see STATUS.md decision log.
+            //     Tamil + English is the v1 default; English only switches every
+            //     `localized()` string on this screen to its English companion. ---
+            LanguageRow()
 
             // --- 3. Counterparty. Goes in the grievance packet header. ---
             Column(modifier = Modifier.padding(vertical = space.base)) {
                 Row {
                     Text(
-                        text = stringResource(R.string.setup_counterparty),
+                        text = localized(R.string.setup_counterparty, R.string.setup_counterparty_en),
                         style = type.caption,
                         color = colors.inkSoft,
                     )
                     Text(
-                        text = " · " + stringResource(R.string.setup_counterparty_optional),
+                        text = " · " + localized(
+                            R.string.setup_counterparty_optional,
+                            R.string.setup_counterparty_optional_en,
+                        ),
                         style = type.caption,
                         color = colors.inkFaint,
                     )
@@ -243,7 +239,10 @@ fun SetupScreen(
                             ) {
                                 if (counterparty.isEmpty()) {
                                     Text(
-                                        text = stringResource(R.string.setup_counterparty_hint),
+                                        text = localized(
+                                            R.string.setup_counterparty_hint,
+                                            R.string.setup_counterparty_hint_en,
+                                        ),
                                         style = type.bodyLg,
                                         color = colors.inkFaint,
                                     )
@@ -259,10 +258,12 @@ fun SetupScreen(
 
             // --- 4. Permissions. Real, and actionable when missing. ---
             FieldRow(
-                label = stringResource(R.string.setup_permissions),
-                value = stringResource(
-                    if (permissionsOk) R.string.status_granted else R.string.status_not_granted,
-                ),
+                label = localized(R.string.setup_permissions, R.string.setup_permissions_en),
+                value = if (permissionsOk) {
+                    localized(R.string.status_granted, R.string.status_granted_en)
+                } else {
+                    localized(R.string.status_not_granted, R.string.status_not_granted_en)
+                },
                 trailing = {
                     if (!permissionsOk) {
                         TextButton(
@@ -276,7 +277,7 @@ fun SetupScreen(
                             },
                         ) {
                             Text(
-                                text = stringResource(R.string.setup_grant),
+                                text = localized(R.string.setup_grant, R.string.setup_grant_en),
                                 style = type.label,
                                 color = colors.ink,
                             )
@@ -301,7 +302,7 @@ fun SetupScreen(
                     .padding(vertical = space.base),
             ) {
                 Text(
-                    text = stringResource(R.string.setup_offline_check),
+                    text = localized(R.string.setup_offline_check, R.string.setup_offline_check_en),
                     style = type.caption,
                     color = colors.inkSoft,
                 )
@@ -312,9 +313,11 @@ fun SetupScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = stringResource(
-                            if (airplaneOn) R.string.status_on else R.string.status_off,
-                        ),
+                        text = if (airplaneOn) {
+                            localized(R.string.status_on, R.string.status_on_en)
+                        } else {
+                            localized(R.string.status_off, R.string.status_off_en)
+                        },
                         style = type.bodyLg,
                         color = if (airplaneOn) colors.ink else colors.brandDeep,
                         modifier = Modifier.weight(1f),
@@ -324,7 +327,7 @@ fun SetupScreen(
                     }
                 }
                 Text(
-                    text = stringResource(R.string.setup_offline_help),
+                    text = localized(R.string.setup_offline_help, R.string.setup_offline_help_en),
                     style = type.caption,
                     color = colors.inkFaint,
                     modifier = Modifier.padding(top = space.sm + 2.dp),
@@ -337,13 +340,14 @@ fun SetupScreen(
             // while this screen is open.
             val asr = remember { Rung0Probe.quickAvailability(context) }
             FieldRow(
-                label = stringResource(R.string.setup_row_asr_engine),
+                label = localized(R.string.setup_row_asr_engine, R.string.setup_row_asr_engine_en),
                 value = if (asr.onDeviceAvailable) {
-                    asr.defaultRecognizerPackage ?: stringResource(R.string.setup_asr_available)
+                    asr.defaultRecognizerPackage
+                        ?: localized(R.string.setup_asr_available, R.string.setup_asr_available_en)
                 } else {
-                    stringResource(R.string.setup_asr_unavailable)
+                    localized(R.string.setup_asr_unavailable, R.string.setup_asr_unavailable_en)
                 },
-                note = stringResource(R.string.setup_asr_note),
+                note = localized(R.string.setup_asr_note, R.string.setup_asr_note_en),
             )
 
             // --- 7. Accelerator (build plan §6.6). ---
@@ -351,9 +355,9 @@ fun SetupScreen(
             // dispatch. It is wired to nothing on purpose — there is nothing to
             // wire it to yet, and a placeholder that guessed would be a false claim.
             FieldRow(
-                label = stringResource(R.string.setup_row_npu),
-                value = stringResource(R.string.setup_npu_unmeasured),
-                note = stringResource(R.string.setup_npu_note),
+                label = localized(R.string.setup_row_npu, R.string.setup_row_npu_en),
+                value = localized(R.string.setup_npu_unmeasured, R.string.setup_npu_unmeasured_en),
+                note = localized(R.string.setup_npu_note, R.string.setup_npu_note_en),
             )
             HorizontalDivider(color = colors.rule)
 
@@ -362,21 +366,30 @@ fun SetupScreen(
             // build plan wins. It sits last because it is a promise about what is
             // *about to* happen, read immediately before Start.
             Spacer(Modifier.height(space.lg))
-            Text(
-                text = stringResource(R.string.disclosure_evidence_mode),
-                style = type.bodyTamil,
-                color = colors.ink,
-            )
-            Text(
-                text = stringResource(R.string.disclosure_evidence_mode_en),
-                style = type.caption,
-                color = colors.inkSoft,
-                modifier = Modifier.padding(top = space.xs + 2.dp),
-            )
+            if (language == AppLanguage.ENGLISH_ONLY) {
+                // English only: one line, not the Tamil line plus a gloss under it.
+                Text(
+                    text = stringResource(R.string.disclosure_evidence_mode_en),
+                    style = type.bodyTamil,
+                    color = colors.ink,
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.disclosure_evidence_mode),
+                    style = type.bodyTamil,
+                    color = colors.ink,
+                )
+                Text(
+                    text = stringResource(R.string.disclosure_evidence_mode_en),
+                    style = type.caption,
+                    color = colors.inkSoft,
+                    modifier = Modifier.padding(top = space.xs + 2.dp),
+                )
+            }
 
             Spacer(Modifier.height(space.lg))
             Text(
-                text = stringResource(R.string.setup_background_hint),
+                text = localized(R.string.setup_background_hint, R.string.setup_background_hint_en),
                 style = type.caption,
                 color = colors.inkFaint,
             )
@@ -416,13 +429,13 @@ fun SetupScreen(
                     .height(64.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.setup_start_session),
+                    text = localized(R.string.setup_start_session, R.string.setup_start_session_en),
                     style = type.label.copy(fontSize = 17.sp),
                 )
             }
             if (!canStart) {
                 Text(
-                    text = stringResource(R.string.setup_start_blocked_hint),
+                    text = localized(R.string.setup_start_blocked_hint, R.string.setup_start_blocked_hint_en),
                     style = type.caption,
                     color = colors.inkFaint,
                     modifier = Modifier
@@ -506,7 +519,7 @@ private fun DomainCell(
 ) {
     val colors = VaakkuTheme.colors
     val type = VaakkuTheme.type
-    val label = stringResource(domain.label)
+    val label = localized(domain.label, domain.labelEn)
 
     // Selection is carried by an ink fill, not a hue: the selected cell inverts.
     // That reads at a glance, survives greyscale, and cannot be mistaken for a
@@ -547,10 +560,86 @@ private fun OfflineChip() {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = stringResource(R.string.setup_offline_chip),
+            text = localized(R.string.setup_offline_chip, R.string.setup_offline_chip_en),
             style = type.micro,
             color = colors.onBrand,
         )
+    }
+}
+
+/**
+ * The language row — unlocked on the human's request (STATUS.md decision log).
+ * Same ink-fill selection pattern as [DomainCell]: no colour-coded state
+ * (CLAUDE.md #9), and the choice is legible at a glance without reading it.
+ *
+ * The two option labels (`setup_language_value`, `setup_language_option_english`)
+ * name the choices themselves and are never re-translated by mode — a language
+ * picker names each option in its own language regardless of which one is
+ * currently active. Only the row's own caption goes through [localized].
+ */
+@Composable
+private fun LanguageRow() {
+    val colors = VaakkuTheme.colors
+    val type = VaakkuTheme.type
+    val space = VaakkuTheme.space
+    val languageState = LocalAppLanguage.current
+    val current = languageState.value
+
+    Column(modifier = Modifier.padding(vertical = space.base)) {
+        Text(
+            text = localized(R.string.setup_language, R.string.setup_language_en),
+            style = type.caption,
+            color = colors.inkSoft,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = space.sm + 2.dp)
+                .border(space.hairline, colors.rule, RoundedCornerShape(space.radiusButton))
+                .background(colors.rule, RoundedCornerShape(space.radiusButton)),
+            horizontalArrangement = Arrangement.spacedBy(space.hairline),
+        ) {
+            LanguageChip(
+                label = stringResource(R.string.setup_language_value),
+                isSelected = current == AppLanguage.TAMIL_ENGLISH,
+                onSelect = { languageState.set(AppLanguage.TAMIL_ENGLISH) },
+                modifier = Modifier.weight(1f),
+            )
+            LanguageChip(
+                label = stringResource(R.string.setup_language_option_english),
+                isSelected = current == AppLanguage.ENGLISH_ONLY,
+                onSelect = { languageState.set(AppLanguage.ENGLISH_ONLY) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun LanguageChip(
+    label: String,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = VaakkuTheme.colors
+    val type = VaakkuTheme.type
+
+    // Same device as DomainCell: the selected chip inverts to an ink fill rather
+    // than taking on a hue, so the choice survives greyscale and is never
+    // mistaken for a status colour (CLAUDE.md #9).
+    val bg = if (isSelected) colors.ink else colors.sheet
+    val fg = if (isSelected) colors.onInk else colors.ink
+
+    Box(
+        modifier = modifier
+            .height(44.dp)
+            .background(bg)
+            .clickable { onSelect() }
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = label, style = type.bodyLg, color = fg)
     }
 }
 

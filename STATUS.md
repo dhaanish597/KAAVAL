@@ -146,7 +146,24 @@ load-bearing rather than passing vacuously. Debug APK is 51 MB.
     `SetupScreen` and `Rung0ProbeScreen` now read `WindowInsets.safeDrawing` and add
     the top/bottom insets to their own padding. Any new full-screen composable must do
     the same; verify it with a screenshot, not by eye in a preview.
-20. **Material `primary` is INK, not the stamp violet.** `VaakkuTheme` previously
+20. **Setup screen's language row is unlocked (human's direct request, supersedes
+    the "locked" part of decision 13).** Two selectable options now: `TAMIL_ENGLISH`
+    (v1 default — Tamil-first strings with an English gloss under the ones that had
+    one) and `ENGLISH_ONLY` (every `localized()` string on the screen switches to
+    its English companion; the disclosure block collapses to one English line
+    instead of Tamil + gloss). This is a **display** setting only — it does not
+    touch ASR. The product still listens for code-switched Tamil–English speech
+    regardless of this flag (build plan §1); a buyer's own reading preference is a
+    different axis from what the seller says out loud. Selection persists across
+    restarts in a small `SharedPreferences` file (`AppLanguage.kt`), read once into
+    an `AppLanguageState` held at the activity root and provided via
+    `LocalAppLanguage`. New English strings were written by the assistant, not by
+    Dhaanish — unlike the Tamil, which carries a `TAMIL-REVIEW` obligation, these
+    are plain functional English and should still get a human once-over before the
+    demo, same spirit as any other unreviewed copy. Verified on-device (M2 below):
+    every string on the Setup screen switches, the choice survives a force-stop,
+    and switching back to Tamil + English is clean.
+21. **Material `primary` is INK, not the stamp violet.** `VaakkuTheme` previously
     mapped `primary = colors.stamp`, which meant every unstyled `Button`, `Switch`,
     `Slider` and text cursor in the app rendered violet — the Dev menu's Refresh button
     already did. CLAUDE.md #9 reserves violet for a DIFFERS card, so that mapping was a
@@ -198,6 +215,26 @@ Two caveats recorded honestly:
 Validation of decision 9 as a side effect: the `<queries>` element works — two
 recognition services were visible. Without it this table would have read
 "no recognizer available" and we would have mis-planned the ASR rung.
+
+### M2 — Language row, run on the phone 2026-09-12 12:23–12:24 IST
+
+Source: screenshots driven over adb, not retyped —
+`evidence/language_setting_before.png` (Tamil + English default, row unlocked),
+`evidence/language_setting_english.png` and `_scrolled.png` (English only, whole
+screen), `evidence/language_setting_persisted_after_restart.png` (after
+`am force-stop` + relaunch), `evidence/language_setting_back_to_tamil_english.png`
+(switched back).
+
+| Check | Result |
+|---|---|
+| Tapping "English" switches every string on the Setup screen | **yes** — title, domain grid + source line, language caption, counterparty block, permissions row, offline-check block + chip, ASR/NPU rows, background hint, Start button + blocked hint |
+| Disclosure block in English mode | **one English line**, not Tamil + gloss |
+| Debug-only strings (`Open Rung-0 probe`, override lines) | **unchanged** — stay English in both modes, as designed |
+| Choice survives `am force-stop` + relaunch | **yes** — `SharedPreferences` round-trip confirmed |
+| Switching back to "தமிழ் + English" | **clean** — no leftover English strings |
+
+`:app:assembleDebug`, `checkBannedWords` (21 files, 0 findings), and
+`scripts/check_manifest.sh` (INTERNET still absent) all re-ran green before install.
 
 ## Open issues
 

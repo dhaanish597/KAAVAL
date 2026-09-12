@@ -6,7 +6,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import app.vaakku.ui.AppLanguageState
+import app.vaakku.ui.LocalAppLanguage
 import app.vaakku.ui.SetupScreen
 import app.vaakku.ui.theme.VaakkuTheme
 
@@ -27,21 +31,32 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            // Day explicitly, not isSystemInDarkTheme(): Day looks like paper and
-            // photographs better under stage lighting, and the demo must not flip
-            // because the phone happened to be in dark mode. A user-facing theme
-            // setting can come later; until then this is a deliberate constant.
-            VaakkuTheme(night = false) {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    SetupScreen(
-                        onStartSession = {
-                            // P2 wires this to the Session screen. Until that screen
-                            // exists, doing nothing is better than a fake
-                            // transition that would look like a working feature.
-                        },
-                        onOpenDevMenu = devMenuLauncher(),
-                        allowOverride = BuildConfig.DEBUG,
-                    )
+            // The chosen UI language (Tamil + English / English only) is provided
+            // once, here, so every screen underneath can read and change it via
+            // LocalAppLanguage without threading a parameter through each one.
+            // Held in `remember`, not `rememberSaveable`: it already persists itself
+            // to SharedPreferences (see AppLanguage.kt) and reloads from there on
+            // the next `AppLanguageState(...)` construction, so a second save
+            // mechanism would be redundant.
+            val languageState = remember { AppLanguageState(applicationContext) }
+
+            CompositionLocalProvider(LocalAppLanguage provides languageState) {
+                // Day explicitly, not isSystemInDarkTheme(): Day looks like paper and
+                // photographs better under stage lighting, and the demo must not flip
+                // because the phone happened to be in dark mode. A user-facing theme
+                // setting can come later; until then this is a deliberate constant.
+                VaakkuTheme(night = false) {
+                    Surface(modifier = Modifier.fillMaxSize()) {
+                        SetupScreen(
+                            onStartSession = {
+                                // P2 wires this to the Session screen. Until that screen
+                                // exists, doing nothing is better than a fake
+                                // transition that would look like a working feature.
+                            },
+                            onOpenDevMenu = devMenuLauncher(),
+                            allowOverride = BuildConfig.DEBUG,
+                        )
+                    }
                 }
             }
         }
