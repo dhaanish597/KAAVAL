@@ -150,15 +150,49 @@
     <string name="setup_background_hint">OriginOS பின்னணியில் செயலியை நிறுத்தலாம் — Settings-இல் battery exemption வைக்கவும்.</string>
     <string name="setup_background_hint_en">OriginOS can stop the app in the background — set battery exemption in Settings.</string>
 
-    <!-- ===================== SESSION SCREEN (later phases) ===================== -->
+    <!-- ===================== SESSION SCREEN ===================== -->
     <!-- TAMIL-REVIEW -->
     <string name="session_listening">கேட்கிறது…</string>
+    <string name="session_listening_en">Listening…</string>
     <string name="session_scan_document">ஆவணத்தை ஸ்கேன் செய்</string>
+    <string name="session_scan_document_en">Scan document</string>
     <string name="session_done_scanning">ஸ்கேன் முடிந்தது</string>
+    <string name="session_done_scanning_en">Done scanning</string>
     <string name="session_details">விவரங்கள்</string>
+    <string name="session_details_en">Details</string>
     <string name="session_end">அமர்வை முடி</string>
+    <string name="session_end_en">End session</string>
     <string name="session_recheck">மறுபரிசீலனை</string>
+    <string name="session_recheck_en">Re-check</string>
     <string name="session_next">அடுத்து</string>
+    <string name="session_next_en">Next</string>
+
+    <!--
+      TAMIL-REVIEW
+      The empty state under "கேட்கிறது…" (§6.6 screen 2). Two counts, and they are
+      counts of *observations*, not of anything found: "N things were said, M
+      things are written down". Nothing here anticipates a comparison.
+    -->
+    <string name="session_counters">பேச்சு %1$d · ஆவணம் %2$d</string>
+    <string name="session_counters_en">Speech %1$d · Document %2$d</string>
+    <string name="session_starting">தயாராகிறது…</string>
+    <string name="session_starting_en">Getting ready…</string>
+    <string name="session_ended">அமர்வு முடிந்தது</string>
+    <string name="session_ended_en">Session ended</string>
+    <!--
+      TAMIL-REVIEW
+      Shown in place of the empty-state card once the session is over and no card
+      was ever raised. Deliberately a statement about the APP ("nothing was found
+      that differs"), never about the seller: a session that ends silent is the
+      ordinary case, and the wording must not turn silence into a compliment or a
+      clearance any more than a card is a charge laid against the person sitting
+      opposite. §5.7's rule 4 is the same idea in the reconciler — absence of a
+      difference is not a finding.
+    -->
+    <string name="session_ended_silent">வேறுபாடு எதுவும் காட்டப்படவில்லை.</string>
+    <string name="session_ended_silent_en">No difference was shown.</string>
+    <string name="session_mic_failed">மைக்ரோஃபோன் திறக்கவில்லை</string>
+    <string name="session_mic_failed_en">The microphone did not open</string>
 
     <!--
       TAMIL-REVIEW
@@ -175,6 +209,110 @@
     <string name="session_notification_text">Session active — audio is not stored</string>
     <string name="session_channel_name">அமர்வு</string>
     <string name="session_channel_description">அமர்வு நடைபெறும்போது மட்டும் காட்டப்படும். ஒலி இல்லை.</string>
+
+    <!-- ===================== CLAIM TYPE NAMES ===================== -->
+    <!--
+      TAMIL-REVIEW
+      The six things VAAKKU compares (§2.1), named for a reader rather than for a
+      programmer. These are nouns for a subject — "lock-in period" — and never a
+      characterisation of anything: the state of a claim is a separate label and
+      comes from the reconciler alone.
+    -->
+    <string name="claim_return_rate">வருமான விகிதம்</string>
+    <string name="claim_return_rate_en">Return rate</string>
+    <string name="claim_guarantee">உறுதி</string>
+    <string name="claim_guarantee_en">Guarantee</string>
+    <string name="claim_lock_in">லாக்-இன் காலம்</string>
+    <string name="claim_lock_in_en">Lock-in period</string>
+    <string name="claim_liquidity">பணம் எடுப்பது</string>
+    <string name="claim_liquidity_en">Taking money out</string>
+    <string name="claim_bundling">இணைப்புக் கட்டாயம்</string>
+    <string name="claim_bundling_en">Bundling</string>
+    <string name="claim_charges">கட்டணம்</string>
+    <string name="claim_charges_en">Charges</string>
+
+    <!-- ===================== SCAN SHEET ===================== -->
+    <!--
+      TAMIL-REVIEW
+      Build plan §6.6 screen 3. The clause list on this screen is a *reading of
+      the document* and never a comparison: it names each claim type and the
+      value read for it, and nothing else. A comparison needs the spoken half,
+      which this screen does not have, and the reconciler is the only thing that
+      ever performs one (§5.7). `scan_reading_note` is what says so on screen.
+    -->
+    <string name="scan_aim">ஒரு பக்கத்தை முழுமையாக ஃபிரேமில் நிரப்பி, அசையாமல் பிடித்து, ஸ்கேன் தட்டுங்கள்.</string>
+    <string name="scan_aim_en">Fill the frame with one page, hold still, then tap Scan.</string>
+    <string name="scan_button">ஸ்கேன்</string>
+    <string name="scan_button_en">Scan</string>
+    <string name="scan_scanning">படிக்கிறது…</string>
+    <string name="scan_scanning_en">Reading…</string>
+    <string name="scan_grant_camera">கேமரா அனுமதி கொடுங்கள்</string>
+    <string name="scan_grant_camera_en">Grant camera</string>
+    <string name="scan_camera_refused">கேமரா அனுமதி இல்லை — படிக்க எதுவும் இல்லை.</string>
+    <string name="scan_camera_refused_en">No camera permission — there is nothing to read.</string>
+    <string name="scan_counts">பக்கம் %1$d · வாக்கியம் %2$d</string>
+    <string name="scan_counts_en">Pages %1$d · clauses %2$d</string>
+    <string name="scan_clauses_heading">ஆவணத்தில் படித்தவை</string>
+    <string name="scan_clauses_heading_en">Read from the document</string>
+    <string name="scan_reading_note">இது ஆவணத்தில் எழுதியிருப்பதைப் படித்தது மட்டும்.</string>
+    <string name="scan_reading_note_en">This is only a reading of the document.</string>
+    <string name="scan_nothing_yet">இன்னும் எந்தப் பக்கமும் ஸ்கேன் செய்யப்படவில்லை.</string>
+    <string name="scan_nothing_yet_en">No page has been scanned yet.</string>
+    <string name="scan_failed">ஸ்கேன் நடக்கவில்லை</string>
+    <string name="scan_failed_en">The scan did not go through</string>
+    <string name="scan_done_note">ஸ்கேன் முடிந்தது — இனி ஆவணத்தில் இல்லாதவை காட்டப்படும்.</string>
+    <string name="scan_done_note_en">Scanning is finished — what is missing from the document can now be shown.</string>
+
+    <!--
+      TAMIL-REVIEW
+      CLAUDE.md #8, stated to the person holding the phone. P4 replaces the body
+      of PrivacyMask together with BOTH of these strings and PrivacyMask.STATUS_LINE
+      — they must always say the same thing.
+    -->
+    <string name="scan_mask_note">தனியுரிமை மறைப்பு இன்னும் இயங்கவில்லை. சேமிக்கப்படும் படம் கேமரா பார்த்தது அப்படியே — ஃபிரேமில் நபர்கள் வராமல் பார்த்துக் கொள்ளுங்கள்.</string>
+    <string name="scan_mask_note_en">Privacy mask is not active yet. The saved image is exactly what the camera saw — keep people out of frame.</string>
+
+    <string name="action_close">மூடு</string>
+    <string name="action_close_en">Close</string>
+
+    <!-- ===================== DETAILS LEDGER + PROVENANCE ===================== -->
+    <!--
+      TAMIL-REVIEW
+      Build plan §6.6 screen 4. The ledger draws all six claim types, including the
+      ones nothing is being said about — that is the point of it: the buyer can see
+      that the app looked at all six and is only speaking about some. A row with
+      nothing to say shows state_silent (an em dash) and one of the two
+      details_no_* lines below, and never a word that fills the silence in.
+
+      details_heading_* are nouns for the two halves of a row, matching the
+      sans/serif split on a Delta Card: "பேச்சில்" is what was said, "ஆவணத்தில்"
+      is what is written.
+    -->
+    <string name="details_title">விவரங்கள்</string>
+    <string name="details_title_en">Details</string>
+    <string name="details_heading_spoken">பேச்சில்</string>
+    <string name="details_heading_spoken_en">Said</string>
+    <string name="details_heading_document">ஆவணத்தில்</string>
+    <string name="details_heading_document_en">Document</string>
+    <string name="details_no_spoken">இதைப் பற்றி இன்னும் பேசவில்லை</string>
+    <string name="details_no_spoken_en">Not mentioned in the talk yet</string>
+    <string name="details_no_written">ஸ்கேன் செய்த பக்கங்களில் இந்த வரி இல்லை</string>
+    <string name="details_no_written_en">Not on the pages scanned so far</string>
+    <string name="details_not_scanned">ஆவணம் இன்னும் ஸ்கேன் செய்யப்படவில்லை</string>
+    <string name="details_not_scanned_en">The document has not been scanned yet</string>
+
+    <!--
+      The heard phrase, verbatim, with the minute and second it was heard at.
+      No _en companion and none needed: it is punctuation around two values, with
+      no word of its own to translate.
+    -->
+    <string name="prov_heard_at">%1$s — “%2$s”</string>
+    <string name="prov_ask">கேட்க வேண்டியது</string>
+    <string name="prov_ask_en">Ask this</string>
+    <string name="prov_crop_missing">இந்த வரிக்குப் படம் சேமிக்கப்படவில்லை</string>
+    <string name="prov_crop_missing_en">No image was saved for this line</string>
+    <string name="prov_crop_label">ஆவணத்திலிருந்து</string>
+    <string name="prov_crop_label_en">From the document</string>
 
     <!-- ===================== STATE LABELS (locked) ===================== -->
     <!-- TAMIL-REVIEW -->

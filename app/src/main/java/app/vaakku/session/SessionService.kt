@@ -121,9 +121,26 @@ class SessionService : Service() {
     }
 
     private fun stopListening() {
-        // Not stopSelf() and not a cancel: end the audio, let the stream finish,
-        // and let `listen`'s own completion path shut the service down.
-        source?.stop()
+        val mic = source
+        if (mic != null) {
+            // Not stopSelf() and not a cancel: end the audio, let the stream
+            // finish, and let `listen`'s own completion path shut the service
+            // down. See the class KDoc — cancelling here loses the sentence
+            // still inside the VAD.
+            mic.stop()
+            return
+        }
+
+        // No microphone to stop. Two ways to get here, both of which must end
+        // with this service gone:
+        //   * the engine is still loading and has not opened the mic yet — the
+        //     user pressed "end" during those seconds;
+        //   * `listen` already finished and stopped the service, and this very
+        //     delivery re-created it, because startService on a dead service
+        //     starts it. A service that exists to hold a microphone and holds
+        //     none must not stay alive.
+        listenJob?.cancel()
+        stopSelf()
     }
 
     private suspend fun listen() {

@@ -51,7 +51,19 @@ object CopyBuilder {
         ClaimType.RETURN_RATE, ClaimType.CHARGES -> CopyRef("followup_rate_charges")
     }
 
-    /** The (silent-state-safe) state label for any state, for debug/overlay use — never MATCHES/PENDING/UNCERTAIN on a user-facing card. */
+    /**
+     * The state label for *any* state, including the silent ones, which resolve
+     * to `state_silent` — an em dash.
+     *
+     * The Details ledger (§6.6 screen 4) draws a row per claim type whether or
+     * not there is anything to say about it, so it needs a label for "nothing is
+     * being said here" that is not a word. PENDING and UNCERTAIN deliberately
+     * share it: the difference between them is internal, and a screen that showed
+     * it would be grading the evidence out loud (CLAUDE.md #1, #2).
+     *
+     * [build] remains the only route onto a *card*, and it still refuses
+     * everything but DIFFERS and NOT_IN_DOCUMENT.
+     */
     fun stateLabel(state: DeltaState): CopyRef = when (state) {
         DeltaState.MATCHES -> CopyRef("state_matches")
         DeltaState.NOT_IN_DOCUMENT -> CopyRef("state_not_in_document")

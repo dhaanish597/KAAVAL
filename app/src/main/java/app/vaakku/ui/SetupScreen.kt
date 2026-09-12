@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.vaakku.R
 import app.vaakku.asr.Rung0Probe
+import app.vaakku.ui.session.HEADER_MIN_HEIGHT
 import app.vaakku.ui.theme.VaakkuTheme
 import kotlinx.coroutines.delay
 
@@ -163,7 +164,10 @@ fun SetupScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    // Min, not fixed: a Tamil title that wraps must not be
+                    // clipped. See HEADER_MIN_HEIGHT in SessionScreen.kt.
+                    .heightIn(min = HEADER_MIN_HEIGHT)
+                    .padding(vertical = space.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(

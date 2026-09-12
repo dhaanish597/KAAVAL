@@ -1,0 +1,501 @@
+package app.vaakku.ui.session
+
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.view.PreviewView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.vaakku.R
+import app.vaakku.domain.copy.ValuePhrase
+import app.vaakku.domain.model.ClaimType
+import app.vaakku.domain.model.LedgerEntry
+import app.vaakku.domain.model.Observation
+import app.vaakku.ocr.DocumentCamera
+import app.vaakku.ocr.MlKitTextRecognizer
+import app.vaakku.ocr.PageScanner
+import app.vaakku.session.SessionEvidence
+import app.vaakku.session.SessionRuntime
+import app.vaakku.ui.claimTypeLabel
+import app.vaakku.ui.copyText
+import app.vaakku.ui.localized
+import app.vaakku.ui.theme.VaakkuTheme
+import app.vaakku.ui.theme.VoiceDocument
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/**
+ * The scan sheet — build plan §6.6 screen 3.
+ *
+ * Camera preview, **Scan**, **ஸ்கேன் முடிந்தது**, and the clauses read so far.
+ * Every capture goes CameraX → ML Kit → `RowAssembler` + `WrittenExtractor` →
+ * [SessionRuntime.documentPage], so the written half lands in the *session's*
+ * reconciler and the Delta Card behind this sheet updates while the sheet is
+ * still open.
+ *
+ * ### The clause list is a reading, not a comparison
+ *
+ * It names each claim type and the value read for it, in the buyer's own
+ * language, and nothing else: no MATCHES / NOT_IN_DOCUMENT / DIFFERS, no colour,
+ * nothing about any person. A comparison needs the spoken half, and
+ * `Reconciler` is the only thing in the app that ever performs one (§5.7). The
+ * `scan_reading_note` line says this on screen so the list cannot be misread as
+ * a finding.
+ *
+ * ### One scan spans several pages
+ *
+ * No single page of a benefit illustration carries every clause — in the prop
+ * document, printed pages 5 and 6 together carry all five. Each capture is
+ * extracted on its own and the observations accumulate in the reconciler.
+ * **ஸ்கேன் முடிந்தது** is what sends `DocumentScanCompleted`, and that event is
+ * the only thing that lets the reconciler ever report a claim as absent from the
+ * document (§5.7 rule 4) — until it arrives, an unscanned claim is PENDING and
+ * silent, which is the correct default (CLAUDE.md #2).
+ *
+ * This screen supersedes the Dev-menu `DocumentScanScreen`, which kept a
+ * *local* reconciler because P3 had no session to reconcile into. That one stays
+ * where it is: it can start a scan with no session running, which is exactly what
+ * is wanted for measuring OCR on a bench.
+ *
+ * @param onClose leave the sheet. Scanned pages are already in the session, so
+ *   closing loses nothing — it is not a cancel.
+ */
+@Composable
+fun ScanSheet(onClose: () -> Unit) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val colors = VaakkuTheme.colors
+    val type = VaakkuTheme.type
+    val space = VaakkuTheme.space
+
+    val session by SessionRuntime.state.collectAsStateWithLifecycle()
+
+    // Back leaves the sheet rather than the session. Registered here, after the
+    // activity's own handler, so this one wins while the sheet is open.
+    BackHandler(onBack = onClose)
+
+    // This sheet's own scope, NOT rememberCoroutineScope(). The composition scope
+    // dies the instant the sheet closes, which resumes our coroutine but does not
+    // stop ML Kit's native recognition — and the teardown below has to be able to
+    // wait for that recognition to land before it closes the detector.
+    val scanScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
+
+    val camera = remember { DocumentCamera() }
+
+    // One native recognizer for the lifetime of the sheet, closed in onDispose.
+    // Building one per scan would pay the load cost on every tap and make the
+    // "OCR ms" figure describe the load rather than the recognition.
+    val recognizer = remember { MlKitTextRecognizer() }
+
+    // The evidence folder is keyed to the *session* id, so page images and crops
+    // land in the same folder the receipt will be built from (§7.3). Falling back
+    // to a fresh id keeps the sheet usable if it is somehow opened with no
+    // session — the pages still get read, they just are not part of a receipt.
+    val evidence = remember(session.sessionId) {
+        SessionEvidence.forSession(
+            context,
+            session.sessionId.ifEmpty { SessionEvidence.newSessionId(context) },
+        )
+    }
+    val scanner = remember(evidence) { PageScanner(recognizer, evidence) }
+
+    val previewView = remember {
+        PreviewView(context).apply {
+            // COMPATIBLE (TextureView) rather than the default PERFORMANCE
+            // (SurfaceView): this preview sits inside a scrolling column, and a
+            // SurfaceView punches its own hole through the window, which does not
+            // move when the column scrolls.
+            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+        }
+    }
+
+    var bound by remember { mutableStateOf(false) }
+    var scanning by remember { mutableStateOf(false) }
+    var lastPageClauses by remember { mutableIntStateOf(-1) }
+    var failure by remember { mutableStateOf<String?>(null) }
+    var job by remember { mutableStateOf<Job?>(null) }
+
+    var granted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED,
+        )
+    }
+    val cameraPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { result -> granted = result }
+
+    LaunchedEffect(granted) {
+        if (!granted || bound) return@LaunchedEffect
+        runCatching { camera.bind(context, lifecycleOwner, previewView.surfaceProvider) }
+            .onSuccess { bound = true }
+            .onFailure { t -> failure = "${t.javaClass.simpleName}: ${t.message}" }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            // The camera goes first and goes immediately: unbind() keeps its
+            // executor alive until any outstanding capture callback has been
+            // delivered, so this cannot reject one.
+            camera.unbind()
+
+            // The recognizer cannot. Cancelling the scan job would resume our
+            // coroutine at once while ML Kit's process() kept running against the
+            // detector — closing it there is precisely the close-under-an-
+            // in-flight-recognition case. So an in-flight scan is left to finish
+            // and the close rides on its completion. ML Kit's task always
+            // completes, with a result or an error.
+            val running = job
+            if (running == null || running.isCompleted) {
+                recognizer.close()
+                scanScope.cancel()
+            } else {
+                running.invokeOnCompletion {
+                    recognizer.close()
+                    scanScope.cancel()
+                }
+            }
+        }
+    }
+
+    fun scan() {
+        if (scanning || !bound) return
+        scanning = true
+        failure = null
+        job = scanScope.launch {
+            try {
+                val bitmap = camera.capturePage()
+                // Off the main thread: recognition and extraction on Default, and
+                // PageScanner moves its own JPEG writes to IO.
+                val page = try {
+                    withContext(Dispatchers.Default) {
+                        scanner.scan(bitmap, SessionRuntime.state.value.pageCount + 1)
+                    }
+                } catch (t: Throwable) {
+                    // scan() releases the bitmap on all of its own paths; this
+                    // covers the gap between the capture returning and scan()
+                    // taking ownership, where a cancellation would otherwise
+                    // strand tens of megabytes.
+                    if (!bitmap.isRecycled) bitmap.recycle()
+                    throw t
+                }
+                SessionRuntime.documentPage(page.observations, page.ocrElapsedMs)
+                lastPageClauses = page.observations.size
+            } catch (c: CancellationException) {
+                // Rethrown: swallowing it would leave the parent scope believing
+                // this child is still alive.
+                throw c
+            } catch (t: Throwable) {
+                // Not rethrown. A refused capture or an unreadable page is an
+                // ordinary outcome across a table; the sheet has to stay open and
+                // say which it was.
+                failure = "${t.javaClass.simpleName}: ${t.message}"
+            } finally {
+                scanning = false
+            }
+        }
+    }
+
+    val insets = WindowInsets.safeDrawing.asPaddingValues()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.paper)
+            .padding(
+                top = insets.calculateTopPadding(),
+                bottom = insets.calculateBottomPadding(),
+            ),
+    ) {
+        // --- Header: the one action that is not in the bottom third, because
+        //     "leave this sheet" is navigation rather than a session control. ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = space.gutter)
+                // Min, not fixed: "ஆவணத்தை ஸ்கேன் செய்" wraps to two lines and a
+                // fixed 56.dp clipped the second one on the phone. A header that
+                // grows costs a few pixels; a header that truncates mid-word is
+                // the app failing at the one thing it claims to do well.
+                .heightIn(min = HEADER_MIN_HEIGHT)
+                .padding(vertical = space.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = localized(R.string.session_scan_document, R.string.session_scan_document_en),
+                style = type.title,
+                color = colors.ink,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onClose) {
+                Text(
+                    text = localized(R.string.action_close, R.string.action_close_en),
+                    style = type.label,
+                    color = colors.ink,
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = space.gutter),
+        ) {
+            if (granted) {
+                AndroidView(
+                    factory = { previewView },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                        .border(space.hairline, colors.rule),
+                )
+                Text(
+                    text = localized(R.string.scan_aim, R.string.scan_aim_en),
+                    style = type.caption,
+                    color = colors.inkSoft,
+                    modifier = Modifier.padding(top = space.sm),
+                )
+            } else {
+                Text(
+                    text = localized(R.string.scan_camera_refused, R.string.scan_camera_refused_en),
+                    style = type.bodyLg,
+                    color = colors.ink,
+                    modifier = Modifier.padding(vertical = space.base),
+                )
+                Button(
+                    onClick = { cameraPermission.launch(Manifest.permission.CAMERA) },
+                    shape = RoundedCornerShape(space.radiusButton),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colors.ink,
+                        contentColor = colors.onInk,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = localized(R.string.scan_grant_camera, R.string.scan_grant_camera_en),
+                        style = type.label,
+                    )
+                }
+            }
+
+            // CLAUDE.md #8, said to the person holding the phone: there is no mask
+            // yet, so the saved image is exactly what the camera saw.
+            Text(
+                text = localized(R.string.scan_mask_note, R.string.scan_mask_note_en),
+                style = type.caption,
+                color = colors.inkFaint,
+                modifier = Modifier.padding(top = space.md),
+            )
+
+            if (failure != null) {
+                Spacer(Modifier.height(space.md))
+                Text(
+                    text = localized(R.string.scan_failed, R.string.scan_failed_en),
+                    style = type.label,
+                    color = colors.ink,
+                )
+                Text(
+                    text = failure.orEmpty(),
+                    style = type.mono,
+                    color = colors.inkFaint,
+                )
+            }
+
+            Spacer(Modifier.height(space.base))
+            HorizontalDivider(color = colors.rule)
+
+            // --- What the document says, as read. Never a comparison. ---
+            Text(
+                text = localized(R.string.scan_clauses_heading, R.string.scan_clauses_heading_en),
+                style = type.caption,
+                color = colors.inkSoft,
+                modifier = Modifier.padding(top = space.base),
+            )
+            Text(
+                text = localized(R.string.scan_counts, R.string.scan_counts_en, session.pageCount, session.documentCount),
+                style = type.monoValue,
+                color = colors.ink,
+                modifier = Modifier.padding(top = space.xs),
+            )
+
+            val written = writtenByType(session.ledger)
+            if (written.isEmpty()) {
+                Text(
+                    text = if (lastPageClauses == 0) {
+                        localized(R.string.scan_reading_note, R.string.scan_reading_note_en)
+                    } else {
+                        localized(R.string.scan_nothing_yet, R.string.scan_nothing_yet_en)
+                    },
+                    style = type.body,
+                    color = colors.inkFaint,
+                    modifier = Modifier.padding(top = space.md),
+                )
+            } else {
+                Spacer(Modifier.height(space.sm))
+                written.forEach { (claimType, observation) -> ClauseRow(claimType, observation) }
+                Text(
+                    text = localized(R.string.scan_reading_note, R.string.scan_reading_note_en),
+                    style = type.caption,
+                    color = colors.inkFaint,
+                    modifier = Modifier.padding(top = space.md),
+                )
+            }
+
+            if (session.scanCompleted) {
+                Text(
+                    text = localized(R.string.scan_done_note, R.string.scan_done_note_en),
+                    style = type.caption,
+                    color = colors.inkSoft,
+                    modifier = Modifier.padding(top = space.md),
+                )
+            }
+
+            Spacer(Modifier.height(space.xl))
+        }
+
+        // --- Bottom third: every session control lives here (§6.6). ---
+        HorizontalDivider(color = colors.rule)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = space.gutter, vertical = space.base),
+            horizontalArrangement = Arrangement.spacedBy(space.md),
+        ) {
+            Button(
+                onClick = ::scan,
+                enabled = bound && !scanning,
+                shape = RoundedCornerShape(space.radiusButton),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.ink,
+                    contentColor = colors.onInk,
+                    disabledContainerColor = colors.rule,
+                    disabledContentColor = colors.inkFaint,
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(space.touchTarget + space.sm),
+            ) {
+                Text(
+                    text = if (scanning) {
+                        localized(R.string.scan_scanning, R.string.scan_scanning_en)
+                    } else {
+                        localized(R.string.scan_button, R.string.scan_button_en)
+                    },
+                    style = type.label,
+                )
+            }
+            OutlinedButton(
+                onClick = { SessionRuntime.doneScanning() },
+                // Enabled once at least one page is in, and it stays enabled after
+                // a first tap: scanning another page and closing the scan again is
+                // an ordinary thing to do, and DocumentScanCompleted is idempotent.
+                enabled = session.pageCount > 0 && !scanning,
+                shape = RoundedCornerShape(space.radiusButton),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(space.touchTarget + space.sm),
+            ) {
+                Text(
+                    text = localized(R.string.session_done_scanning, R.string.session_done_scanning_en),
+                    style = type.label,
+                    color = colors.ink,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One clause as read from the document: the claim type, and the value in the
+ * buyer's own language via the domain's own [ValuePhrase] keys.
+ *
+ * Set in [VoiceDocument] (serif) on a [VaakkuTheme]`.colors.sheet` ground,
+ * because on this screen every line *is* the document — the sans/serif split is
+ * how a Delta Card shows which half is which (see `Theme.kt`), and it has to mean
+ * the same thing here.
+ */
+@Composable
+private fun ClauseRow(claimType: ClaimType, observation: Observation) {
+    val colors = VaakkuTheme.colors
+    val type = VaakkuTheme.type
+    val space = VaakkuTheme.space
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = space.sm)
+            .background(colors.sheet, RoundedCornerShape(space.radiusCard))
+            .border(space.hairline, colors.rule, RoundedCornerShape(space.radiusCard))
+            .padding(horizontal = space.md, vertical = space.md),
+    ) {
+        Text(text = claimTypeLabel(claimType), style = type.caption, color = colors.inkSoft)
+        Text(
+            text = copyText(ValuePhrase.forAny(observation.value)),
+            style = type.bodyLg.copy(fontFamily = VoiceDocument),
+            color = colors.ink,
+            modifier = Modifier.padding(top = space.xs),
+        )
+    }
+}
+
+/**
+ * The written observation to show per claim type: the highest-confidence one, the
+ * same one `CopyBuilder` quotes on a card.
+ *
+ * Confidence is used to *pick* and never shown — build plan §2.4 allows the field
+ * and bans displaying it.
+ */
+private fun writtenByType(
+    ledger: Map<ClaimType, LedgerEntry>,
+): List<Pair<ClaimType, Observation>> =
+    ClaimType.entries.mapNotNull { claimType ->
+        ledger[claimType]?.written?.maxByOrNull { it.confidence }?.let { claimType to it }
+    }

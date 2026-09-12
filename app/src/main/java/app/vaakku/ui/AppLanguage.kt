@@ -74,9 +74,14 @@ class AppLanguageState(context: Context) {
 }
 
 /**
- * Provided once, near the activity root (see `MainActivity`). `staticCompositionLocalOf`
- * is deliberate: the language changes on an explicit tap, not every frame, so the
- * extra recomposition-skipping cost of `compositionLocalOf` buys nothing here.
+ * Provided once, near the activity root (see `MainActivity`).
+ *
+ * `compositionLocalOf`, not `staticCompositionLocalOf`, though here the two are
+ * equivalent: the *object* provided never changes, and readers subscribe to the
+ * snapshot state inside [AppLanguageState.value] rather than to this local. The
+ * non-static flavour is kept because it is the safe default if a future caller
+ * ever provides a different state object down the tree — static would then skip
+ * recomposing the readers that need to know.
  */
 val LocalAppLanguage = compositionLocalOf<AppLanguageState> {
     error("No AppLanguageState provided — wrap the content in CompositionLocalProvider(LocalAppLanguage provides ...)")
@@ -92,4 +97,11 @@ val LocalAppLanguage = compositionLocalOf<AppLanguageState> {
 fun localized(@StringRes taRes: Int, @StringRes enRes: Int): String {
     val language = LocalAppLanguage.current.value
     return stringResource(if (language == AppLanguage.ENGLISH_ONLY) enRes else taRes)
+}
+
+/** [localized] for a string with `%n$…` placeholders. */
+@Composable
+fun localized(@StringRes taRes: Int, @StringRes enRes: Int, vararg args: Any): String {
+    val language = LocalAppLanguage.current.value
+    return stringResource(if (language == AppLanguage.ENGLISH_ONLY) enRes else taRes, *args)
 }

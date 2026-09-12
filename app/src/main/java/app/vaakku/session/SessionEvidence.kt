@@ -164,8 +164,7 @@ class SessionEvidence(
             SessionEvidence(File(File(context.filesDir, "sessions"), sessionId))
 
         /**
-         * A session id for a P3 scan session, guaranteed not to name a folder
-         * that already exists.
+         * A session id guaranteed not to name a folder that already exists.
          *
          * [Iso8601.stamp] has one-second resolution, and two "New scan
          * session" taps inside the same second would otherwise share a folder
@@ -176,16 +175,19 @@ class SessionEvidence(
          * disk also survives a process restart inside the same second, which a
          * process-scoped counter would not.
          *
-         * P5 owns real session lifecycle and will mint these itself; this
-         * exists so P3 has somewhere to write.
+         * [prefix] separates a real session (`session_…`, minted by
+         * `MainActivity` when the user starts one) from a bench scan with no
+         * session behind it (`scan_…`, the Dev menu). The receipt is built from
+         * a session folder, so the two must be tellable apart by name when the
+         * folder is all you have.
          */
-        fun newSessionId(context: Context): String {
+        fun newSessionId(context: Context, prefix: String = "scan"): String {
             val stamp = Iso8601.stamp()
             val sessions = File(context.filesDir, "sessions")
-            var candidate = "scan_$stamp"
+            var candidate = "${prefix}_$stamp"
             var suffix = 2
             while (File(sessions, candidate).exists()) {
-                candidate = "scan_${stamp}_$suffix"
+                candidate = "${prefix}_${stamp}_$suffix"
                 suffix++
             }
             return candidate
