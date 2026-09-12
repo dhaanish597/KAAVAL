@@ -103,6 +103,61 @@ class WrittenExtractorTest {
     }
 
     @Test
+    fun `GUARANTEE - real prop doc §6 "Guaranteed Returns on premiums paid- No" gives Guarantee false`() {
+        // Known defect (task 1, step 3): the original GUARANTEE_FALSE pattern
+        // required "no" immediately after "guaranteed returns"; the real
+        // document's "on premiums paid" qualifier broke it.
+        val obs = extractOne("Guaranteed Returns on premiums paid: No.").single { it.type == ClaimType.GUARANTEE }
+        assertEquals(ClaimValue.Guarantee(false), obs.value)
+    }
+
+    @Test
+    fun `GUARANTEE - "Guaranteed Returns on premiums paid- Yes" is never read as false`() {
+        // Same intervening-words shape as the real document's "No" sentence,
+        // but ending in "Yes" — must not be misread as Guarantee(false). It is
+        // fine (and expected, per the tight GUARANTEE_TRUE pattern) that this
+        // produces no observation at all rather than Guarantee(true) — silence
+        // is the safe outcome, never a wrong DIFFERS/MATCHES.
+        val obs = extractOne("Guaranteed Returns on premiums paid: Yes.")
+        assertTrue(obs.none { it.type == ClaimType.GUARANTEE && it.value == ClaimValue.Guarantee(false) })
+    }
+
+    @Test
+    fun `CHARGES - the real §7 2 percent tier (years 2-5) is a separate, deliberate observation`() {
+        val obs = extractOne("Premium Allocation Charge Years 2-5 2% of Annualised Premium")
+            .single { it.type == ClaimType.CHARGES }
+        val v = obs.value as ClaimValue.Charges
+        assertTrue(v.anyCharges)
+        assertEquals(BigDecimal("2"), v.percent)
+    }
+
+    @Test
+    fun `CHARGES - the real §7 "Nil" tier (year 6 onward) produces no observation, not Charges(false)`() {
+        val obs = extractOne("Premium Allocation Charge Year 6 onward Nil")
+        assertTrue(obs.none { it.type == ClaimType.CHARGES })
+    }
+
+    @Test
+    fun `the page-7 glossary's "Lock-in Period" definition has the label but no duration, so it is silent`() {
+        val obs = extractOne(
+            "Lock-in Period -- The minimum period during which the policy cannot be surrendered for any value.",
+        )
+        assertTrue(obs.none { it.type == ClaimType.LOCK_IN })
+    }
+
+    @Test
+    fun `the repeated page header-footer ("Benefit Illustration" and "Page N of 10") produces no observations`() {
+        assertEquals(
+            emptyList<Any>(),
+            extractOne("Nambikkai Life Insurance Company Limited (specimen) Benefit Illustration -- Suraksha Savings Plan"),
+        )
+        assertEquals(
+            emptyList<Any>(),
+            extractOne("SPECIMEN DOCUMENT -- prepared for a hackathon demonstration only, not a real product or offer Page 6 of 10"),
+        )
+    }
+
+    @Test
     fun `no BUNDLING observation at all when the document is silent on loans`() {
         val obs = extractor.extract(
             listOf(

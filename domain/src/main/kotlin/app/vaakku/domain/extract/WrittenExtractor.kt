@@ -26,7 +26,21 @@ class WrittenExtractor {
         val PERCENT = Regex("""(\d+(?:\.\d+)?)\s*%""")
         val ILLUSTRATIVE_HINT = Regex("illustrat|assumed|projected|non-guaranteed", RegexOption.IGNORE_CASE)
 
-        val GUARANTEE_FALSE = Regex("""not guaranteed|non-guaranteed|guaranteed returns?\s*:?\s*no""", RegexOption.IGNORE_CASE)
+        // "Guaranteed Returns on premiums paid: No." (real prop document §6) — the
+        // real sentence puts a short qualifier ("on premiums paid") between the
+        // label and the "No", which the original tight pattern did not tolerate.
+        // The (?:\s+\S+){0,4}? run absorbs up to four intervening words, lazily,
+        // so it still requires "no" to be the next sense-bearing word after the
+        // qualifier and never reaches across an unrelated sentence to a stray
+        // "no" — row text is one visual line, so the blast radius is small.
+        // GUARANTEE_TRUE is deliberately left tight: widening it too is not
+        // needed by any known document text, and a tight positive match is the
+        // safer default (a missed "yes" is silence; a loose one risks reading
+        // an unrelated "yes" nearby as this policy's guarantee).
+        val GUARANTEE_FALSE = Regex(
+            """not guaranteed|non-guaranteed|guaranteed returns?(?:\s+\S+){0,4}?\s*:?\s*no\b""",
+            RegexOption.IGNORE_CASE,
+        )
         val GUARANTEE_TRUE = Regex("""guaranteed returns?\s*:?\s*(yes|\d)""", RegexOption.IGNORE_CASE)
 
         val LOCK_IN_LABEL = Regex("""lock[- ]?in(\s+period)?""", RegexOption.IGNORE_CASE)
@@ -120,6 +134,24 @@ class WrittenExtractor {
         return observation(row, ClaimType.BUNDLING, ClaimValue.Bundling(requiredForLoan = false), hedged = false, confidence = row.minConfidence)
     }
 
+    /**
+     * §7 of the real prop document has three "Premium Allocation Charge" rows
+     * (year 1: 5%; years 2-5: 2%; year 6 onward: Nil). Deliberate, documented
+     * behaviour for each (§5.6, this task's step 5):
+     *  - the 5% row produces `Charges(anyCharges = true, percent = 5, ...)`.
+     *  - the 2% row *also* produces its own `Charges(percent = 2, ...)` — one
+     *    label can legitimately appear more than once in a document (a
+     *    tiered charge schedule) and each row is a separate observation; nothing
+     *    here should collapse or dedupe them. A second, differently-valued
+     *    CHARGES observation is not a bug, and the reconciler sees the whole
+     *    `List<Observation>` for the type.
+     *  - the "Nil" row produces **no observation at all**. [PERCENT_OR_RUPEE]
+     *    requires a machine-parseable "%" or currency figure; "Nil" is prose,
+     *    not a number, and guessing anyCharges=false from the word "Nil" would
+     *    be exactly the kind of inference CLAUDE.md #2 forbids under any doubt
+     *    (is it this charge that is nil, or the whole charge that is waived
+     *    only after year 6?). Silence, not a claim, is correct here.
+     */
     private fun matchCharges(row: Row): Observation? {
         if (!CHARGE_LABEL.containsMatchIn(row.text)) return null
         if (!PERCENT_OR_RUPEE.containsMatchIn(row.text)) return null
