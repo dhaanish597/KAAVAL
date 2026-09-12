@@ -160,6 +160,22 @@
     <string name="session_recheck">மறுபரிசீலனை</string>
     <string name="session_next">அடுத்து</string>
 
+    <!--
+      TAMIL-REVIEW
+      The foreground-service notification (§6.7). Both languages are on screen at
+      once — title Tamil, body English — because the person who most needs to
+      read it may be either the buyer or the person across the table, and this is
+      the one place the app makes its promise where a stranger can see it.
+
+      The second half of that promise is load-bearing: the microphone is open AND
+      no audio is being stored (CLAUDE.md #4). Never shorten this to the first
+      half alone.
+    -->
+    <string name="session_notification_title">அமர்வு நடைபெறுகிறது — ஒலி சேமிக்கப்படாது</string>
+    <string name="session_notification_text">Session active — audio is not stored</string>
+    <string name="session_channel_name">அமர்வு</string>
+    <string name="session_channel_description">அமர்வு நடைபெறும்போது மட்டும் காட்டப்படும். ஒலி இல்லை.</string>
+
     <!-- ===================== STATE LABELS (locked) ===================== -->
     <!-- TAMIL-REVIEW -->
     <!-- The only three states a user ever sees. PENDING and UNCERTAIN are silent. -->

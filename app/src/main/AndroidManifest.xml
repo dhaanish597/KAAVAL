@@ -84,11 +84,22 @@
         </activity>
 
         <!--
-          SessionService (foregroundServiceType="microphone") is declared in P2/P5
-          when the ASR pipeline lands. Declaring it now would fail the manifest
-          merge because the class does not exist yet, so it is deliberately
-          absent rather than declared-and-missing (§6.2, §6.7).
+          The session's microphone (§6.7).
+
+          foregroundServiceType="microphone" is what keeps the pipeline alive
+          once the phone is face-down on the table and OriginOS starts trimming
+          background work. exported="false": nothing outside this app may start
+          a session, and the only way in is the two actions on the class itself.
+
+          stopWithTask="true" — swiping the app away ends the session. The
+          alternative is a microphone that outlives the UI that explains it,
+          which is not a thing this product may ship.
         -->
+        <service
+            android:name=".session.SessionService"
+            android:exported="false"
+            android:foregroundServiceType="microphone"
+            android:stopWithTask="true" />
 
     </application>
 

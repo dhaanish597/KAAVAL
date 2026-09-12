@@ -114,16 +114,70 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Step 5: the manifest must not name the foreground service before it exists.
-# P0 deliberately omits SessionService (see the comment in the manifest); this
-# guards against someone adding the declaration early and producing a build that
-# crashes on session start.
+# Step 5: the microphone service, and the two attributes that matter (§6.7).
+#
+# Until P5 this step asserted the opposite — that SessionService was NOT yet
+# declared, which was the correct check while the class did not exist. The class
+# exists now, so the check is inverted: a session that cannot start its
+# foreground service is a session that silently loses the microphone the moment
+# the screen turns off.
+#
+# The two attributes are not cosmetic:
+#   foregroundServiceType="microphone" — without it, startForeground() with
+#     FOREGROUND_SERVICE_TYPE_MICROPHONE throws on API 34+, so the session dies
+#     on the first tap rather than at some later, quieter moment.
+#   exported="false" — nothing outside this app may open the microphone. On
+#     targetSdk 36 an unspecified android:exported on a service with no intent
+#     filter defaults to false, but "the default happens to be safe" is not the
+#     standard this file holds things to; it is written down and checked.
 # ---------------------------------------------------------------------------
-if grep -q 'SessionService' "$MERGED"; then
-  echo "    note: SessionService is declared in the merged manifest (expected from P2 onward)."
+if grep -q 'app.vaakku.session.SessionService' "$MERGED"; then
+  echo "    ok: SessionService declared"
+
+  # The service element spans several lines in the merged output, so pull the
+  # element itself out before looking at its attributes — a bare grep over the
+  # whole file would happily match an attribute belonging to the activity.
+  SERVICE_EL="$(tr '\n' ' ' < "$MERGED" \
+                  | grep -o '<service[^>]*app\.vaakku\.session\.SessionService[^>]*>' || true)"
+
+  if [ -z "${SERVICE_EL}" ]; then
+    echo "FAIL: found SessionService by name but could not isolate its <service> element." >&2
+    echo "      Check app/src/main/AndroidManifest.xml by hand." >&2
+    fail=1
+  else
+    if printf '%s' "${SERVICE_EL}" | grep -q 'android:foregroundServiceType="microphone"'; then
+      echo "    ok: SessionService foregroundServiceType=microphone"
+    else
+      echo "FAIL: SessionService is missing android:foregroundServiceType=\"microphone\"." >&2
+      echo "      startForeground(FOREGROUND_SERVICE_TYPE_MICROPHONE) throws without it." >&2
+      fail=1
+    fi
+
+    if printf '%s' "${SERVICE_EL}" | grep -q 'android:exported="false"'; then
+      echo "    ok: SessionService not exported"
+    else
+      echo "FAIL: SessionService must declare android:exported=\"false\" explicitly." >&2
+      echo "      Nothing outside this app may start the microphone." >&2
+      fail=1
+    fi
+  fi
 else
-  echo "    ok: SessionService not yet declared (P0 state)"
+  echo "FAIL: SessionService is not in the merged manifest." >&2
+  echo "      The session's microphone runs as a foreground service (§6.7); without" >&2
+  echo "      the declaration, startForegroundService() throws and no session can start." >&2
+  fail=1
 fi
+
+# The microphone service needs both permissions in the merged output, not just
+# the class declaration.
+for required in FOREGROUND_SERVICE FOREGROUND_SERVICE_MICROPHONE; do
+  if grep -q "android.permission.$required" "$MERGED"; then
+    echo "    ok: $required present"
+  else
+    echo "FAIL: required permission $required is missing from the merged manifest." >&2
+    fail=1
+  fi
+done
 
 echo
 if [ "${fail}" -ne 0 ]; then
