@@ -1,0 +1,12 @@
+{
+  "id": "N05_colloquial_moonu_differs",
+  "note": "Normalization: colloquial மூணு (three, not the formal மூன்று) resolves to 36 months and correctly DIFFERS against a written 5 years — a colloquial number must drive a real mismatch, not be silently dropped.",
+  "spoken": [
+    { "text": "Lock-in மூணு வருஷம் தான்.", "startMs": 0, "endMs": 1800, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Lock-in period: 5 years", "box": [40, 400, 420, 430], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "LOCK_IN": "DIFFERS" }
+}

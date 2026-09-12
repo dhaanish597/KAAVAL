@@ -1,0 +1,12 @@
+{
+  "id": "A04_illustrative_scenario_match",
+  "note": "Doc has both 4% and 8% illustrative; agent says '8% return' (§5.10 A4). RATE matches one of the illustrated scenarios; GUARANTEE is judged separately and is not asserted here.",
+  "spoken": [
+    { "text": "8% return sir", "startMs": 0, "endMs": 1500, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Assumed rate of return (illustrative) 4% p.a. and 8% p.a.", "box": [40, 300, 820, 330], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "RETURN_RATE": "MATCHES" }
+}

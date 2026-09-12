@@ -1,0 +1,12 @@
+{
+  "id": "A06_policy_term_not_lockin",
+  "note": "'policy term பத்து வருஷம்' vs doc 'lock-in 5 years' (§5.10 A6). Term is not lock-in, so no LOCK_IN claim is produced at all — silent, not a false MATCHES or DIFFERS.",
+  "spoken": [
+    { "text": "policy term பத்து வருஷம்", "startMs": 0, "endMs": 1800, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Lock-in period: 5 years", "box": [40, 400, 420, 430], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "LOCK_IN": "SILENT" }
+}

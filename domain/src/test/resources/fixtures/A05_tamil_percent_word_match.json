@@ -1,0 +1,12 @@
+{
+  "id": "A05_tamil_percent_word_match",
+  "note": "'எட்டு சதவீதம்' vs doc '8%' (§5.10 A5). RATE matches.",
+  "spoken": [
+    { "text": "எட்டு சதவீதம்", "startMs": 0, "endMs": 1200, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Assumed rate of return 8%", "box": [40, 300, 520, 330], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "RETURN_RATE": "MATCHES" }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "A07_ocr_low_confidence_implausible",
+  "note": "OCR reads '40%' at confidence 0.4 (§5.10 A7). Out of the 0-30 plausibility band AND low OCR confidence — must stay silent with a scan-again hint, never a false MATCHES/DIFFERS.",
+  "spoken": [
+    { "text": "எட்டு percent sir", "startMs": 0, "endMs": 1500, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Assumed rate of return 40%", "box": [40, 300, 520, 330], "confidence": 0.4 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "RETURN_RATE": "SILENT" }
+}

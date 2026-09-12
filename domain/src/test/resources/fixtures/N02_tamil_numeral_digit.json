@@ -1,0 +1,12 @@
+{
+  "id": "N02_tamil_numeral_digit",
+  "note": "Normalization: a Tamil numeral digit (௮ = 8), not a number word, end to end against a written 8%.",
+  "spoken": [
+    { "text": "௮ சதவீதம்", "startMs": 0, "endMs": 1200, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Assumed rate of return 8%", "box": [40, 300, 520, 330], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "RETURN_RATE": "MATCHES" }
+}

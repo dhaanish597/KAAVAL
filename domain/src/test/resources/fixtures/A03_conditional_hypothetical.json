@@ -1,0 +1,12 @@
+{
+  "id": "A03_conditional_hypothetical",
+  "note": "Hypothetical 'guaranteed-ஆ இருந்தா எட்டு percent கிடைக்கும்' (§5.10 A3). Conditional speech can never lead to DIFFERS.",
+  "spoken": [
+    { "text": "Guaranteed-ஆ இருந்தா எட்டு percent கிடைக்கும்", "startMs": 0, "endMs": 2500, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Returns are NOT guaranteed", "box": [40, 350, 520, 380], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "GUARANTEE": "SILENT" }
+}

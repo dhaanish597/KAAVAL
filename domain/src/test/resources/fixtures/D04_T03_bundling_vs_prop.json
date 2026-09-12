@@ -1,0 +1,14 @@
+{
+  "id": "D04_T03_bundling_vs_prop",
+  "note": "§11.2 T03_bundling vs the prop document, which is silent on loans -> NOT_IN_DOCUMENT.",
+  "spoken": [
+    { "text": "இந்த policy எடுத்தா தான் loan sanction ஆகும் sir, இது compulsory.", "startMs": 0, "endMs": 3600, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Assumed rate of return (illustrative)", "box": [40, 300, 520, 330], "confidence": 0.95 },
+    { "text": "4% p.a. and 8% p.a.", "box": [560, 300, 820, 330], "confidence": 0.95 },
+    { "text": "Lock-in period: 5 years", "box": [40, 400, 420, 430], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "BUNDLING": "NOT_IN_DOCUMENT" }
+}

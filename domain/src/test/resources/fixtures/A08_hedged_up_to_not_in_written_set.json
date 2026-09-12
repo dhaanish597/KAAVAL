@@ -1,0 +1,12 @@
+{
+  "id": "A08_hedged_up_to_not_in_written_set",
+  "note": "'up to எட்டு percent' vs doc only '4%' (§5.10 A8). Hedged and not in the written set -> silent, not DIFFERS.",
+  "spoken": [
+    { "text": "Up to எட்டு percent வரைக்கும் வரலாம் sir.", "startMs": 0, "endMs": 2200, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Assumed rate of return 4%", "box": [40, 300, 520, 330], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "RETURN_RATE": "SILENT" }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "N04_colloquial_anju_matches",
+  "note": "Normalization: colloquial அஞ்சு (five, not the formal ஐந்து) resolves to 60 months and matches the written 5 years.",
+  "spoken": [
+    { "text": "Lock-in அஞ்சு வருஷம் தான்.", "startMs": 0, "endMs": 1800, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Lock-in period: 5 years", "box": [40, 400, 420, 430], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "LOCK_IN": "MATCHES" }
+}

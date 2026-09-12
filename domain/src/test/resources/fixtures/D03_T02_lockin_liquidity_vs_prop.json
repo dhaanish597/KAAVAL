@@ -1,0 +1,13 @@
+{
+  "id": "D03_T02_lockin_liquidity_vs_prop",
+  "note": "§11.2 T02_lockin_liquidity vs the prop document. LOCK_IN 1 vs 5 years -> DIFFERS. LIQUIDITY withdraw-after 1 year vs nil-before 5 years -> DIFFERS.",
+  "spoken": [
+    { "text": "Lock-in ஒரு வருஷம் தான் sir. One year கழிச்சு full-ஆ எடுக்கலாம்.", "startMs": 0, "endMs": 5200, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Lock-in period: 5 years", "box": [40, 400, 420, 430], "confidence": 0.95 },
+    { "text": "Surrender value: Nil before completion of 5th policy year", "box": [40, 440, 700, 470], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "LOCK_IN": "DIFFERS", "LIQUIDITY": "DIFFERS" }
+}

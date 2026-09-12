@@ -1,0 +1,12 @@
+{
+  "id": "N06_english_number_words_liquidity",
+  "note": "Normalization: English number words ('one year') resolve through the same pipeline as Tamil ones and correctly DIFFERS against a written nil-before-5-years surrender clause.",
+  "spoken": [
+    { "text": "You can withdraw after one year.", "startMs": 0, "endMs": 2000, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Surrender value: Nil before completion of 5th policy year", "box": [40, 440, 700, 470], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "LIQUIDITY": "DIFFERS" }
+}

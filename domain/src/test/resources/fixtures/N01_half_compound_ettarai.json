@@ -1,0 +1,12 @@
+{
+  "id": "N01_half_compound_ettarai",
+  "note": "Normalization: the fused '-அரை' half-compound எட்டரை (8.5) end to end, matching a written 8.5%.",
+  "spoken": [
+    { "text": "எட்டரை percent sir", "startMs": 0, "endMs": 1500, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Assumed rate of return 8.5%", "box": [40, 300, 520, 330], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "RETURN_RATE": "MATCHES" }
+}

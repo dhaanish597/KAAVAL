@@ -1,0 +1,13 @@
+{
+  "id": "A01_negation_dropped_fuzzy",
+  "note": "Agent says 'not guaranteed'; ASR drops 'not' but a fuzzy negation token remains nearby (§5.10 A1). GUARANTEE must stay silent, never asserted true or false.",
+  "spoken": [
+    { "text": "Guaranteed கிடையது sir", "startMs": 0, "endMs": 2000, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Assumed rate of return (illustrative) 4% p.a. and 8% p.a.", "box": [40, 300, 820, 330], "confidence": 0.95 },
+    { "text": "Returns are NOT guaranteed", "box": [40, 350, 520, 380], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "GUARANTEE": "SILENT" }
+}

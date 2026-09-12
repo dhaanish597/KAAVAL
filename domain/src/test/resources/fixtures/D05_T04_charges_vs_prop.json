@@ -1,0 +1,12 @@
+{
+  "id": "D05_T04_charges_vs_prop",
+  "note": "§11.2 T04_charges vs the prop document. Spoken 'no charges' vs written 5% premium allocation charge -> DIFFERS.",
+  "spoken": [
+    { "text": "Charges எதுவும் இல்லை sir, zero commission.", "startMs": 0, "endMs": 3000, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Premium allocation charge: 5% in year 1", "box": [40, 510, 520, 540], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "CHARGES": "DIFFERS" }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "N03_lakh_compound_does_not_leak_into_lockin",
+  "note": "Normalization: §11.2 T11_numbers verbatim — 'ஒரு லட்சம் இருபதாயிரம்' (120000, a premium amount) must not be mistaken for a duration, and 'term பத்து வருஷம்' must not become a LOCK_IN claim.",
+  "spoken": [
+    { "text": "Premium வருஷத்துக்கு ஒரு லட்சம் இருபதாயிரம், term பத்து வருஷம்.", "startMs": 0, "endMs": 4000, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Lock-in period: 5 years", "box": [40, 400, 420, 430], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "LOCK_IN": "SILENT" }
+}

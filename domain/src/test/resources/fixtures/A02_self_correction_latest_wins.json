@@ -1,0 +1,12 @@
+{
+  "id": "A02_self_correction_latest_wins",
+  "note": "Agent self-corrects 'lock-in மூணு வருஷம்... இல்ல இல்ல, அஞ்சு வருஷம்' vs doc 5 years (§5.10 A2). The LATEST value must win.",
+  "spoken": [
+    { "text": "lock-in மூணு வருஷம் sir ஆனா இல்ல இல்ல அஞ்சு வருஷம் தான் sir", "startMs": 0, "endMs": 4000, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Lock-in period: 5 years", "box": [40, 400, 420, 430], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "LOCK_IN": "MATCHES" }
+}

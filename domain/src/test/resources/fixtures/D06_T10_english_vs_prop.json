@@ -1,0 +1,15 @@
+{
+  "id": "D06_T10_english_vs_prop",
+  "note": "§11.2 T10_english vs the prop document — the same claims stated entirely in English. GUARANTEE true vs NOT guaranteed -> DIFFERS; RATE 8% matches a scenario; LIQUIDITY withdraw-after 1 year vs nil-before 5 years -> DIFFERS.",
+  "spoken": [
+    { "text": "It's like a fixed deposit, guaranteed eight percent, and you can withdraw after one year.", "startMs": 0, "endMs": 6000, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Assumed rate of return (illustrative)", "box": [40, 300, 520, 330], "confidence": 0.95 },
+    { "text": "4% p.a. and 8% p.a.", "box": [560, 300, 820, 330], "confidence": 0.95 },
+    { "text": "Returns are NOT guaranteed", "box": [40, 350, 520, 380], "confidence": 0.95 },
+    { "text": "Surrender value: Nil before completion of 5th policy year", "box": [40, 440, 700, 470], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "GUARANTEE": "DIFFERS", "RETURN_RATE": "MATCHES", "LIQUIDITY": "DIFFERS" }
+}

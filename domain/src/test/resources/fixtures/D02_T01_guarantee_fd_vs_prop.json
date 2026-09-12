@@ -1,0 +1,14 @@
+{
+  "id": "D02_T01_guarantee_fd_vs_prop",
+  "note": "§11.2 T01_guarantee_fd vs the prop document. GUARANTEE=true spoken vs NOT guaranteed written -> DIFFERS. RATE 8% is one of the illustrated scenarios -> MATCHES.",
+  "spoken": [
+    { "text": "Sir, இது FD மாதிரி தான். Guaranteed எட்டு percent return.", "startMs": 1000, "endMs": 5200, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Assumed rate of return (illustrative)", "box": [40, 300, 520, 330], "confidence": 0.95 },
+    { "text": "4% p.a. and 8% p.a.", "box": [560, 300, 820, 330], "confidence": 0.95 },
+    { "text": "Returns are NOT guaranteed", "box": [40, 350, 520, 380], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "GUARANTEE": "DIFFERS", "RETURN_RATE": "MATCHES" }
+}

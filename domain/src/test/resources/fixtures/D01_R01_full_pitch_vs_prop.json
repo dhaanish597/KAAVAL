@@ -1,0 +1,30 @@
+{
+  "id": "D01_R01_full_pitch_vs_prop",
+  "note": "§11.2 R01 = T01+T02+T03+T04 concatenated vs the prop document. Exact expected demo result from the build plan: GUARANTEE DIFFERS, RETURN_RATE MATCHES, LOCK_IN DIFFERS, LIQUIDITY DIFFERS, BUNDLING NOT_IN_DOCUMENT, CHARGES DIFFERS.",
+  "spoken": [
+    { "text": "Sir, இது FD மாதிரி தான். Guaranteed எட்டு percent return.", "startMs": 0, "endMs": 5200, "segmentQuality": 0.9 },
+    { "text": "Lock-in ஒரு வருஷம் தான் sir. One year கழிச்சு full-ஆ எடுக்கலாம்.", "startMs": 5200, "endMs": 10400, "segmentQuality": 0.9 },
+    { "text": "இந்த policy எடுத்தா தான் loan sanction ஆகும் sir, இது compulsory.", "startMs": 10400, "endMs": 14000, "segmentQuality": 0.9 },
+    { "text": "Charges எதுவும் இல்லை sir, zero commission.", "startMs": 14000, "endMs": 17000, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Assumed rate of return (illustrative)", "box": [40, 300, 520, 330], "confidence": 0.95 },
+    { "text": "4% p.a. and 8% p.a.", "box": [560, 300, 820, 330], "confidence": 0.95 },
+    { "text": "Returns are NOT guaranteed", "box": [40, 350, 520, 380], "confidence": 0.95 },
+    { "text": "Guaranteed returns: No", "box": [40, 390, 520, 420], "confidence": 0.95 },
+    { "text": "Lock-in period: 5 years", "box": [40, 430, 420, 460], "confidence": 0.95 },
+    { "text": "Surrender value: Nil before completion of 5th policy year", "box": [40, 470, 700, 500], "confidence": 0.95 },
+    { "text": "Premium allocation charge: 5% in year 1", "box": [40, 510, 520, 540], "confidence": 0.95 },
+    { "text": "Policy term 10 years", "box": [40, 550, 420, 580], "confidence": 0.95 },
+    { "text": "Annualised premium ₹1,20,000", "box": [40, 590, 520, 620], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": {
+    "GUARANTEE": "DIFFERS",
+    "RETURN_RATE": "MATCHES",
+    "LOCK_IN": "DIFFERS",
+    "LIQUIDITY": "DIFFERS",
+    "BUNDLING": "NOT_IN_DOCUMENT",
+    "CHARGES": "DIFFERS"
+  }
+}

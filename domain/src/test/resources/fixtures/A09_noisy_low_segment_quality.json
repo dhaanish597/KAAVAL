@@ -1,0 +1,12 @@
+{
+  "id": "A09_noisy_low_segment_quality",
+  "note": "Segment quality 0.3 (noisy hall) with 'guaranteed' (§5.10 A9). Confidence = matchQuality * segmentQuality falls below SPOKEN_MIN -> silent.",
+  "spoken": [
+    { "text": "Guaranteed", "startMs": 0, "endMs": 1000, "segmentQuality": 0.3 }
+  ],
+  "written": [
+    { "text": "Returns are NOT guaranteed", "box": [40, 350, 520, 380], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "GUARANTEE": "SILENT" }
+}

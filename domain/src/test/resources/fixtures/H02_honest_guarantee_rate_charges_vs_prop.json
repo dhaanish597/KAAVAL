@@ -1,0 +1,21 @@
+{
+  "id": "H02_honest_guarantee_rate_charges_vs_prop",
+  "note": "An honest agent disclosing GUARANTEE, RATE and CHARGES exactly as the document states them. Zero DIFFERS is required.",
+  "spoken": [
+    { "text": "Return guarantee இல்லை sir.", "startMs": 0, "endMs": 2000, "segmentQuality": 0.9 },
+    { "text": "நாலு percent, எட்டு percent ரெண்டு scenario.", "startMs": 2000, "endMs": 5000, "segmentQuality": 0.9 },
+    { "text": "Charges இருக்கு sir.", "startMs": 5000, "endMs": 8000, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Assumed rate of return (illustrative)", "box": [40, 300, 520, 330], "confidence": 0.95 },
+    { "text": "4% p.a. and 8% p.a.", "box": [560, 300, 820, 330], "confidence": 0.95 },
+    { "text": "Returns are NOT guaranteed", "box": [40, 350, 520, 380], "confidence": 0.95 },
+    { "text": "Premium allocation charge: 5% in year 1", "box": [40, 510, 520, 540], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": {
+    "GUARANTEE": "MATCHES",
+    "RETURN_RATE": "MATCHES",
+    "CHARGES": "MATCHES"
+  }
+}

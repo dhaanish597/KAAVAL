@@ -1,0 +1,16 @@
+{
+  "id": "H03_honest_T06_lockin_liquidity_alone_vs_prop",
+  "note": "§11.2 T06_honest_lockin in isolation (no other claim types spoken). Zero DIFFERS is required.",
+  "spoken": [
+    { "text": "Lock-in அஞ்சு வருஷம். அதுக்கு முன்னாடி surrender value கிடையாது.", "startMs": 0, "endMs": 4000, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Lock-in period: 5 years", "box": [40, 400, 420, 430], "confidence": 0.95 },
+    { "text": "Surrender value: Nil before completion of 5th policy year", "box": [40, 440, 700, 470], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": {
+    "LOCK_IN": "MATCHES",
+    "LIQUIDITY": "MATCHES"
+  }
+}

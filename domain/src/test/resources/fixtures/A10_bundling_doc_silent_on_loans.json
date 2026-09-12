@@ -1,0 +1,14 @@
+{
+  "id": "A10_bundling_doc_silent_on_loans",
+  "note": "'இந்த policy எடுத்தா தான் loan' vs doc silent on loans, scan completed (§5.10 A10). NOT_IN_DOCUMENT, not DIFFERS.",
+  "spoken": [
+    { "text": "இந்த policy எடுத்தா தான் loan sanction ஆகும் sir, இது compulsory.", "startMs": 0, "endMs": 3000, "segmentQuality": 0.9 }
+  ],
+  "written": [
+    { "text": "Assumed rate of return (illustrative) 4% p.a. and 8% p.a.", "box": [40, 300, 820, 330], "confidence": 0.95 },
+    { "text": "Returns are NOT guaranteed", "box": [40, 350, 520, 380], "confidence": 0.95 },
+    { "text": "Lock-in period: 5 years", "box": [40, 400, 420, 430], "confidence": 0.95 }
+  ],
+  "documentScanCompleted": true,
+  "expect": { "BUNDLING": "NOT_IN_DOCUMENT" }
+}
