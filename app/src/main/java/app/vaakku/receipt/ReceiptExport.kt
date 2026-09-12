@@ -58,8 +58,21 @@ object ReceiptExport {
     private const val MIME_JPEG = "image/jpeg"
     private const val MIME_ZIP = "application/zip"
 
-    /** `Download/Vaakku`. Not `const`: [Environment.DIRECTORY_DOWNLOADS] is a platform field. */
-    private val ROOT = "${Environment.DIRECTORY_DOWNLOADS}/Vaakku"
+    /**
+     * `Download/Vaakku` — the MediaStore `RELATIVE_PATH` everything is written
+     * under.
+     *
+     * A `get()` rather than a `val`: as a property initialiser this would read
+     * [Environment] while the object is being constructed, which makes the whole
+     * class unloadable in a plain JVM unit test. The file-selection logic below
+     * is worth testing without a phone, and it should not have to carry a
+     * platform dependency it does not use. Recomputing a string concatenation is
+     * free at the handful of call sites this has.
+     */
+    private val root: String get() = "${Environment.DIRECTORY_DOWNLOADS}/Vaakku"
+
+    /** Where an export of [sessionId] lands, as a path a person can be told. */
+    fun displayFolder(sessionId: String): String = "Download/Vaakku/$sessionId/"
 
     /**
      * What the export achieved, in terms the Receipt screen can show.
@@ -101,7 +114,7 @@ object ReceiptExport {
         receiptJson: String,
         sessionDir: File,
     ): Result = withContext(Dispatchers.IO) {
-        val relative = "$ROOT/$sessionId"
+        val relative = "$root/$sessionId"
         val failures = mutableListOf<String>()
         var count = 0
 
@@ -140,15 +153,21 @@ object ReceiptExport {
         }
 
         Result(
-            folder = "Download/Vaakku/$sessionId/",
+            folder = displayFolder(sessionId),
             zip = zip,
             fileCount = count,
             failures = failures,
         )
     }
 
-    /** `page_*.jpg` in the session folder, in page order. */
-    private fun pageFiles(sessionDir: File): List<File> =
+    /**
+     * `page_*.jpg` in the session folder, in page order.
+     *
+     * `internal` so `ReceiptExportTest` can drive it against a real temp
+     * directory. The interesting behaviour is the ordering and what is left out,
+     * and neither needs a phone to check.
+     */
+    internal fun pageFiles(sessionDir: File): List<File> =
         sessionDir.listFiles()
             ?.filter { it.isFile && it.name.startsWith(PAGE_PREFIX) && it.name.endsWith(".jpg") }
             ?.sortedBy { pageNumber(it.name) }
@@ -161,11 +180,11 @@ object ReceiptExport {
      * cosmetic wrong in a folder listing but would also reorder the zip. The
      * fallback keeps an unparseable name at the end rather than throwing.
      */
-    private fun pageNumber(name: String): Int =
+    internal fun pageNumber(name: String): Int =
         name.removePrefix(PAGE_PREFIX).removeSuffix(".jpg").toIntOrNull() ?: Int.MAX_VALUE
 
     /** Everything in the `crops` folder, by name — `page2_row4.jpg` sorts sensibly as text. */
-    private fun cropFiles(sessionDir: File): List<File> =
+    internal fun cropFiles(sessionDir: File): List<File> =
         File(sessionDir, CROPS_DIR).listFiles()
             ?.filter { it.isFile && it.name.endsWith(".jpg") }
             ?.sortedBy { it.name }
@@ -279,7 +298,7 @@ object ReceiptExport {
             return null
         }
 
-        val ok = writeFile(context, ROOT, "$sessionId.zip", MIME_ZIP, bytes, failures)
+        val ok = writeFile(context, root, "$sessionId.zip", MIME_ZIP, bytes, failures)
         return if (ok) "Download/Vaakku/$sessionId.zip" else null
     }
 }

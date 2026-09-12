@@ -48,6 +48,7 @@ import app.vaakku.domain.model.DeltaState
 import app.vaakku.domain.model.LedgerEntry
 import app.vaakku.domain.model.Observation
 import app.vaakku.domain.model.Provenance
+import app.vaakku.session.SessionPhase
 import app.vaakku.session.SessionRuntime
 import app.vaakku.session.SessionState
 import app.vaakku.ui.claimTypeLabel
@@ -249,6 +250,16 @@ private fun LedgerRow(
  *
  * The audio itself does not exist: it was never written anywhere (CLAUDE.md #4).
  * The span is text the recogniser produced and nothing more.
+ *
+ * ### Why மறுபரிசீலனை disappears once the session has ended
+ *
+ * Re-check means "set this aside and bring it back the moment it is said again"
+ * (§5.7 rule 9). Nothing will be said again after the microphone closes, so on an
+ * ended session the button is a promise the app cannot keep. It also has a second
+ * effect that matters at that moment: `UserRecheck` is a reconciler event, and an
+ * event appended after the Receipt screen has built its receipt would change the
+ * hash head the buyer is looking at. Hiding it keeps the event log final from the
+ * moment the session ends — see [ReceiptScreen].
  */
 @Composable
 private fun ProvenanceSheet(
@@ -397,35 +408,38 @@ private fun ProvenanceSheet(
             Spacer(Modifier.height(space.xxl))
         }
 
-        // --- Bottom third (§6.6): the one control on this screen. ---
+        // --- Bottom third (§6.6): the one control on this screen, and only while
+        //     there is still a session to re-check into. ---
         HorizontalDivider(color = colors.rule)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = space.gutter, vertical = space.base),
-            horizontalArrangement = Arrangement.spacedBy(space.md),
-        ) {
-            Button(
-                // "Set this one aside, and bring it back if it is said again"
-                // (§5.7 rule 9). Closing afterwards is the honest follow-through:
-                // this sheet's subject has just been put down.
-                onClick = {
-                    SessionRuntime.recheck(claimType)
-                    onClose()
-                },
-                shape = RoundedCornerShape(space.radiusButton),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.ink,
-                    contentColor = colors.onInk,
-                ),
+        if (session.phase != SessionPhase.ENDED) {
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .height(space.touchTarget + space.sm),
+                    .fillMaxWidth()
+                    .padding(horizontal = space.gutter, vertical = space.base),
+                horizontalArrangement = Arrangement.spacedBy(space.md),
             ) {
-                Text(
-                    text = localized(R.string.session_recheck, R.string.session_recheck_en),
-                    style = type.label,
-                )
+                Button(
+                    // "Set this one aside, and bring it back if it is said again"
+                    // (§5.7 rule 9). Closing afterwards is the honest follow-through:
+                    // this sheet's subject has just been put down.
+                    onClick = {
+                        SessionRuntime.recheck(claimType)
+                        onClose()
+                    },
+                    shape = RoundedCornerShape(space.radiusButton),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colors.ink,
+                        contentColor = colors.onInk,
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(space.touchTarget + space.sm),
+                ) {
+                    Text(
+                        text = localized(R.string.session_recheck, R.string.session_recheck_en),
+                        style = type.label,
+                    )
+                }
             }
         }
     }

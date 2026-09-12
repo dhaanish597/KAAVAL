@@ -75,11 +75,10 @@ import app.vaakku.ui.theme.VaakkuTheme
  *
  * ### Leaving
  *
- * There is no `onExit` callback. `MainActivity` shows this screen for as long as
- * [SessionRuntime] holds a session and the Setup screen when it does not, so
- * [SessionRuntime.clear] *is* the navigation — one source of truth for "is there
- * a session", shared with the microphone. P6 puts the Receipt screen between the
- * two by branching on `SessionPhase.ENDED` there, not by adding a callback here.
+ * There is no `onExit` callback. `MainActivity` picks the screen from the session's
+ * phase alone — Setup when there is no session, this screen while one is running,
+ * and [ReceiptScreen] once it has ended — so "End session" only has to stop the
+ * audio. One source of truth for "is there a session", shared with the microphone.
  */
 @Composable
 fun SessionScreen() {
@@ -133,7 +132,6 @@ fun SessionScreen() {
                 )
             } else {
                 Listening(
-                    phase = session.phase,
                     spokenCount = session.spokenCount,
                     documentCount = session.documentCount,
                     failure = session.failure,
@@ -212,17 +210,15 @@ fun SessionScreen() {
         ) {
             OutlinedButton(
                 onClick = {
-                    if (session.phase == SessionPhase.ENDED) {
-                        // P6 builds the receipt here, from the event log, before
-                        // anything is cleared. Until then leaving is leaving —
-                        // and clearing is what takes the user back to Setup.
-                        SessionRuntime.clear()
-                    } else {
-                        // Not stopSelf and not a cancel: this ends the *audio*, so
-                        // the sentence still inside the VAD is recognised before the
-                        // service shuts down. See SessionService's class KDoc.
-                        SessionService.stop(context)
-                    }
+                    // Not stopSelf and not a cancel: this ends the *audio*, so
+                    // the sentence still inside the VAD is recognised before the
+                    // service shuts down. See SessionService's class KDoc.
+                    //
+                    // What happens next is not this screen's business. The
+                    // service ends the session from its own `finally`, the phase
+                    // becomes ENDED, and MainActivity swaps this screen for
+                    // ReceiptScreen.
+                    SessionService.stop(context)
                 },
                 shape = RoundedCornerShape(space.radiusButton),
                 modifier = Modifier
@@ -230,11 +226,7 @@ fun SessionScreen() {
                     .height(space.touchTarget + space.sm),
             ) {
                 Text(
-                    text = if (session.phase == SessionPhase.ENDED) {
-                        localized(R.string.action_close, R.string.action_close_en)
-                    } else {
-                        localized(R.string.session_end, R.string.session_end_en)
-                    },
+                    text = localized(R.string.session_end, R.string.session_end_en),
                     style = type.label,
                     color = colors.ink,
                 )
@@ -258,6 +250,10 @@ fun SessionScreen() {
  *
  * Words, not a coloured dot: CLAUDE.md #9 rules out a status light, and "the mic
  * did not open" is a sentence a person can act on where an amber dot is not.
+ *
+ * There is no line for a session that has ended, because this screen is gone by
+ * then — `MainActivity` shows [ReceiptScreen] on `SessionPhase.ENDED`, including
+ * when the session ended because it failed.
  */
 @Composable
 private fun StatusLine(phase: SessionPhase, failed: Boolean) {
@@ -267,7 +263,6 @@ private fun StatusLine(phase: SessionPhase, failed: Boolean) {
 
     val text = when {
         failed -> localized(R.string.session_mic_failed, R.string.session_mic_failed_en)
-        phase == SessionPhase.ENDED -> localized(R.string.session_ended, R.string.session_ended_en)
         phase == SessionPhase.LISTENING -> localized(R.string.session_listening, R.string.session_listening_en)
         else -> localized(R.string.session_starting, R.string.session_starting_en)
     }
@@ -287,16 +282,9 @@ private fun StatusLine(phase: SessionPhase, failed: Boolean) {
  * The counters are the honest part. They say how much the app has *taken in*,
  * which is a fact about the app, and they say nothing at all about the
  * conversation or the person having it.
- *
- * Once the session is over the headline stops saying "listening", because the
- * microphone is closed and that word would be a false statement about the
- * hardware (CLAUDE.md #8). What replaces it still reports only on the app: a
- * session that ends with no card is the ordinary case, and saying so must not
- * shade into clearing anybody.
  */
 @Composable
 private fun Listening(
-    phase: SessionPhase,
     spokenCount: Int,
     documentCount: Int,
     failure: String?,
@@ -304,8 +292,6 @@ private fun Listening(
     val colors = VaakkuTheme.colors
     val type = VaakkuTheme.type
     val space = VaakkuTheme.space
-
-    val ended = phase == SessionPhase.ENDED
 
     Column(
         modifier = Modifier
@@ -315,17 +301,8 @@ private fun Listening(
             .padding(horizontal = space.base, vertical = space.lg),
         verticalArrangement = Arrangement.Center,
     ) {
-        // The status line at the top already reports the mic ("அமர்வு முடிந்தது").
-        // The card carries the *result*: while listening, that it is listening;
-        // once ended with no card ever raised, that nothing differed. Saying both
-        // would be redundant and would make "ended" louder than "nothing found",
-        // which is the wrong emphasis for the ordinary outcome.
         Text(
-            text = if (ended) {
-                localized(R.string.session_ended_silent, R.string.session_ended_silent_en)
-            } else {
-                localized(R.string.session_listening, R.string.session_listening_en)
-            },
+            text = localized(R.string.session_listening, R.string.session_listening_en),
             style = type.headline,
             color = colors.ink,
         )

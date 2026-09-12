@@ -19,17 +19,21 @@ import app.vaakku.session.SessionService
 import app.vaakku.ui.AppLanguageState
 import app.vaakku.ui.LocalAppLanguage
 import app.vaakku.ui.SetupScreen
+import app.vaakku.ui.session.ReceiptScreen
 import app.vaakku.ui.session.SessionScreen
 import app.vaakku.ui.theme.VaakkuTheme
 
 /**
  * The only activity in the app.
  *
- * It hosts the Setup screen and the Session screen (§6.6). They are states of one
- * activity rather than two activities on purpose: Session Mode must survive a
- * screen-off cycle and a rotation without the microphone pipeline noticing (build
- * plan §6.4), and the pipeline itself lives in [SessionService] with its state in
- * [SessionRuntime], so the UI can be destroyed and rebuilt around it freely.
+ * It hosts the Setup screen, the Session screen and the Receipt screen (§6.6).
+ * They are states of one activity rather than three activities on purpose:
+ * Session Mode must survive a screen-off cycle and a rotation without the
+ * microphone pipeline noticing (build plan §6.4), and the pipeline itself lives
+ * in [SessionService] with its state in [SessionRuntime], so the UI can be
+ * destroyed and rebuilt around it freely. Which screen shows is read off
+ * [app.vaakku.session.SessionPhase] and nothing else, so there is no navigation
+ * state that can disagree with whether a session exists.
  *
  * There is deliberately no INTERNET permission and no networking code anywhere in
  * this app — see scripts/check_manifest.sh, which proves it on the merged manifest.
@@ -79,7 +83,15 @@ class MainActivity : ComponentActivity() {
                             BackHandler(enabled = true) {
                                 if (session.phase == SessionPhase.ENDED) SessionRuntime.clear()
                             }
-                            SessionScreen()
+                            if (session.phase == SessionPhase.ENDED) {
+                                // §6.6 screen 5. The third state of the one
+                                // activity, and the reason the Session screen has
+                                // no `onExit`: the session is what exists, and
+                                // which screen shows follows from its phase.
+                                ReceiptScreen()
+                            } else {
+                                SessionScreen()
+                            }
                         }
                     }
                 }

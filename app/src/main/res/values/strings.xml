@@ -177,20 +177,19 @@
     <string name="session_counters_en">Speech %1$d · Document %2$d</string>
     <string name="session_starting">தயாராகிறது…</string>
     <string name="session_starting_en">Getting ready…</string>
-    <string name="session_ended">அமர்வு முடிந்தது</string>
-    <string name="session_ended_en">Session ended</string>
     <!--
-      TAMIL-REVIEW
-      Shown in place of the empty-state card once the session is over and no card
-      was ever raised. Deliberately a statement about the APP ("nothing was found
-      that differs"), never about the seller: a session that ends silent is the
-      ordinary case, and the wording must not turn silence into a compliment or a
-      clearance any more than a card is a charge laid against the person sitting
-      opposite. §5.7's rule 4 is the same idea in the reconciler — absence of a
-      difference is not a finding.
+      There is deliberately no "session ended" string here any more, and no
+      "nothing differed" one either.
+
+      Both existed for a Session screen that stayed on after the mic closed.
+      `MainActivity` now shows the Receipt screen on SessionPhase.ENDED, so that
+      state of this screen became unreachable and its two strings went with it.
+      The wording is also a decision rather than an omission: the end of a
+      session is reported by the Receipt screen's own title, and a sentence
+      saying no difference was shown would be the app volunteering a summary of
+      the conversation. §5.7 rule 4 says the same thing in the reconciler —
+      absence of a difference is not a finding.
     -->
-    <string name="session_ended_silent">வேறுபாடு எதுவும் காட்டப்படவில்லை.</string>
-    <string name="session_ended_silent_en">No difference was shown.</string>
     <string name="session_mic_failed">மைக்ரோஃபோன் திறக்கவில்லை</string>
     <string name="session_mic_failed_en">The microphone did not open</string>
 
@@ -485,8 +484,99 @@
     <string name="followup_rate_charges_en">Ask where this number is in the document</string>
 
     <!-- ===================== FREE LOOK ===================== -->
-    <!-- TAMIL-REVIEW -->
+    <!--
+      TAMIL-REVIEW
+      §8.4, shown at the end of a session (§6.6 screen 5) and in the packet.
+
+      The Tamil is read by BOTH the app and tools/packet-cli — lib/strings.js
+      looks up `free_look_note` by name out of this file, so the name is part of
+      an interface and renaming it breaks the packet renderer. The English
+      companion is the app's: the CLI still carries its own copy of this sentence
+      (PACKET.freeLookEn) and the two must be kept saying the same thing.
+
+      A statement of law, not advice, and it is deliberately shown whatever the
+      session found: a buyer whose document matched everything said to them has
+      the same 30 days as anybody else, and printing this only next to a
+      difference would turn a fact into a nudge.
+    -->
     <string name="free_look_note">பாலிசி ஆவணம் கிடைத்த நாளிலிருந்து 30 நாட்கள் ஃப்ரீ-லுக் காலம் உள்ளது.</string>
+    <string name="free_look_note_en">You have a 30-day free-look period from the day you receive the policy document.</string>
+
+    <!-- ===================== RECEIPT (END OF SESSION) ===================== -->
+    <!--
+      TAMIL-REVIEW
+      Build plan §6.6 screen 5. Every line on this screen is about a FILE: how
+      long the session was, which topics came up, the hash of the record, whether
+      it is signed, and where it now sits. Nothing here summarises what was said.
+
+      receipt_topics is a coverage count and says "N of 6" for exactly that
+      reason — a bare "3" at the end of a session would be read as three things
+      wrong, which is not what a ledger entry is. An entry exists as soon as a
+      topic is spoken about or found in the document, whatever the two turned out
+      to say. There is deliberately no count of any state anywhere on this
+      screen (CLAUDE.md #1); the Details ledger is where the six are read.
+    -->
+    <string name="receipt_title">அமர்வுப் பதிவு</string>
+    <string name="receipt_title_en">Session record</string>
+    <string name="receipt_session_id">அமர்வு அடையாளம்</string>
+    <string name="receipt_session_id_en">Session id</string>
+    <string name="receipt_duration">கால அளவு</string>
+    <string name="receipt_duration_en">Length</string>
+    <string name="receipt_topics">பேசப்பட்ட தலைப்புகள்</string>
+    <string name="receipt_topics_en">Topics that came up</string>
+    <string name="receipt_topics_value">%1$d / %2$d</string>
+    <!--
+      The hash is shown so it can be compared, character by character, against
+      the one printed on the grievance packet. Only the first 16 of its 64
+      characters fit on a phone line in mono, and the label says so rather than
+      letting a truncation look like the whole value. Grouped in fours because
+      this is read aloud and checked by eye, not copied.
+    -->
+    <string name="receipt_head">பதிவின் ஹாஷ் — 64-இல் முதல் 16</string>
+    <string name="receipt_head_en">Record hash — first 16 of 64</string>
+
+    <string name="receipt_export">கோப்புகளாக சேமி</string>
+    <string name="receipt_export_en">Save the files</string>
+    <string name="receipt_export_again">மீண்டும் சேமி</string>
+    <string name="receipt_export_again_en">Save again</string>
+    <string name="receipt_exporting">சேமிக்கிறது…</string>
+    <string name="receipt_exporting_en">Saving…</string>
+    <string name="receipt_saved">%1$d கோப்புகள் சேமிக்கப்பட்டன.</string>
+    <string name="receipt_saved_en">%1$d files saved.</string>
+    <!--
+      §6.6: "a line telling the user where the folder is". Shown before the save
+      as well as after, because it is where the files WILL go, and a person who
+      has to find them later should be able to read the path off the screen
+      without having to remember what it said a minute ago.
+    -->
+    <string name="receipt_location">இடம்</string>
+    <string name="receipt_location_en">Location</string>
+    <string name="receipt_location_note">இந்தக் கோப்புறையை கணினிக்கு நகலெடுக்கலாம்.</string>
+    <string name="receipt_location_note_en">You can copy this folder to a computer.</string>
+    <!--
+      CLAUDE.md #8. The signature says where the file came from and nothing else
+      — not that anything in it is true. Unsigned is an ordinary outcome on a
+      phone whose keystore declined, and it is stated plainly rather than hidden:
+      the packet says the same thing, and the two must not disagree. StrongBox is
+      NOT mentioned here: on screen there is no room to qualify it as "what the
+      phone reported", and an unqualified hardware claim is the one thing #8
+      forbids. The packet carries it with that qualification.
+    -->
+    <string name="receipt_signed">இந்தப் பதிவு இந்த ஃபோனில் கையொப்பமிடப்பட்டது.</string>
+    <string name="receipt_signed_en">This record was signed on this phone.</string>
+    <string name="receipt_unsigned">இந்தப் பதிவு கையொப்பமிடப்படவில்லை.</string>
+    <string name="receipt_unsigned_en">This record is not signed.</string>
+    <!--
+      Only ever shown when the app's own check of the receipt it just built comes
+      back failed — which should be impossible, and is therefore worth saying out
+      loud rather than swallowing. The words describe the file, not the session.
+    -->
+    <string name="receipt_chain_failed">இந்தப் பதிவு அதன் சொந்த சரிபார்ப்புடன் பொருந்தவில்லை.</string>
+    <string name="receipt_chain_failed_en">This record does not match its own integrity check.</string>
+    <string name="receipt_export_failed">சேமிக்க முடியவில்லை.</string>
+    <string name="receipt_export_failed_en">The files could not be saved.</string>
+    <string name="receipt_export_incomplete">சில கோப்புகள் சேமிக்கப்படவில்லை:</string>
+    <string name="receipt_export_incomplete_en">Some files were not saved:</string>
 
     <!-- ===================== DEV MENU (debug builds only) ===================== -->
     <!-- Rung-0 probe screen (build plan §6.3). English is fine: the user here is
