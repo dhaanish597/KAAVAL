@@ -43,16 +43,21 @@ import java.math.BigDecimal
  *   cell (`row(...)` for the first line, plain `line(...)` calls for the
  *   continuation — see below), instead of being flattened to one line.
  * - **Not** reproduced literally: `pdftotext -layout`'s own column-width
- *   reflow staggers the §5 table's "At 4%/8%" *data* cells so that (verified
- *   by cross-checking the printed rupee figures against compound growth at
- *   4%/8% on ₹1,20,000/year) year N's non-guaranteed accumulation values
- *   print 2 output lines below year N's Policy-Year/Premium/Total-Premium
- *   cells for most rows, and year 1's spill onto the *same* printed line as
- *   the header's wrapped "guaranteed)" continuation. That is an artifact of
- *   the extractor's column-width text-flow, not of the document (a photo of
- *   the real page would show every cell of one printed row at one vertical
- *   position) — reproducing it literally would encode a tool bug as if it
- *   were page content. [PageBuilder.row] below instead uses three
+ *   reflow staggers the §5 table's "At 4%/8%" *data* cells away from their
+ *   true row. Verified by cross-checking the printed rupee figures against
+ *   compound growth at 4%/8% on ₹1,20,000/year: the offset between year N's
+ *   label row (Policy-Year/Premium/Total-Premium cells) and its true
+ *   non-guaranteed values *grows* with N — +2 output lines for year 1, +3
+ *   for year 2, +4 for year 3, +5 for year 4 — then plateaus at +6 for years
+ *   5-10 (the table has exactly six trailing, label-less value-only lines
+ *   left for those six years, so the growth stops once they're all it is).
+ *   Year 1's values additionally land on the *same* printed line as the
+ *   header's wrapped "guaranteed)" continuation (offset +2 from a label row
+ *   that itself starts 2 lines below the 2-line header). That is an artifact
+ *   of the extractor's column-width text-flow, not of the document (a photo
+ *   of the real page would show every cell of one printed row at one
+ *   vertical position) — reproducing it literally would encode a tool bug as
+ *   if it were page content. [PageBuilder.row] below instead uses three
  *   representative data rows (years 1, 5, 10) with their correctly
  *   attributed values, at consistent single-row positions; none of the other
  *   7 data rows (or these three) contain a "%" sign or any other regex

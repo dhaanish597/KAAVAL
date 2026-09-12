@@ -149,6 +149,29 @@ class WrittenExtractorTest {
     }
 
     @Test
+    fun `GUARANTEE - fix round 2 counterexample 1 - "do not mean no" is a hedge, not a value, never Guarantee false`() {
+        // Reviewer counterexample: "no" here IS the row's terminal word (the
+        // round-1 lookahead alone lets this through), but the gap "do not
+        // mean" is not a connective — none of those words are prepositions,
+        // articles, or this document's premium/paid vocabulary. Rule 2: a
+        // hedge/double-negative like this must stay silent, not DIFFERS.
+        val obs = extractOne("Guaranteed Returns do not mean no.")
+        assertTrue(obs.none { it.type == ClaimType.GUARANTEE })
+    }
+
+    @Test
+    fun `GUARANTEE - fix round 2 counterexample 2 - an unrelated table cell's "No" must never bridge the gap`() {
+        // Reviewer counterexample: exactly the shape RowAssembler produces
+        // when a multi-column row puts an unrelated column's "No" cell after
+        // the "Guaranteed Returns" label — the gap "on maturity Loan Facility"
+        // is not the real document's "on premiums paid", and "maturity" /
+        // "Loan" / "Facility" are not in the connective whitelist, so the
+        // match must break before reaching "No".
+        val obs = extractOne("Guaranteed Returns on maturity Loan Facility No")
+        assertTrue(obs.none { it.type == ClaimType.GUARANTEE })
+    }
+
+    @Test
     fun `CHARGES - the real §7 2 percent tier (years 2-5) is a separate, deliberate observation`() {
         val obs = extractOne("Premium Allocation Charge Years 2-5 2% of Annualised Premium")
             .single { it.type == ClaimType.CHARGES }

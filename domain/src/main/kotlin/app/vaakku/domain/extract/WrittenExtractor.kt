@@ -29,29 +29,40 @@ class WrittenExtractor {
         // "Guaranteed Returns on premiums paid: No." (real prop document §6) — the
         // real sentence puts a short qualifier ("on premiums paid") between the
         // label and the "No", which the original tight pattern did not tolerate.
-        // The (?:\s+\S+){0,4}? run absorbs up to four intervening words, lazily,
-        // so it still requires "no" to be the next sense-bearing word after the
-        // qualifier.
         //
-        // That alone is still over-broad (found in fix round 1 review): "no" can
-        // also be a DETERMINER introducing a noun — "Guaranteed Returns apply
-        // throughout; no exceptions." / "...require no additional underwriting."
-        // Both of those are affirmative sentences that must never read as
-        // Guarantee(false). The distinguishing shape across every true instance
-        // (§4's table row "Guaranteed Returns | No", which RowAssembler joins
-        // into "Guaranteed Returns No"; "Guaranteed returns: No"; "Guaranteed
-        // Returns on premiums paid: No.") is that "No" is the VALUE — it is the
-        // last content of the row, followed by nothing but trailing punctuation.
-        // A determiner "no" is instead followed by the noun it introduces. The
-        // trailing lookahead `(?=[\s.,;:)'"]*$)` enforces exactly that: after the
-        // word "no", only whitespace/punctuation may remain to the end of the
-        // row text — never another word.
+        // Fix round 1 found the first widening (an arbitrary-word gap) let a
+        // DETERMINER "no" through — "Guaranteed Returns apply throughout; no
+        // exceptions." A trailing lookahead fixed that: "no" must be the row's
+        // terminal value (only trailing punctuation may follow it), never a
+        // word introducing a noun.
+        //
+        // Fix round 2: the lookahead alone was still not enough, because the
+        // GAP could still be arbitrary words (\S+) — any unrelated content
+        // within four words of a *later, unrelated* terminal "no" still fired:
+        // "Guaranteed Returns do not mean no." (a hedge — rule 2 says silence)
+        // and, worse, "Guaranteed Returns on maturity Loan Facility No" —
+        // exactly the shape RowAssembler produces when a multi-column table
+        // row puts an unrelated column's "No" cell after the "Guaranteed
+        // Returns" label, which this table-heavy document risks for real.
+        //
+        // The one real gap in this whole document (checked: every "Guaranteed
+        // Returns" occurrence on pages 3-8, via
+        // `pdftotext -layout -f 3 -l 8 ... | grep -i guaranteed`) is "on
+        // premiums paid" — a preposition plus two domain nouns, not arbitrary
+        // prose. The gap is now a bounded whitelist of exactly that shape:
+        // prepositions, articles, and the document's own "premium(s)/paid"
+        // vocabulary — nothing else can bridge label to value. "do", "not",
+        // "mean", "maturity", "Loan", "Facility" are not in it, so both new
+        // counterexamples now break the match before "no" and go silent, the
+        // same as fix round 1's two counterexamples. If a genuinely different
+        // real connective ever turns up, it should be added to this list by
+        // name, with its own source citation — never re-opened back to \S+.
         // GUARANTEE_TRUE is deliberately left tight: widening it too is not
         // needed by any known document text, and a tight positive match is the
         // safer default (a missed "yes" is silence; a loose one risks reading
         // an unrelated "yes" nearby as this policy's guarantee).
         val GUARANTEE_FALSE = Regex(
-            """not guaranteed|non-guaranteed|guaranteed returns?(?:\s+\S+){0,4}?\s*:?\s*no\b(?=[\s.,;:)'"]*$)""",
+            """not guaranteed|non-guaranteed|guaranteed returns?(?:\s+(?:on|of|for|to|in|the|a|an|premiums?|paid)\b){0,4}\s*:?\s*no\b(?=[\s.,;:)'"]*$)""",
             RegexOption.IGNORE_CASE,
         )
         val GUARANTEE_TRUE = Regex("""guaranteed returns?\s*:?\s*(yes|\d)""", RegexOption.IGNORE_CASE)
