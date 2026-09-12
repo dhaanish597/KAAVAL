@@ -1,8 +1,14 @@
 # STATUS — VAAKKU
 
-Current light: GREEN · Current phase: **P2 (ASR)** — step 1 (laptop pre-screen) complete,
-step 2 (ASR in the app) **written and green on the laptop; not yet run on the phone** ·
+Current light: GREEN · Current phase: **P5 (Integration)** — the session runs end to end on
+the phone: Setup → mic open → Delta Card → Details → Scan sheet → ended → back to Setup ·
 Hour: H1–H6
+
+**What is real as of 2026-09-13 02:56 IST:** the microphone genuinely opens on the phone
+(logcat proves `silero_vad.onnx` loads and `AudioRecord` starts), every P5 screen renders
+in Tamil, and the session service shuts down cleanly leaving no `ServiceRecord`. **What is
+still unproven:** no page has ever been through the camera into the ledger (G3), and no NPU
+work exists (G4).
 
 Red Light ruling: **unknown** — no organizer statement recorded yet.
 Name ruling: **unknown** — displayed name is VAAKKU, changed by editing the single
@@ -21,7 +27,7 @@ This assumption has not been confirmed by an organizer.
 | G2 ASR decision | **DECISION TAKEN — 2 of 3 evidence items** | `evidence/asr_prescreen/`, `evidence/G2_asr_bakeoff.csv`; live-mic scorecard still needs a human | H5– |
 | G3 OCR | **CODE READY — no scan yet** | `docs/superpowers/plans/p3-ocr-plan.md`; five clauses proven against the real document in `:domain`. Needs 5 scan sessions on the phone. | H6– |
 | G4 NPU | NOT STARTED | — | — |
-| G5 End-to-end | NOT STARTED | — | — |
+| G5 End-to-end | **UI COMPLETE — one half unproven** | `evidence/P5_*.png`; session runs Setup→mic→card→ended→Setup on the phone. The spoken half reaches the ledger; the camera half has still never run. | H6– |
 | G6 Go/No-Go | NOT STARTED | — | — |
 | G7 Receipt + Office Kit | NOT STARTED | — | — |
 | G8 Freeze | NOT STARTED | — | — |
@@ -255,6 +261,34 @@ every guard, but produces no measurement until the human scans.
 **What G3 still requires:** the gate is "expected clauses extracted in ≥4 of 5 scans". Nothing
 above measures that. The domain half is proven against the document's *text*; the camera half
 has never converted a photograph into that text.
+
+### P5 evidence — session runtime + session UI (§6.6, §6.7)
+
+Commits `a8f669d` (P5.2 runtime + microphone service) and `866da5b` (P5.3 session UI).
+Verified on the phone 2026-09-13 02:30–02:57 IST.
+
+| Item | Status | Path / number |
+|---|---|---|
+| Setup screen, Tamil | **done** | `evidence/P5_setup.png` — permissions Granted, Offline check On, `✈ இணைப்பு இல்லை ✓` |
+| Session screen, listening | **done** | `evidence/P5_session_listening.png` — `கேட்கிறது…`, `பேச்சு 0 · ஆவணம் 0` |
+| Scan sheet | **done** | `evidence/P5_scan_sheet.png` — preview bound, both buttons, clause list empty |
+| Details ledger, all six claims | **done** | `evidence/P5_details.png` — every row `—` (silent) with the not-scanned wording |
+| Session ended | **done** | `evidence/P5_session_ended.png` — `அமர்வு முடிந்தது` / `வேறுபாடு எதுவும் காட்டப்படவில்லை.` |
+| **Microphone really opens** | **PROVEN in logcat** | `sherpa-onnx … silero_vad.onnx` loaded, then `AudioRecord: set(): inputSource 6, sampleRate 16000` → `start(189): return status 0` |
+| Service teardown | **PROVEN** | after Close, `dumpsys activity services app.vaakku` → **0 ServiceRecords** |
+| Navigation loop | **PROVEN** | Setup → Session → ended → Close → Setup (`அமர்வு தயாரிப்பு`), by uiautomator dump |
+| `:domain:test` + `fixtureReport` + `checkBannedWords` + `:app:testDebugUnitTest` | **PASS** | 26 fixtures, precision=1.00, recall=1.00, 0 mismatches; 80 files scanned, 0 findings |
+| `scripts/check_manifest.sh` | **PASS** | no INTERNET / ACCESS_NETWORK_STATE in merged manifest or APK; `SessionService` declared, `foregroundServiceType=microphone`, not exported |
+| **Delta Card seen with a real card on it** | **NOT DONE** | needs speech + a scan in one session — the card path is proven only by `ReconcilerTest` and `CopyBuilder`, never by eye |
+| **Three-finger debug overlay** | **NOT DONE** | SELinux on this ROM denies `sendevent` to `/dev/input/event6`, so multi-touch cannot be synthesized from adb. Needs three real fingers. |
+
+**Screencap artifact, not a bug.** In `P5_scan_sheet.png` a black band appears over the two
+caption lines under the camera preview. It is a capture artifact of how this ROM composites
+the CameraX TextureView: the same single `Text` composable renders light-on-dark for its
+first line and dark-on-light for its later lines, which cannot happen in real rendering. The
+uiautomator dump settles it — the preview ends at y=1478 and the captions are at y=1508 and
+y=1691, so there is no overlap. Anything under a camera preview will look like this in a
+screenshot on this phone; check bounds, not pixels.
 
 ## Decisions log
 
@@ -621,6 +655,61 @@ has never converted a photograph into that text.
     Until then `PrivacyMask.applyOrPassThrough` returns its input unchanged and the UI states that
     framing is the only mitigation. CLAUDE.md #8 — no label may claim work that is not happening.
 
+53. **Navigation is derived state, not a callback.** `MainActivity` shows `SetupScreen` while
+    `SessionRuntime.state.phase == IDLE` and `SessionScreen` otherwise, so `SessionRuntime.clear()`
+    *is* the way back. `SessionScreen` has no `onExit` parameter. One source of truth for "is there
+    a session", shared with the microphone service, and no way for the UI and the mic to disagree.
+    P6 inserts the Receipt screen by branching on `SessionPhase.ENDED` in the activity.
+
+54. **The Delta Card sizes its alert text on a character-count ladder (40 / 37 / 34 sp), not by
+    measuring.** `TextAutoSize` could not be verified present in the cached foundation artifact, and
+    a hand-rolled measure-and-shrink loop fails by rendering *nothing* on the frame it gets wrong.
+    A blank card is the worst possible outcome — it is the one fact the buyer came for. The ladder
+    is deterministic and never yields empty. §6.6's floor of 34 sp is the bottom rung.
+
+55. **Sheet headers are `heightIn(min = 56.dp)`, never a fixed height.** Found on the phone:
+    `ஆவணத்தை ஸ்கேன் செய்` wraps to two lines and a fixed 56.dp clipped the second one mid-word
+    (uiautomator: the title measured exactly 210 px = 56 dp). Tamil sets longer than the English
+    the Material rhythm was chosen against, so this will keep happening — every header on every
+    screen now grows. The constant lives in `SessionScreen.kt` as `HEADER_MIN_HEIGHT`.
+
+56. **The empty-state card stops saying "கேட்கிறது…" once the session ends.** The mic is closed
+    at that point, so the word is a false statement about the hardware (CLAUDE.md #8). The status
+    line keeps the mic state (`அமர்வு முடிந்தது`) and the card carries the result
+    (`வேறுபாடு எதுவும் காட்டப்படவில்லை.`). The result line is deliberately a statement about the
+    *app*: a silent session must not read as clearing the person across the table, just as a card
+    must not read as a charge against them.
+
+57. **The manifest deliberately does not set `enableOnBackInvokedCallback`.** Logcat asks for it.
+    Ignored on purpose: during a session, back must do *nothing* — the phone is lying on a table
+    between two people and a stray edge swipe must not disturb the one line being read. Predictive
+    back would play a peek animation on every such swipe before snapping back. `BackHandler` works
+    identically on the legacy path, and the sheets rely on registration order (innermost open sheet
+    wins) which is unchanged.
+
+58. **`SessionEvidence.newSessionId` takes a prefix.** `session_<stamp>` for a real session,
+    `scan_<stamp>` for a bench scan from the Dev menu. The receipt is built from a session folder,
+    so when the folder name is all you have, the two must be tellable apart.
+
+59. **`sendevent` is denied to the shell on this ROM, so multi-touch cannot be synthesized.**
+    `/dev/input/event6` is `crw-rw---- root input` and the shell *is* in the `input` group, but
+    SELinux refuses the write anyway. Consequence: the three-finger debug overlay can only be
+    opened by a human hand, and any future gesture must be verified the same way. `input tap`
+    and `input swipe` still work, so single-pointer UI can be driven from adb.
+60. **LIQUIDITY durations are shown in months unless they divide evenly into years.**
+    §8.3 gives only a years-denominated phrase for both liquidity values, and
+    `ValuePhrase.forLiquidity` took that literally: it divided by 12 unconditionally, so
+    integer division rendered an 18-month withdrawal cliff as "1 வருடம்" — a wrong number,
+    shown at 40 sp, to someone deciding whether to sign. `forLockIn` had always had the
+    correct `% 12 == 0` branch; liquidity just never got it. Fixed by adding
+    `v_withdraw_after_months` and `v_surrender_nil_before_months` (CLAUDE.md #2: if the app
+    cannot say it exactly it must not say it approximately). **Every liquidity duration in
+    the 26 fixtures is an exact number of years, and so was every liquidity shape in
+    `CopyResTest.valueShapes()` — neither suite could have caught this.** Both now carry
+    non-exact-year cases, and the guard was proved by deleting one registration and
+    watching `CopyResTest` fail at line 144. The months wording is shorter than the years
+    wording, so `DeltaCard`'s character ladder is unaffected.
+
 ## Measurements
 
 ### M1 — Rung-0 probe, run on the phone 2026-09-12 12:06 IST
@@ -800,14 +889,16 @@ screen), `evidence/language_setting_persisted_after_restart.png` (after
     into it, so `File.isDirectory()` succeeded while `File.isFile()` on each child
     failed, and all four engines reported "missing: model.int8.onnx, tokens.txt"
     immediately after a verified 1.1 GB push.
-14. **`SessionService` (§6.7) is still not written.** It is the foreground-service host
-    the real session screen needs; the Dev screens run the pipeline in a plain coroutine
-    scope instead, which is fine for a screen you are looking at and wrong for a session
-    that must survive the screen turning off. When it lands, `<service
+14. **RESOLVED — `SessionService` (§6.7) is written, running and torn down cleanly.**
+    It is the foreground-service host the real session screen needs; the Dev screens run
+    the pipeline in a plain coroutine scope instead, which is fine for a screen you are
+    looking at and wrong for a session that must survive the screen turning off. `<service
     android:name=".session.SessionService" android:foregroundServiceType="microphone"
-    android:exported="false"/>` goes into the manifest **and the corresponding assertion
-    in `scripts/check_manifest.sh` must be updated** — it currently asserts the P0 state
-    ("SessionService not yet declared") and will fail the moment the service is correct.
+    android:exported="false"/>` is in the manifest, `scripts/check_manifest.sh` was updated
+    off the P0 assertion and now asserts the declaration positively (**RESULT: PASS**), and
+    `dumpsys activity services app.vaakku` reports **0 ServiceRecords** after Close — the
+    service does not linger. Logcat proves the mic really opens: `AudioRecord: set():
+    inputSource 6, sampleRate 16000` → `start(189): return status 0`.
 15. **Two MCP servers in this environment need authorization and could not be used:**
     `plugin:catalyst-by-zoho:catalyst-by-zoho` and `plugin:supabase:supabase`. Neither is
     needed by VAAKKU, which is offline by design and has no backend — recorded only so

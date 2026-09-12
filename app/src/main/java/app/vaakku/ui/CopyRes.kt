@@ -101,6 +101,21 @@ object CopyRes {
             1,
             plural = true,
         ),
+        // The "_months" halves of the two liquidity phrases. §8.3 gives only a
+        // years-denominated wording, which is exact for a 12/24/60-month schedule
+        // and silently wrong for an 18- or 30-month one — see ValuePhrase.forLiquidity.
+        "v_withdraw_after_months" to Entry(
+            R.plurals.v_withdraw_after_months,
+            R.plurals.v_withdraw_after_months_en,
+            1,
+            plural = true,
+        ),
+        "v_surrender_nil_before_months" to Entry(
+            R.plurals.v_surrender_nil_before_months,
+            R.plurals.v_surrender_nil_before_months_en,
+            1,
+            plural = true,
+        ),
         "v_liquidity_unspecified" to Entry(R.string.v_liquidity_unspecified, R.string.v_liquidity_unspecified_en, 0),
         "v_required_for_loan" to Entry(R.string.v_required_for_loan, R.string.v_required_for_loan_en, 0),
         "v_voluntary" to Entry(R.string.v_voluntary, R.string.v_voluntary_en, 0),

@@ -425,6 +425,31 @@
 
     <!--
       TAMIL-REVIEW
+      The month-denominated twins of the two phrases above, used when the period
+      does not divide evenly into years. §8.3 gives only the years form, and
+      taking that literally made 18 months read as "1 year" — a wrong number,
+      set large, in front of someone deciding whether to sign. Same sentence,
+      same word order; only the unit changes.
+    -->
+    <plurals name="v_withdraw_after_months">
+        <item quantity="one">%1$s மாதத்துக்குப் பிறகு எடுக்கலாம்</item>
+        <item quantity="other">%1$s மாதங்களுக்குப் பிறகு எடுக்கலாம்</item>
+    </plurals>
+    <plurals name="v_withdraw_after_months_en">
+        <item quantity="one">can be withdrawn after %1$s month</item>
+        <item quantity="other">can be withdrawn after %1$s months</item>
+    </plurals>
+    <plurals name="v_surrender_nil_before_months">
+        <item quantity="one">%1$s மாதத்துக்கு முன் சரண்டர் மதிப்பு இல்லை</item>
+        <item quantity="other">%1$s மாதங்களுக்கு முன் சரண்டர் மதிப்பு இல்லை</item>
+    </plurals>
+    <plurals name="v_surrender_nil_before_months_en">
+        <item quantity="one">no surrender value before %1$s month</item>
+        <item quantity="other">no surrender value before %1$s months</item>
+    </plurals>
+
+    <!--
+      TAMIL-REVIEW
       `v_liquidity_unspecified` is what the ledger shows when a liquidity claim
       carries no period at all. It states the absence of a number and nothing
       else — it is not a way of saying the document is wrong.

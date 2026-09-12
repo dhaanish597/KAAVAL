@@ -139,6 +139,28 @@ class CopyBuilderTest {
         )
     }
 
+    /**
+     * The regression that the fixtures could not catch: every liquidity duration in
+     * the suite happens to be an exact number of years, so an unconditional `/ 12`
+     * passed everything while turning 18 months into "1 year" on the card.
+     */
+    @Test
+    fun `LIQUIDITY value phrases stay in months when the duration is not whole years`() {
+        assertEquals(
+            CopyRef("v_withdraw_after_months", listOf("18")),
+            ValuePhrase.forLiquidity(ClaimValue.Liquidity(withdrawableAfterMonths = 18, surrenderNilBeforeMonths = null)),
+        )
+        assertEquals(
+            CopyRef("v_surrender_nil_before_months", listOf("30")),
+            ValuePhrase.forLiquidity(ClaimValue.Liquidity(withdrawableAfterMonths = null, surrenderNilBeforeMonths = 30)),
+        )
+        // 1 month must not silently become "0 years".
+        assertEquals(
+            CopyRef("v_withdraw_after_months", listOf("1")),
+            ValuePhrase.forLiquidity(ClaimValue.Liquidity(withdrawableAfterMonths = 1, surrenderNilBeforeMonths = null)),
+        )
+    }
+
     @Test
     fun `BUNDLING and CHARGES value phrases`() {
         assertEquals(CopyRef("v_required_for_loan"), ValuePhrase.forBundling(ClaimValue.Bundling(true)))
@@ -166,7 +188,8 @@ class CopyBuilderTest {
             "card_differs_english_small_line", "card_not_in_document_spoken_line", "card_not_in_document_hint_line",
             "followup_guarantee", "followup_lockin_liquidity", "followup_bundling", "followup_rate_charges",
             "v_guaranteed_pct", "v_not_guaranteed", "v_guaranteed", "v_illustrative_pcts", "v_years", "v_months",
-            "v_withdraw_after", "v_surrender_nil_before", "v_liquidity_unspecified", "v_required_for_loan",
+            "v_withdraw_after", "v_surrender_nil_before", "v_withdraw_after_months",
+            "v_surrender_nil_before_months", "v_liquidity_unspecified", "v_required_for_loan",
             "v_voluntary", "v_no_charges", "v_charge_pct", "v_charge_present",
         )
         allKeys.forEach { key -> banned.forEach { b -> assert(!key.contains(b, ignoreCase = true)) { "key '$key' contains banned word '$b'" } } }

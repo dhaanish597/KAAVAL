@@ -156,6 +156,12 @@ class CopyResTest {
         ClaimValue.LockIn(18),
         ClaimValue.Liquidity(withdrawableAfterMonths = 60, surrenderNilBeforeMonths = null),
         ClaimValue.Liquidity(withdrawableAfterMonths = null, surrenderNilBeforeMonths = 60),
+        // Not whole years: a separate key family, and the one this list originally
+        // missed — every liquidity shape here was an exact number of years, so the
+        // `_months` templates could have been absent from the table without any
+        // test noticing. LockIn(18) above is the same thought, three lines earlier.
+        ClaimValue.Liquidity(withdrawableAfterMonths = 18, surrenderNilBeforeMonths = null),
+        ClaimValue.Liquidity(withdrawableAfterMonths = null, surrenderNilBeforeMonths = 30),
         ClaimValue.Liquidity(withdrawableAfterMonths = null, surrenderNilBeforeMonths = null),
         ClaimValue.Bundling(requiredForLoan = true),
         ClaimValue.Bundling(requiredForLoan = false),

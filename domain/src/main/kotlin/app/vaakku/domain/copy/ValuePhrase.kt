@@ -36,15 +36,32 @@ object ValuePhrase {
         else CopyRef("v_months", listOf(value.months.toString()))
 
     /**
-     * §8.3 only gives a years-denominated phrase for both liquidity value
-     * phrases; months are converted to whole years (our fixtures/labels
-     * only ever produce exact-year durations for these two fields).
+     * Whole years when the duration divides evenly by 12, months otherwise —
+     * the same rule as [forLockIn], for the same reason.
+     *
+     * §8.3 gives only a years-denominated phrase for both liquidity values, and
+     * an earlier version took it literally and always divided by 12. Integer
+     * division made 18 months read as "1 year": a wrong number, shown large, to
+     * someone deciding whether to sign. The fixtures happen to hold only
+     * exact-year durations, so nothing in the suite would ever have caught it —
+     * a real surrender schedule with a 30-month cliff would have. Two more keys
+     * cost less than one wrong year (CLAUDE.md #2: when the app cannot say it
+     * exactly, it must not say it approximately).
      */
-    fun forLiquidity(value: ClaimValue.Liquidity): CopyRef = when {
-        value.withdrawableAfterMonths != null -> CopyRef("v_withdraw_after", listOf((value.withdrawableAfterMonths / 12).toString()))
-        value.surrenderNilBeforeMonths != null -> CopyRef("v_surrender_nil_before", listOf((value.surrenderNilBeforeMonths / 12).toString()))
-        else -> CopyRef("v_liquidity_unspecified")
+    fun forLiquidity(value: ClaimValue.Liquidity): CopyRef {
+        val withdrawAfter = value.withdrawableAfterMonths
+        val nilBefore = value.surrenderNilBeforeMonths
+        return when {
+            withdrawAfter != null -> durationPhrase(withdrawAfter, "v_withdraw_after")
+            nilBefore != null -> durationPhrase(nilBefore, "v_surrender_nil_before")
+            else -> CopyRef("v_liquidity_unspecified")
+        }
     }
+
+    /** `<key>` in whole years, or `<key>_months` when the months do not divide evenly. */
+    private fun durationPhrase(months: Int, yearsKey: String): CopyRef =
+        if (months % 12 == 0) CopyRef(yearsKey, listOf((months / 12).toString()))
+        else CopyRef("${yearsKey}_months", listOf(months.toString()))
 
     fun forBundling(value: ClaimValue.Bundling): CopyRef =
         if (value.requiredForLoan) CopyRef("v_required_for_loan") else CopyRef("v_voluntary")
