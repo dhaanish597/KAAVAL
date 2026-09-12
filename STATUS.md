@@ -1,14 +1,16 @@
 # STATUS — VAAKKU
 
-Current light: GREEN · Current phase: **P5 (Integration)** — the session runs end to end on
-the phone: Setup → mic open → Delta Card → Details → Scan sheet → ended → back to Setup ·
+Current light: GREEN · Current phase: **P6 (Receipt)** — the session runs end to end on
+the phone, and a receipt's hash chain now verifies in a second implementation ·
 Hour: H1–H6
 
-**What is real as of 2026-09-13 02:56 IST:** the microphone genuinely opens on the phone
-(logcat proves `silero_vad.onnx` loads and `AudioRecord` starts), every P5 screen renders
-in Tamil, and the session service shuts down cleanly leaving no `ServiceRecord`. **What is
-still unproven:** no page has ever been through the camera into the ledger (G3), and no NPU
-work exists (G4).
+**What is real as of 2026-09-13:** the microphone genuinely opens on the phone (logcat
+proves `silero_vad.onnx` loads and `AudioRecord` starts), every P5 screen renders in Tamil,
+the session service shuts down cleanly leaving no `ServiceRecord`, and a receipt written by
+`:domain` verifies byte-for-byte in an independent Node implementation — including a real
+ECDSA signature, and including a tamper it correctly refuses. **What is still unproven:** no
+page has ever been through the camera into the ledger (G3), no NPU work exists (G4), and no
+receipt has ever been written by the phone (§7.2 Keystore and §7.3 export are not written).
 
 Red Light ruling: **unknown** — no organizer statement recorded yet.
 Name ruling: **unknown** — displayed name is VAAKKU, changed by editing the single
@@ -29,7 +31,7 @@ This assumption has not been confirmed by an organizer.
 | G4 NPU | NOT STARTED | — | — |
 | G5 End-to-end | **UI COMPLETE — one half unproven** | `evidence/P5_*.png`; session runs Setup→mic→card→ended→Setup on the phone. The spoken half reaches the ledger; the camera half has still never run. | H6– |
 | G6 Go/No-Go | NOT STARTED | — | — |
-| G7 Receipt + Office Kit | NOT STARTED | — | — |
+| G7 Receipt + Office Kit | **CHAIN PROVEN — no receipt from a phone yet** | `evidence/G7_receipt_integrity.txt`, `evidence/receipt_fixture/` | H6– |
 | G8 Freeze | NOT STARTED | — | — |
 
 ### G0 evidence checklist (§13)
@@ -289,6 +291,33 @@ first line and dark-on-light for its later lines, which cannot happen in real re
 uiautomator dump settles it — the preview ends at y=1478 and the captions are at y=1508 and
 y=1691, so there is no overlap. Anything under a camera preview will look like this in a
 screenshot on this phone; check bounds, not pixels.
+
+### G7 evidence — receipt chain + packet CLI (§7.1, §7.2, §7.4)
+
+Commit `d664f29`. Run on the laptop 2026-09-13; nothing here needed the phone, and nothing
+here proves the phone. Full output in `evidence/G7_receipt_integrity.txt`.
+
+| Item | Status | Path / number |
+|---|---|---|
+| Canonical JSON + hash chain (`:domain`) | **done** | `domain/src/main/kotlin/app/vaakku/domain/receipt/` — every leaf a string, `h_{i-1}` joined as 64 hex chars |
+| Deterministic fixture receipt | **done** | `evidence/receipt_fixture/receipt.json` — 7 events, all 6 claim types, head `dcb92a12…ece53` |
+| **Chain reproduced by a second implementation** | **PROVEN** | `INTEGRITY: PASSED` from `tools/packet-cli`, which shares no code with the Kotlin — all 9 hashes agree |
+| **Tamper detected, and named** | **PROVEN** | `receipt_tampered.json` (8% → 9% in one spoken claim *and* its ledger row) → `INTEGRITY: FAILED (event 2 of 7 does not match h2)`, exit 2 |
+| §7.2 signature verified across runtimes | **PROVEN** | a real `keytool` EC P-256 key signs in the JVM, verifies in Node → `SIGNATURE: verified`; `scripts/receipt_fixture_signed.sh` |
+| Broken signature is a failure | **PROVEN** | one flipped DER bit → `INTEGRITY: FAILED`, `SIGNATURE: FAILED`, exit 2, with the chain itself still intact |
+| Input shapes: folder, zip, nested zip, single file | **done** | all four read; crops embed when present, and the packet says which image is missing when absent |
+| Packet rendered, read by eye | **done** | `evidence/receipt_fixture/packet.pdf` — Tamil correctly shaped, violet on the DIFFERS row only, 3 rows with LOCK_IN/LIQUIDITY/CHARGES **silent** |
+| No internal field can reach paper | **enforced, and it fired** | `assertNothingInternal` walks the built model; it caught `signature.reason` during this work (§7.4's verification reason, colliding with the ledger's `ReasonCode`) |
+| `:domain:test` + `fixtureReport` + `checkBannedWords` | **PASS** | 26 fixtures, 45 assertions, precision 1.00, recall 1.00, 0 mismatches |
+| **A receipt written by the phone** | **NOT DONE** | §7.2 Keystore + §7.3 MediaStore export are not written. Everything above used a laptop fixture. |
+| **StrongBox / attestation on real hardware** | **NOT DONE** | the fixture reports `strongBox: false` because a JDK key is not in secure hardware. Honest by construction (CLAUDE.md #8). |
+| **Office Kit half of this gate** | **NOT DONE** | the human has never moved a packet with it |
+
+The signature check has a limit the packet states rather than hides: a verified signature
+proves the key in the attached certificate signed the head. It does **not** prove that key
+is in the phone's secure hardware — that needs the chain walked to Google's attestation
+root, and this tool is offline and does not carry it. So `strongBox` is printed as "reported
+by the phone", not as something verified here.
 
 ## Decisions log
 
@@ -710,6 +739,48 @@ screenshot on this phone; check bounds, not pixels.
     watching `CopyResTest` fail at line 144. The months wording is shorter than the years
     wording, so `DeltaCard`'s character ladder is unaffected.
 
+61. **`head` hashes a closing record, not just the last event — the one documented
+    extension to §7.1.** As written, §7.1 chains the events and calls the final link the
+    head. That leaves the session details and the final ledger — the rows a person
+    actually reads — outside the chain: anybody could change `DIFFERS` to `MATCHES` in
+    `entries`, or move `startedAtMs`, and the receipt would still verify, because no hash
+    ever covered those bytes. So `head = SHA-256(h_n || canonical(closing))` where
+    `closing` is schema + sessionId + appVersion + deviceModel + startedAtMs + endedAtMs +
+    entries. The shape §7.1 and §7.2 depend on is unchanged: `hashes` is still
+    `[h0 … h_n, head]`, `head` is still its last element, and §7.2 still signs `head`. The
+    signature now covers the whole document except itself. `closingRecord` in
+    `tools/packet-cli/lib/verify.js` uses the tool's own `schema` constant rather than the
+    file's field, so a receipt whose schema line was edited cannot re-derive its own head
+    under different rules.
+
+62. **The chain is checked by a second implementation that was written from the spec, not
+    ported from the first.** `HashChainTest` only ever proved that this code agrees with
+    itself, which is worth nothing for §7.4, where a different language has to arrive at
+    the same 64 hex characters. `tools/packet-cli/lib/canonical.js` was therefore written
+    from §7.1's written rule with the Kotlin closed — a translation would have reproduced
+    `CanonicalJson.kt`'s mistakes faithfully and then agreed with itself. Two choices made
+    the agreement reachable at all: **every leaf in canonical JSON is a string**, so there
+    is no number case to diverge on (Java prints `1.0` where JS prints `1`), and
+    **`h_{i-1}` joins as its 64 hex characters** rather than raw bytes, so the join is
+    self-delimiting and reproducible in one line of Node. `verifyChain` re-canonicalizes
+    every event from the parsed JSON, so a disagreement about sort order, escaping or
+    Tamil is a hash mismatch rather than a silent pass — there is no way to pass that
+    check by accident.
+
+63. **A signature that does not match is a FAILED record, and the packet prints times in
+    IST.** Two separate fixes to the same instinct that a technically-true line is good
+    enough. (a) The CLI first reported a broken signature beside `INTEGRITY: PASSED` and
+    exited 0, on the reasoning that the chain really was intact. But a good chain with a
+    signature that does not match is precisely what re-chaining a forged event looks like
+    — the one thing the signature exists to catch — so `overallIntegrity` folds the two
+    checks into the one line §7.4 prints, and the exit code follows it. A missing
+    signature stays PASSED, because a receipt built on a laptop has none. (b) The packet
+    rendered `startedAt` in UTC, so a session at 04:12 IST printed as `2026-09-12T22:42Z`
+    under a file named `session_2026-09-13T04-12-00` — a document contradicting itself in
+    front of the person least equipped to work out which line to believe. `istStamp` adds
+    the offset arithmetically rather than through `Intl`: India has no daylight saving,
+    and a fixed number cannot depend on which ICU data a laptop ships.
+
 ## Measurements
 
 ### M1 — Rung-0 probe, run on the phone 2026-09-12 12:06 IST
@@ -904,6 +975,26 @@ screen), `evidence/language_setting_persisted_after_restart.png` (after
     needed by VAAKKU, which is offline by design and has no backend — recorded only so
     nobody spends time wondering why those tools are inert. Authorize via claude.ai
     connector settings, or `claude mcp` / `/mcp` in an interactive session.
+16. **The three grievance destinations printed on every packet are UNVERIFIED.** §7.4's
+    "where you can take this" section lists the insurer's grievance officer, Bima Bharosa
+    (`bimabharosa.irdai.gov.in`) and the Insurance Ombudsman (`cioins.co.in`). The
+    institution names are stable facts of the Indian insurance system; **the two URLs were
+    written from knowledge and have not been checked**, and this tool is offline so it
+    cannot check them. They are marked `UNVERIFIED` in `DESTINATIONS` in
+    `tools/packet-cli/lib/render.js` — one place to fix. §7.4 assigns this to the human.
+    A wrong address on a document somebody carries to make a complaint is worse than no
+    address, so **if the human cannot verify them before the demo, the honest move is to
+    cut the two URLs and keep the institution names.**
+17. **The packet's own Tamil headings have not been reviewed.** Claim labels, state labels
+    and the free-look note are read out of `app/src/main/res/values/strings.xml`, so they
+    are the lines the human already reviewed (§8.1) and they cannot drift. But the
+    headings that exist only on paper — cover line, "session details", "what was said and
+    what the document says", "integrity of this record", "where you can take this", the
+    empty-state line, and the banner printed when a record does not verify — are defined
+    in `PACKET` in `tools/packet-cli/lib/strings.js` and are marked **TAMIL-REVIEW**. They
+    were written in this window and no native speaker has read them. The banner one
+    matters most: `இந்தப் பதிவு எழுதப்பட்டபடி இல்லை.` is the sentence a person reads when
+    their evidence does not verify.
 
 ## On-device verification status (P0)
 
@@ -1029,11 +1120,10 @@ What is left:
   (sherpa-onnx) carries it. The subtlety worth keeping: the availability flag being
   true is not the same as the language being there, and `needs_download: false` on
   ta-IN means "never offered", not "ready".
-- `SessionService` is deliberately NOT in the manifest. Declaring it before the class
-  exists breaks the build. It arrives in P2 (build plan §6.7) along with the
-  `foregroundServiceType="microphone"` attribute. **It is still not written** — the Dev
-  screens run the pipeline in a plain coroutine scope instead — and when it lands,
-  `scripts/check_manifest.sh` needs its assertion updated too; see open issue 14.
+- ~~`SessionService` is deliberately NOT in the manifest.~~ **Stale — it is written,
+  declared and proven.** See open issue 14 and the P5 evidence table:
+  `foregroundServiceType="microphone"`, not exported, `check_manifest.sh` asserts it
+  positively, and `dumpsys` reports 0 ServiceRecords after Close.
 - The Gradle wrapper is generated and pinned to 9.3.1; `./gradlew` works in Git Bash
   with `JAVA_HOME` set to Android Studio's JBR. If it is ever missing, `gradle wrapper`
   regenerates it from the cached distribution.
@@ -1061,3 +1151,30 @@ What is left:
 - **`checkBannedWords` scans comments too.** Two of its first findings were prose in a
   doc comment ("risk ramp", "never a verdict"), not product strings. The guard was
   right both times. Reword the comment; never touch the list.
+- **The receipt chain is proven; the phone half of §7 is not written.** What exists:
+  `domain/.../receipt/` (canonical JSON + chain), `tools/packet-cli/` (an independent
+  verifier and the §7.4 packet), `:domain:receiptFixture` and
+  `scripts/receipt_fixture_signed.sh` to regenerate the fixtures. What does not:
+  **§7.2's Keystore signing and §7.3's MediaStore export**. The next task there is
+  `vaakku_receipt`, EC P-256, StrongBox attempted with TEE fallback,
+  `setAttestationChallenge(h0 bytes)`, `SHA256withECDSA` over `head` — and the
+  convention to match is **the head's 64 ASCII hex characters, not the 32 bytes they
+  spell**. `ReceiptFixtureRunner.sign` and `verify.js` both already do it that way; a
+  phone that signs the bytes instead will produce a signature Node reports as broken,
+  which now also means exit 2 (decision 63).
+- **Regenerate the receipt fixtures with the Gradle task; never hand-edit them.**
+  `./gradlew :domain:receiptFixture` rewrites `receipt.json` and
+  `receipt_tampered.json` deterministically — every value is a literal, so a re-run on
+  any machine is byte-identical and a diff means something really changed. The signed
+  one needs `scripts/receipt_fixture_signed.sh` (it mints a throwaway key with
+  `keytool` and deletes it on exit), and **its signature is deliberately not
+  deterministic** — ECDSA uses a random nonce, so re-running it always makes a real
+  diff. `evidence/receipt_fixture/packet.html` is gitignored: it embeds ~950 KB of
+  fonts that are already in the repo. The PDF beside it is the artefact to review.
+- **If you add a field to the packet and the CLI crashes, the guard is probably
+  right.** `assertNothingInternal` in `render.js` refuses `confidence`, `reason`,
+  `ambiguous`, `mentionCount`, `dismissed`, `hedged`, `negated` and `conditional`
+  anywhere in the rendered model. It fired once during P6 on `signature.reason` — the
+  verifier's own failure text, unrelated to the ledger's `ReasonCode`, and genuinely
+  needed on paper. The fix was to copy that sub-object field by field under a different
+  name, **not** to add an exception to the guard. Do the same.
