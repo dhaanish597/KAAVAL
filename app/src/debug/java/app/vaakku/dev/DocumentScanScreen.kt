@@ -47,6 +47,7 @@ import app.vaakku.domain.reconcile.Reconciler
 import app.vaakku.domain.reconcile.ReconcilerEvent
 import app.vaakku.ocr.DocumentCamera
 import app.vaakku.ocr.MlKitTextRecognizer
+import app.vaakku.ocr.PageConfidence
 import app.vaakku.ocr.PageScanner
 import app.vaakku.ocr.PrivacyMask
 import app.vaakku.ocr.ScannedPage
@@ -207,7 +208,8 @@ fun DocumentScanScreen(onClose: () -> Unit) {
                 page.observations.forEach { reconciler.apply(ReconcilerEvent.WrittenObserved(it)) }
                 clausesRead += page.observations.size
                 status = "Page ${page.pageNumber}: ${page.observations.size} clause(s) " +
-                    "from ${page.lineCount} OCR line(s) in ${page.ocrElapsedMs} ms."
+                    "from ${page.lineCount} OCR line(s) in ${page.ocrElapsedMs} ms, " +
+                    "min line confidence ${PageConfidence.format3(page.confidence.min)}."
             } catch (c: CancellationException) {
                 status = "Cancelled."
                 // Rethrown: swallowing it would leave the parent scope believing
@@ -348,10 +350,18 @@ fun DocumentScanScreen(onClose: () -> Unit) {
 }
 
 /**
- * One captured page: what the document says, and where it says it.
+ * One captured page: what the document says, where it says it, and how firmly
+ * the recognizer read it.
  *
  * The OCR time is ML Kit's own (§6.4 item 6) — the figure §11.5's scan budget
  * is written against, not the cost of this screen's own bookkeeping.
+ *
+ * **The confidence block is a measurement, not a comparison.** The clause list
+ * above it is produced *before* the reconciler's `writtenMin` filter, so a page
+ * can list every clause and still contribute nothing to the ledger; the numbers
+ * say which of the two the human is looking at while the page is still under the
+ * camera. No state is expressed, no colour is used, and nothing is said about
+ * any person. See [PageConfidence].
  */
 @Composable
 private fun PageBlock(page: ScannedPage) {
@@ -360,11 +370,20 @@ private fun PageBlock(page: ScannedPage) {
             "OCR ${page.ocrElapsedMs} ms, ${page.cropCount} crop(s)",
     )
     if (page.pageImage == null) DevMono("  page image: (not written)")
+
+    page.confidence.reportLines().forEach { DevMono("  $it") }
+
     if (page.observations.isEmpty()) {
         DevMono("  (no clause read on this page)")
     } else {
         page.observations.forEach { observation ->
             DevMono("  ${plainClause(observation)}")
+            // The observation's own number, not the page minimum: this is
+            // row.minConfidence multiplied by the extractor's plausibility
+            // factor, so it can sit below the page minimum, and it is this
+            // value — not the page's — that the reconciler compares against
+            // writtenMin.
+            DevMono("     read at ${PageConfidence.format3(observation.confidence)}${gateNote(observation, page)}")
             val written = observation.provenance as? Provenance.Written
             if (written != null) {
                 DevMono("     as printed: ${written.lineText}")
@@ -373,6 +392,20 @@ private fun PageBlock(page: ScannedPage) {
         }
     }
     Spacer(Modifier.height(8.dp))
+}
+
+/**
+ * The plain fact about one observation's own number, or nothing at all when it
+ * is at or above the gate. A NaN is neither above nor below it — `>=` is false
+ * for NaN — so it is named as its own case rather than reported as a number.
+ */
+private fun gateNote(observation: Observation, page: ScannedPage): String {
+    val gate = PageConfidence.format2(page.confidence.gate)
+    return when {
+        observation.confidence.isNaN() -> " — not a number, so it does not reach the ledger"
+        observation.confidence < page.confidence.gate -> " — under $gate, so it does not reach the ledger"
+        else -> ""
+    }
 }
 
 /**

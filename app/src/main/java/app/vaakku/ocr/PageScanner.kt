@@ -25,6 +25,14 @@ data class ScannedPage(
     val observations: List<Observation>,
     val ocrElapsedMs: Long,
     val lineCount: Int,
+    /**
+     * The `OcrLine.confidence` numbers this page produced — the value
+     * `RowAssembler`/`WrittenExtractor` carry into the reconciler's
+     * `writtenMin` filter. Measured per page and shown on the scan screen so
+     * a page that lists its clauses but sits under that number is visible
+     * while the page is still in front of the camera. See [PageConfidence].
+     */
+    val confidence: PageConfidence,
     /** Null when the page JPEG did not land — see `SessionEvidence`. */
     val pageImage: File?,
     val cropCount: Int,
@@ -123,6 +131,10 @@ class PageScanner(
             observations = evidenceWritten.observations,
             ocrElapsedMs = scan.elapsedMs,
             lineCount = scan.lines.size,
+            // Measured on the mapped lines, i.e. exactly the numbers that go
+            // on to RowAssembler.minConfidence and from there to the
+            // reconciler's writtenMin filter.
+            confidence = PageConfidence.of(scan.lines),
             pageImage = evidenceWritten.pageImage,
             cropCount = evidenceWritten.cropCount,
         )
