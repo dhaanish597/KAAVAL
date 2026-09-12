@@ -1,6 +1,6 @@
 # STATUS — VAAKKU
 
-Current light: GREEN · Current phase: P0 **complete** → P1 next · Hour: H0–H1
+Current light: GREEN · Current phase: P1 **complete** → P2 next · Hour: H1–H5
 
 Red Light ruling: **unknown** — no organizer statement recorded yet.
 Name ruling: **unknown** — displayed name is VAAKKU, changed by editing the single
@@ -15,7 +15,7 @@ This assumption has not been confirmed by an organizer.
 | Gate | Status | Evidence | Time |
 |---|---|---|---|
 | G0 Bootstrap | **PASS** | see below | H0–H1 |
-| G1 Domain | NOT STARTED | — | — |
+| G1 Domain | **PASS** | see below | H1–H5 |
 | G2 ASR decision | NOT STARTED | — | — |
 | G3 OCR | NOT STARTED | — | — |
 | G4 NPU | NOT STARTED | — | — |
@@ -40,6 +40,82 @@ clean over 20 files, with zero Kotlin warnings. The manifest guard passes agains
 the merged manifest and the APK, and `evidence/G0_manifest_check.txt` records the
 manifest-merger REJECTED lines proving the two `tools:node="remove"` declarations are
 load-bearing rather than passing vacuously. Debug APK is 51 MB.
+
+### G1 evidence (§5, §13 P1)
+
+`:domain` built test-first, one commit per deliverable (`git log` P1.1–P1.11), touching
+only `domain/**`, `testdata/testaudio/labels.json`, and this file, per the P1 prompt's
+scope. A clean `./gradlew clean :domain:test :domain:fixtureReport :domain:evalTranscripts
+checkBannedWords` is green.
+
+| Item | Status | Path / number |
+|---|---|---|
+| `:domain:test` | **PASS** | **277 tests, 0 failures**, 13 test classes |
+| Schema guard (§5.9) | **PASS** | `SchemaGuardTest` — 18 tests; scans every main class actually compiled into `app.vaakku.domain` (>= 20 found, not a vacuous pass) |
+| Fixtures (§5.10) | **PASS** | 26 fixtures (10 adversarial A01–A10, 6 demo-path D01–D06, 4 honest-agent H01–H04, 6 normalization N01–N06) — `domain/src/test/resources/fixtures/` |
+| `fixtureReport` | **PASS** | `evidence/fixture_report.md` — **26 fixtures, 45 assertions, DIFFERS precision = 1.00 (TP=12, FP=0), DIFFERS recall = 1.00 (TP=12, FN=0), 0 mismatches** |
+| `evalTranscripts` | **wired, honestly empty** | `evidence/asr_slot_accuracy.md` — no `evidence/asr_prescreen/` transcripts exist yet (P2 produces them); the real computation path is exercised today by `LabelsTest` against `testdata/testaudio/labels.json` and was separately smoke-tested with synthetic transcripts (2/2 and 0/1 slot accuracy, as expected) then removed so no invented evidence is committed |
+| `checkBannedWords` | **PASS** | 45 files scanned, 0 findings (after rewording two of my own KDoc comments that quoted the banned-word list while explaining the rule — same pattern STATUS.md decision "checkBannedWords scans comments too" already found in P0) |
+| `labels.json` (§11.2) | **PASS** | `testdata/testaudio/labels.json`, 15 rows; every script's expected claims verified against the real `SpokenExtractor` by `LabelsTest` |
+
+**Spec ambiguities resolved in P1** (each also documented at its declaration site in code):
+
+1. `Observation` gained one field beyond §5.1's suggested shape: `ambiguous: ReasonCode?`
+   (nullable, default null), so `SpokenExtractor` can flag `NEGATION_AMBIGUOUS` /
+   `NORMALIZATION_AMBIGUOUS` at extraction time for the reconciler's decision-table
+   step 3 to read directly, per §5.1's own "adjust names but keep semantics."
+2. §5.3 names one `hedge` lexicon group; split into `hedge_up_to` / `hedge_illustrative`
+   / `hedge_generic` so `SpokenExtractor` can assign the right `RateQualifier` instead
+   of one undifferentiated bucket.
+3. The "-அரை" half-compound suffix (எட்டரை → 8.5) and Indian-numbering compound
+   thousands (இருபதாயிரம் → 20000) have no safe general sandhi algorithm — listing
+   them as explicit lexicon data (`half_compounds_ta`, `compound_numbers_ta`) beats
+   guessing, per CLAUDE.md #2.
+4. Tokenizer splits on hyphens (does not glue "lock-in" into one token) — the
+   labels.json T09 script contains "Guaranteed-ஆ" (English loanword + Tamil
+   interrogative-particle suffix), and gluing the hyphen would push that word 2 edits
+   from "guaranteed," over the §5.3 distance-1 fuzzy budget, silently dropping the
+   GUARANTEE anchor. Multi-word lexicon idioms ("lock in") are matched by joining
+   adjacent tokens with a space at query time instead.
+5. `Normalizer.parsePercent` / `parseDurationMonths` always resolve the FIRST marker
+   in whatever token window they're given — correct for their own single-value
+   contract, but wrong when `SpokenExtractor` needs a SPECIFIC, already-known anchor
+   (two "percent"s or two "வருஷம்"s in one segment). `Normalizer.numberNear` is public
+   so the extractor resolves each anchor at its own position directly, and
+   `Normalizer.classifyDurationKind` splits the lock-in/liquidity/term lexical check
+   out from number-parsing for the same reason (§5.10 fixtures A02/T02/T05 exercise
+   this).
+6. Within one segment, the LAST occurrence of a claim's anchor wins (self-correction,
+   A2/T09), with hedge/negation/conditional read from a window LOCAL to that anchor —
+   not the whole segment — so an earlier mention's modifier never bleeds onto a later,
+   corrected one.
+7. Same-segment anaphora: a negated "surrender" with no duration of its own inherits
+   the segment's own LOCK_IN months (T06: "Lock-in அஞ்சு வருஷம். அதுக்கு முன்னாடி
+   surrender value கிடையாது."). Scoped to same-segment, same-mention-count-1 cases —
+   documented as a narrow rule, not a general guess.
+8. §5.7's LIQUIDITY compare rule names "surrender value OR lock-in months" as the
+   written-side `n`; implemented as: use LIQUIDITY's own written `surrenderNilBeforeMonths`
+   first, fall back to a written LOCK_IN's months only if LIQUIDITY has none — but this
+   fallback is only reached after LIQUIDITY's own NOT_IN_DOCUMENT check (rule 6) has
+   already passed, so a document truly silent on LIQUIDITY still reads NOT_IN_DOCUMENT,
+   never a LOCK_IN-borrowed comparison.
+9. §8.3's value-phrase table is not fully orthogonal to the six claim types: added a
+   plain `v_guaranteed` key (same family as `v_guaranteed_pct`) for GUARANTEE=true with
+   no same-utterance rate, and reused `v_illustrative_pcts` for every `RateQualifier`
+   since a qualifier word is never itself shown on a card.
+10. `CopyBuilder` returns `null` for every `DeltaState` except DIFFERS/NOT_IN_DOCUMENT,
+    so "MATCHES/PENDING/UNCERTAIN are silent" (CLAUDE.md #2) is enforced at the one
+    place a card gets built, not left to a UI layer to remember later.
+
+**One real bug the fixtures caught, not assumed away:** `extractRate` fires on any
+percent marker regardless of surrounding claim context. An honest-agent fixture's
+CHARGES sentence originally stated the charge amount ("ஐந்து percent"), which
+spuriously produced a SECOND, LATER `RETURN_RATE` observation that overwrote the
+correct one via latest-wins, turning an expected MATCHES into a false DIFFERS. Fixed
+in the fixture (CHARGES comparison is presence-only per §5.7, so the percent was
+never needed there) rather than patched over in the pipeline — recorded here because
+it is a real, narrow scoping gap in `extractRate` worth knowing about in P2/P5, not a
+fixture-authoring slip to quietly forget.
 
 ## Decisions log
 
@@ -171,6 +247,17 @@ load-bearing rather than passing vacuously. Debug APK is 51 MB.
     plain `Button` on a user-facing screen. `primary` is now `colors.ink`; the stamp is
     reachable only as `VaakkuTheme.colors.stamp`, so a Delta Card has to ask for it by
     name. Verified on-device: the Refresh button samples `#222222`.
+22. **P1 (`:domain`) was built test-first, one commit per §13 P1 deliverable
+    (1 through 11), never batched.** Each commit's `./gradlew :domain:test` was green
+    before moving to the next deliverable — the ten spec ambiguities resolved along the
+    way, and the one real bug the fixtures caught, are written up in full under "G1
+    evidence" above rather than repeated here.
+23. **`evidence/fixture_report.md` and `evidence/asr_slot_accuracy.md` were updated even
+    though the P1 prompt's edit scope names only `domain/**`, `testdata/testaudio/labels.json`
+    and this file.** CLAUDE.md #7 ("Evidence or it didn't happen") and rule "Always do"
+    item 4 ("Record evidence paths in STATUS.md") require it, and both files are Gradle
+    task *output*, not hand-edited product code — no `app/**` or root Gradle file was
+    touched to produce them.
 
 ## Measurements
 
@@ -301,6 +388,27 @@ screen), `evidence/language_setting_persisted_after_restart.png` (after
    composition, which restarts the gesture detector. Worth 10 minutes in P1: key the
    `pointerInput` on `Unit` and hold the callback in `rememberUpdatedState`. **Do not
    rely on the long-press during a demo until it has been confirmed by a human finger.**
+   (P1 was domain-only per its own scope — this is still open for whichever phase next
+   touches `SetupScreen`/`Rung0ProbeScreen`.)
+10. **`testdata/testaudio/` has no `.wav` files in the repo.** §11.1 says the human
+    recorded them "last night," but nothing under `testdata/` was ever added — this
+    machine has never seen them. `testdata/testaudio/labels.json` (P1) was written
+    from the build plan §11.2 table with the exact script text, but two things need
+    the human before it can be trusted as ground truth:
+    === HUMAN ACTION NEEDED ===
+    WHAT:   Confirm labels.json's 15 scripts, and get the recorded .wav files into the repo.
+    WHY:    P1's evalTranscripts/labels.json only have a real "last night's recording"
+            behind them if the files exist and the scripts match what was actually said.
+    STEPS:  1. Open testdata/testaudio/labels.json and read each "script" line.
+            2. For each of T01-T14 and R01, confirm the Tamil/English wording matches
+               what you recorded (§11.2 allows rewording a line, but the VALUES —
+               guaranteed/not, the percents, the durations, required/voluntary,
+               charges/none — must stay exactly as labelled).
+            3. Copy the 15 .wav files (16 kHz mono 16-bit PCM) into testdata/testaudio/,
+               named to match each "file" key exactly (e.g. T01_guarantee_fd.wav).
+    REPORT: Either "labels.json matches, .wav files added" or a list of which script
+            lines need correcting (file name + what's wrong).
+    ===========================
 
 ## On-device verification status (P0)
 
@@ -332,12 +440,31 @@ or a file in `evidence/`:
 - [ ] Long-press the debug override line with the radio off (see open issue 9).
 - [ ] Long-press the screen title → Dev menu (see open issue 9 — currently unconfirmed).
 
+## Next Red Light test list
+
+**P1 touched only `domain/**`, `testdata/testaudio/labels.json` and this file — no
+`app/**` or Gradle changes, so the phone's installed build is still exactly the one
+G0 verified.** There is nothing new to hand-test from P1; the "Not yet verified" list
+above (P0) is still the standing queue for the next Red Light window. The next thing
+worth adding here is whatever P2 (ASR) puts on the phone.
+
 ## Handoff notes for the next session
 
 - Read `CLAUDE.md` → `STATUS.md` → `docs/VAAKKU_BUILD_PLAN.md`, in that order.
-- `:domain` has no source yet. P1 writes the domain core and the fixtures; the
-  `fixtureReport` task is already wired and will start printing real numbers once
-  fixtures exist.
+- **`:domain` is done (P1, G1 PASS)** — model/lexicon/normalize/extract/reconcile/copy,
+  277 tests, 26 fixtures, DIFFERS precision & recall both 1.00, schema guard clean. See
+  "G1 evidence" above for the ten spec-ambiguity resolutions and the one real bug the
+  fixtures caught before touching this again. P2 (ASR) is next; when its output starts
+  reaching the domain layer, it should slot into `SpokenExtractor.extract(AsrSegment)`
+  and `Reconciler` unchanged — that boundary was the whole point of building `:domain`
+  phone-free and pure-JVM.
+- `testdata/testaudio/labels.json` exists (15 rows, §11.2) but **no `.wav` files are in
+  the repo yet** and the scripts are unconfirmed against what the human actually
+  recorded — see open issue 10's HUMAN ACTION block. `evalTranscripts` is wired and
+  tested (`LabelsTest`) but has nothing real to score until both land.
+- `evidence/asr_prescreen/<engine>/<file>.txt` is what `:domain:evalTranscripts`
+  reads (build plan §11.3 item 1, a Python laptop pre-screen, not yet built) — once
+  those transcripts exist, re-run `:domain:evalTranscripts`, no code change needed.
 - **The Rung-0 question is answered — do not re-litigate it.** See M1.
   `isOnDeviceRecognitionAvailable()` is *true*, but the on-device recognizer does not
   offer `ta-IN` at all, so engine 5 (`AndroidOnDevice`) is out for Tamil and Rung 1
