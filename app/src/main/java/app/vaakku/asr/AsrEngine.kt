@@ -57,6 +57,33 @@ enum class AsrEngineId(
 
     /** True for the four engines that decode PCM we hand them. */
     val decodesSamples: Boolean get() = this != ANDROID_ON_DEVICE
+
+    companion object {
+        /**
+         * The engine the product uses — the §13 P2 decision, taken on measurement.
+         *
+         * The rule: highest slot accuracy on T01–T14 among engines whose **phone**
+         * aggregate RTF is at or under 0.50; ties go to the smaller model. The
+         * bake-off (`evidence/G2_asr_bakeoff.csv`, 22 clips, 4 threads) measured:
+         *
+         * ```
+         * SHERPA_WHISPER_TA     acc=0.227  agg_rtf=0.324
+         * SHERPA_OMNI_300M      acc=0.182  agg_rtf=0.106
+         * SHERPA_DOLPHIN_SMALL  acc=0.000  agg_rtf=0.036
+         * SHERPA_DOLPHIN_BASE   acc=0.000  agg_rtf=0.017
+         * ```
+         *
+         * All four are inside the RTF budget, so the rule turns on accuracy alone
+         * and selects Whisper. **Nothing here reaches the 0.70 §13 asks for**, so
+         * §13's own fallback also applies: the demo runs from the rehearsal WAV and
+         * live mic is a "try it" moment, not the thing being demonstrated. Both
+         * halves of that are recorded in STATUS.md; this constant is only the first.
+         *
+         * Do not change it without a new bake-off CSV in `evidence/` — the number
+         * above is the whole justification.
+         */
+        val DEFAULT: AsrEngineId = SHERPA_WHISPER_TA
+    }
 }
 
 /** What one decode produced, with the timing the RTF column needs. */

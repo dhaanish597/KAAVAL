@@ -109,12 +109,11 @@ fun AsrBakeoffScreen(onClose: () -> Unit) {
                             is BakeoffEvent.EngineDone -> {
                                 totals += event.totals
                                 log += "   TOTAL ${event.totals.engine.displayName}: " +
-                                    "slot_accuracy=%.3f agg_rtf=%.3f worst_rtf=%.3f"
-                                        .format(
-                                            event.totals.slotAccuracy,
-                                            event.totals.aggregateRtf,
-                                            event.totals.worstRtf,
-                                        )
+                                    "slot_accuracy=${AsrBakeoff.formatAccuracy(event.totals.slotAccuracy)} " +
+                                    "agg_rtf=%.3f worst_rtf=%.3f".format(
+                                        event.totals.aggregateRtf,
+                                        event.totals.worstRtf,
+                                    )
                             }
                             is BakeoffEvent.EngineFailed ->
                                 log += "   SKIPPED ${event.engine.displayName}: ${event.reason}"
@@ -194,37 +193,48 @@ fun AsrBakeoffScreen(onClose: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             DevSection("summary — §13 P2 rule: best slot accuracy with agg_rtf <= 0.50")
             totals
-                .sortedWith(compareByDescending<EngineTotals> { it.slotAccuracy }.thenBy { it.aggregateRtf })
+                .sortedWith(
+                    compareByDescending<EngineTotals> { it.slotAccuracy ?: -1.0 }
+                        .thenBy { it.aggregateRtf },
+                )
                 .forEach { t ->
                     DevMono(
-                        "%-22s acc=%.3f  agg_rtf=%.3f  %s".format(
+                        "%-22s acc=%s  agg_rtf=%.3f  %s".format(
                             t.engine.name,
-                            t.slotAccuracy,
+                            AsrBakeoff.formatAccuracy(t.slotAccuracy),
                             t.aggregateRtf,
                             if (t.aggregateRtf <= RTF_BUDGET) "eligible" else "over the RTF budget",
                         ),
                     )
                 }
             val eligible = totals.filter { it.aggregateRtf <= RTF_BUDGET }
-            val best = eligible.maxByOrNull { it.slotAccuracy }
+            val best = eligible.filter { it.slotAccuracy != null }.maxByOrNull { it.slotAccuracy!! }
+            val bestAccuracy = best?.slotAccuracy
             DevMono(
                 when {
-                    best == null -> "No engine met the RTF budget. §13's fallback applies."
-                    best.slotAccuracy < ACCURACY_THRESHOLD ->
+                    // Nothing was scoreable. This is NOT the §13 fallback — the
+                    // fallback is a decision about measured accuracy, and there
+                    // is no measurement here. Say so and stop.
+                    totals.all { it.slotAccuracy == null } ->
+                        "No slots were scoreable — every clip matched no labels.json entry. " +
+                            "This run measures RTF only; it says nothing about accuracy and no §13 " +
+                            "decision can be taken from it."
+                    best == null || bestAccuracy == null ->
+                        "No engine met the RTF budget. §13's fallback applies."
+                    bestAccuracy < ACCURACY_THRESHOLD ->
                         "Best eligible is ${best.engine.name} at %.3f — under the 0.70 §13 asks for, so the fallback applies."
-                            .format(best.slotAccuracy)
-                    else -> "Best eligible: ${best.engine.name} at %.3f.".format(best.slotAccuracy)
+                            .format(bestAccuracy)
+                    else -> "Best eligible: ${best.engine.name} at %.3f.".format(bestAccuracy)
                 },
             )
         }
 
         Spacer(Modifier.height(16.dp))
-        HorizontalDivider(color = VaakkuTheme.colors.rule)
-        Spacer(Modifier.height(12.dp))
-        DevSection("log (${log.size})")
-        if (log.isEmpty()) DevMono("(nothing yet)") else log.forEach { DevMono(it) }
-
-        Spacer(Modifier.height(20.dp))
+        // Above the log, not below it. The log runs to 70+ lines after a full
+        // run, which put this button a dozen scroll gestures away — and on this
+        // phone every extra gesture is a chance for another app to steal focus,
+        // rotate the screen, and take the whole measurement with it. The CSV is
+        // the point of the screen; the log is commentary.
         OutlinedButton(
             onClick = {
                 scope.launch {
@@ -242,6 +252,12 @@ fun AsrBakeoffScreen(onClose: () -> Unit) {
         ) {
             Text("Export CSV to Download/Vaakku/evidence/")
         }
+
+        Spacer(Modifier.height(16.dp))
+        HorizontalDivider(color = VaakkuTheme.colors.rule)
+        Spacer(Modifier.height(12.dp))
+        DevSection("log (${log.size})")
+        if (log.isEmpty()) DevMono("(nothing yet)") else log.forEach { DevMono(it) }
 
         Spacer(Modifier.height(20.dp))
         OutlinedButton(

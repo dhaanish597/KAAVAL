@@ -18,7 +18,7 @@ This assumption has not been confirmed by an organizer.
 |---|---|---|---|
 | G0 Bootstrap | **PASS** | see below | H0–H1 |
 | G1 Domain | **PASS** | see below | H1–H5 |
-| G2 ASR decision | **IN PROGRESS** | laptop pre-screen done — see below | H5– |
+| G2 ASR decision | **DECISION TAKEN — 2 of 3 evidence items** | `evidence/asr_prescreen/`, `evidence/G2_asr_bakeoff.csv`; live-mic scorecard still needs a human | H5– |
 | G3 OCR | NOT STARTED | — | — |
 | G4 NPU | NOT STARTED | — | — |
 | G5 End-to-end | NOT STARTED | — | — |
@@ -190,10 +190,39 @@ yet**, so no number in this section is a measurement — the measurements are pa
 | `scripts/push_models.sh` run | **NOT DONE** | needs a human; the models have never been on the phone |
 | `SessionService` (§6.7) | **NOT DONE** | still absent from the manifest; `check_manifest.sh` still asserts the P0 state |
 
-**What is still missing for G2** — all three need the phone and a human:
-`push_models.sh`, the bake-off run + CSV, and the live-mic scorecard. Until those exist
-**no default engine is set in code** (open issue 12), and the §13 P2 rule cannot be
-applied, because it gates on *phone* RTF.
+**Superseded by part 3 below.** `push_models.sh` has now run, the bake-off has run on
+the phone, and the default engine is set. One item remains: the live-mic scorecard.
+
+### G2 evidence — part 3 of 3: the bake-off on the phone (§11.3 item 2, §13 P2)
+
+Run on the phone, screen on, 4 threads, 22 clips per engine.
+Evidence: **`evidence/G2_asr_bakeoff.csv`** (exported by the app, pulled with `adb`),
+`evidence/G2_asr_bakeoff_summary.png`, `evidence/G2_engines_ready.png`,
+`evidence/G2_push_models.txt`.
+
+Device line from the CSV header, verbatim:
+`vivo I2501 (I2501), SoC=QTI SM8850, rom=PD2505CF_EX_A_16.0.24.1.W30, sdk=36`.
+
+| Engine | Slot accuracy (T01–T14) | Aggregate RTF | Worst RTF | Inside the 0.50 budget? |
+|---|---|---|---|---|
+| `SHERPA_WHISPER_TA` | **0.227** (5/22) | 0.324 | 0.381 | yes |
+| `SHERPA_OMNI_300M` | 0.182 (4/22) | 0.106 | 0.109 | yes |
+| `SHERPA_DOLPHIN_SMALL` | 0.000 (0/22) | 0.036 | 0.042 | yes |
+| `SHERPA_DOLPHIN_BASE` | 0.000 (0/22) | 0.017 | 0.020 | yes |
+
+Two independent runs agreed to within RTF rounding (Whisper 0.354 then 0.324; the
+accuracies were identical both times), so these are reproducible numbers, not one lucky
+pass.
+
+**§11.5 check:** every engine is comfortably inside the ASR decode RTF budget of 0.50.
+The budget is not the constraint here — accuracy is.
+
+| Item | Status | Path / number |
+|---|---|---|
+| `scripts/push_models.sh` run | **done** | `evidence/G2_push_models.txt` — 21/21 files, 1.1 GB |
+| All four engines report ready on the phone | **done** | `evidence/G2_engines_ready.png` |
+| Bake-off CSV | **done** | `evidence/G2_asr_bakeoff.csv` (22 clips × 4 engines) |
+| Human live-mic scorecard | **NOT DONE** | needs a teammate speaking T01–T04 at 1 m — see the Red Light list |
 
 ## Decisions log
 
@@ -451,6 +480,51 @@ applied, because it gates on *phone* RTF.
     purpose.** A segment with good text and no claims is a lexicon problem; a segment
     with no text at all is an engine problem; and those have opposite fixes (§11.3).
     Showing only the transcript would make them look like the same failure.
+40. **The ASR engine is `SHERPA_WHISPER_TA`, and §13's fallback applies as well.**
+    This is the §13 P2 decision, taken on the measurements in G2 part 3. The rule is
+    "highest slot accuracy among engines whose phone RTF is at or under 0.50; ties to
+    the smaller model". All four engines are inside the RTF budget, so the rule turns
+    on accuracy alone and selects Whisper at 0.227. **But 0.227 is far below the 0.70
+    §13 asks for**, so §13's own fallback is in force too: *the demo runs from the
+    rehearsal WAV as primary, and live mic is a "try it" moment, not the thing being
+    demonstrated.* Both halves are binding. The engine is recorded in code as
+    `AsrEngineId.DEFAULT` with the CSV numbers in its KDoc, so it cannot be changed
+    without confronting the evidence.
+41. **The bake-off keyed `labels.json` by filename while the file keys it by stem,
+    and the bug printed a confident conclusion off zero data.** `AsrBakeoff.runClip`
+    looked up `T01_guarantee_fd.wav`; `labels.json` — and `:domain:evalTranscripts` —
+    key by `T01_guarantee_fd`. Every clip matched no label, every row scored 0/0, and
+    `slotAccuracy` returned `0.0` for "nothing was scoreable", so the screen printed
+    "under the 0.70 §13 asks for, so the fallback applies" — a decision, stated
+    confidently, off no measurement at all. Three fixes, because the instance and the
+    class of failure are different bugs: a shared `clipId()` helper; `slotAccuracy` is
+    now `Double?` and renders as `not-measured`, never `0.000` (an absent measurement
+    and a measured zero must not look alike — CLAUDE.md #7); and a pre-flight `check()`
+    that aborts before a single model loads if any clip is unlabelled.
+42. **`R01_demo_pitch` is measured for RTF but excluded from slot accuracy.** §13 names
+    T01–T14. R01 carries six expected claims — more than any T clip — so letting it into
+    the denominator would hand about a quarter of the score to a single recording that
+    exists to be performed, not measured. It still runs, because it is the longest clip
+    and therefore the most honest contribution to the RTF aggregate that §11.5 is
+    actually about. `T11_numbers` scores 0/0 by design: it must produce *no* claim, so
+    the table cannot show it passing. Both facts are comment lines in the CSV header.
+43. **Whisper's truncation is Whisper's, not the audio's or the VAD's.** Every Whisper
+    transcript stops mid-sentence, and it stops exactly where the number would be —
+    `T01` gives `…கேரண்டி எட்` and ends, losing the RETURN_RATE slot. The bounded check
+    that settles the cause: **`dolphin_base` decodes the same clip in full**, producing
+    `…எட்டு பசன் ட்ரிட்டன்.` (eight percent return) with a closing full stop, and
+    `T12_formal_tamil` comes back from Whisper as a complete sentence ending in a full
+    stop. So the WAVs are intact and the segmentation is fine; the Whisper export stops
+    decoding early. Not pursued further — §13 has a fallback for exactly this situation
+    and the timebox is better spent on P3.
+44. **The accuracy numbers are limited by lexicon coverage as much as by the engines.**
+    `dolphin_base` scored 0.000 while demonstrably *hearing* the content: on T01 it
+    returns `பசன் ட்ரிட்டன்` where the lexicon expects `பர்சன்ட் ரிட்டர்ன்`, and on T08
+    it returns the complete "up to eight percent" phrase. The slot was lost to Tamil
+    orthography, not to the microphone. This matters for P5 calibration (§11.3 item 3):
+    adding real ASR misspellings to the lexicon is likely to move slot accuracy more
+    than switching engines would. Recorded here rather than acted on, because changing
+    the lexicon now would invalidate the bake-off the decision above rests on.
 
 ## Measurements
 
@@ -608,20 +682,29 @@ screen), `evidence/language_setting_persisted_after_restart.png` (after
             3. Do the same for T06_honest_lockin.wav (labelled 60 months / 5 years).
     REPORT: "T07 ends on <N> years, T06 says <N> years" — two numbers is enough.
     ===========================
-12. **No ASR engine reaches the §13 P2 slot-accuracy threshold.** Best is
-    `whisper_small_ta` at 39% against a stated 70%. The plan's own fallback applies (the
-    rehearsal WAV becomes the demo's primary path, live mic becomes "try it"), so this is
-    not a blocker — but it is a strategy change the human should know about before the
-    demo is rehearsed, and the phone bake-off could still move the numbers. **Do not set
-    the default engine in code until the phone bake-off has run**, since the §13 rule
-    gates on *phone* RTF, which is still unmeasured.
-13. **The models have never been on the phone.** `scripts/push_models.sh` has still never
-    been run (it was noted as unexercised in open issue 5 at P0 and nothing since has
-    needed it). Every ASR engine in the app checks for its files at construction and
-    reports what is missing rather than crashing, so the app installs and runs today —
-    the Dev screens will simply say the engines are unavailable. This is the single
-    action that unblocks all three remaining G2 evidence items. See the HUMAN ACTION
-    block below.
+12. **CONFIRMED ON THE PHONE — no ASR engine reaches the §13 P2 slot-accuracy
+    threshold.** The laptop pre-screen said 39% for `whisper_small_ta`; the phone
+    bake-off measured **0.227** on the same engine against a stated 0.70. The phone did
+    not move the numbers in our favour. §13's fallback is therefore in force (decision
+    40): **the demo runs from the rehearsal WAV as primary and live mic is a "try it"
+    moment.** This is not a blocker, but it is a strategy change the human must know
+    before the demo is rehearsed — the pitch cannot promise live Tamil transcription.
+    The default engine is now set (`AsrEngineId.DEFAULT`), so the "do not set it yet"
+    condition on this issue is discharged. Decision 44 records the one lead worth
+    pursuing if time allows: the losses are as much lexicon coverage as engine quality.
+13. **RESOLVED — the models are on the phone, and `push_models.sh` had three bugs.**
+    All 21 files (1.1 GB) are at `/sdcard/Android/data/app.vaakku/files/models/` and all
+    four engines report ready (`evidence/G2_engines_ready.png`). Getting there required
+    fixing the script (commit `239d529`): (a) every `adb` call needed `</dev/null`,
+    because adb forwards its stdin to the device and was draining the `find` output that
+    fed the `while read` loop — it pushed 2 of 21 files and exited 0; (b) a completeness
+    check now compares pushed+skipped against the real file count and exits non-zero on
+    a mismatch, so a partial push can never look like a success again; (c) `chmod -R 777`
+    per model dir, because `adb shell mkdir` creates directories owned by `shell` with
+    mode 2770 and no world-execute — the app could `stat` the directory but not traverse
+    into it, so `File.isDirectory()` succeeded while `File.isFile()` on each child
+    failed, and all four engines reported "missing: model.int8.onnx, tokens.txt"
+    immediately after a verified 1.1 GB push.
 14. **`SessionService` (§6.7) is still not written.** It is the foreground-service host
     the real session screen needs; the Dev screens run the pipeline in a plain coroutine
     scope instead, which is fine for a screen you are looking at and wrong for a session
@@ -668,9 +751,26 @@ or a file in `evidence/`:
 
 ## Next Red Light test list
 
-P2 step 2 puts three new things on the phone, and **none of them has been installed
-yet** — the build on the device is still the G0 one. Once `push_models.sh` and
-`adb install -r` have run (see the HUMAN ACTION block below), this is the queue:
+The current debug build **is installed on the phone** and the models are pushed. The
+first three items of the previous queue are done and their evidence is in `evidence/`.
+What is left:
+
+- [ ] **Live mic, a teammate speaking T01–T04 from 1 m**, in the room's real noise, with
+      `SHERPA_WHISPER_TA`. Score by ear against `labels.json` and write the result here
+      as a MEASUREMENT line. **This is the last G2 evidence item** and the only one that
+      tests the microphone path rather than the WAV path. Expect it to be poor — see
+      decision 40 — and record what it actually is, not what we hoped.
+- [ ] **Listen to `T07_selfcorrect.wav` and `T06_honest_lockin.wav`** and answer open
+      issue 11: does T07 end on the same number of years that T06 states? The label
+      arithmetic depends on it and no ASR output can settle it.
+- [ ] **P3:** print the prop document (`testdata/prop/_Document.pdf`) — **pages 5 and 6
+      are the ones that matter**; no single page carries all five G3 clauses, and §6.4
+      allows a multi-page scan session. Then scan it 5 times under venue lighting.
+- [ ] Watch the phone's temperature during a bake-off re-run if one is needed.
+      §11.5 budgets thermal at ≤ MODERATE after 15 minutes.
+- [ ] The P0 "Not yet verified" list above is still the standing queue underneath this.
+
+**Superseded queue (done — kept for the record):**
 
 - [ ] Dev menu → **Live ASR** → source `T01_*.wav`, engine Whisper small (Tamil) →
       Start. Expect segments with non-empty text, `q=` above 0.8, and an `rtf=` line.

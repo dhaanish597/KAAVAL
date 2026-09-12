@@ -91,7 +91,7 @@ fun LiveAsrScreen(onClose: () -> Unit) {
     }
     val clips = remember { WavAssetAudioSource.listClips(context.assets) }
 
-    var engineId by remember { mutableStateOf(AsrEngineId.SHERPA_WHISPER_TA) }
+    var engineId by remember { mutableStateOf(AsrEngineId.DEFAULT) }
     var numThreads by remember { mutableIntStateOf(VadSegmenter.DEFAULT_NUM_THREADS) }
     var sourceName by remember { mutableStateOf(MIC_SOURCE) }
     var status by remember { mutableStateOf("Idle.") }

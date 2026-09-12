@@ -32,6 +32,17 @@ data class BakeoffRow(
     val decodeMs: Long,
     val slots: List<SlotOutcome>,
     val error: String? = null,
+    /**
+     * Whether this clip's slots count towards the §13 P2 accuracy figure.
+     *
+     * False for `R01_demo_pitch`, which is the rehearsal pitch, not a test case.
+     * §13 names **T01–T14**, and R01 carries six expected claims — more than any
+     * T clip — so letting it into the denominator would hand a quarter of the
+     * accuracy figure to one recording that exists to be performed, not measured. It
+     * still runs, because it is the longest clip and therefore the most honest
+     * contribution to the RTF aggregate §11.5 is actually about.
+     */
+    val countsForAccuracy: Boolean = true,
 ) {
     val rtf: Double get() = if (audioMs <= 0L) 0.0 else decodeMs.toDouble() / audioMs.toDouble()
     val slotsCorrect: Int get() = slots.count { it.correct }
@@ -43,9 +54,23 @@ data class EngineTotals(
     val engine: AsrEngineId,
     val rows: List<BakeoffRow>,
 ) {
-    val slotsCorrect: Int get() = rows.sumOf { it.slotsCorrect }
-    val slotsExpected: Int get() = rows.sumOf { it.slotsExpected }
-    val slotAccuracy: Double get() = if (slotsExpected == 0) 0.0 else slotsCorrect.toDouble() / slotsExpected
+    private val scored: List<BakeoffRow> get() = rows.filter { it.countsForAccuracy }
+
+    val slotsCorrect: Int get() = scored.sumOf { it.slotsCorrect }
+    val slotsExpected: Int get() = scored.sumOf { it.slotsExpected }
+
+    /**
+     * Slot accuracy, or **null** when nothing was scoreable.
+     *
+     * Nullable rather than 0.0 on purpose. The first run of this bake-off keyed
+     * `labels.json` by `T01_guarantee_fd.wav` while the file keys it by
+     * `T01_guarantee_fd`, so every clip matched no label, every row was 0/0, and
+     * a 0.0 accuracy made all four engines look like they had failed every slot.
+     * The screen then printed "under the 0.70 §13 asks for, so the fallback
+     * applies" — a decision, stated confidently, off no data at all. An absent
+     * measurement and a measured zero must not render the same (CLAUDE.md #7).
+     */
+    val slotAccuracy: Double? get() = if (slotsExpected == 0) null else slotsCorrect.toDouble() / slotsExpected
 
     /**
      * Aggregate RTF: total decode time ÷ total audio.
@@ -125,6 +150,17 @@ class AsrBakeoff(
         val lexicon = LexiconLoader.loadDefault()
         val extractor = SpokenExtractor(lexicon, Normalizer(lexicon))
 
+        // Every clip must be findable in labels.json before a single model is
+        // loaded. The alternative is what actually happened: a run that completes,
+        // reports 0/0 on all sixty rows, and states a §13 outcome off nothing.
+        // Failing here costs forty seconds; not failing here costs a wrong entry
+        // in the decisions log.
+        val unlabelled = clips.map { clipId(it) }.filter { it !in labels }
+        check(unlabelled.isEmpty()) {
+            "No labels.json entry for: ${unlabelled.joinToString(", ")}. " +
+                "labels.json keys clips by their stem (T01_guarantee_fd), not their filename."
+        }
+
         val silero = ModelPaths.silero(context)
         check(silero != null && silero.isFile) {
             "${ModelPaths.SILERO_VAD_FILE} is not on the phone. Run scripts/push_models.sh."
@@ -178,6 +214,7 @@ class AsrBakeoff(
         labels: Map<String, Map<String, String>>,
     ): BakeoffRow {
         val clip = clipPath.substringAfterLast('/')
+        val id = clipId(clipPath)
         val texts = mutableListOf<String>()
         val observations = mutableListOf<Observation>()
         var decodeMs = 0L
@@ -197,7 +234,7 @@ class AsrBakeoff(
             }
         }.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message}" }
 
-        val expected = labels[clip].orEmpty()
+        val expected = labels[id].orEmpty()
         val slots = expected.mapNotNull { (typeName, expectedValue) ->
             val type = ClaimType.entries.firstOrNull { it.name == typeName } ?: return@mapNotNull null
             SlotOutcome(
@@ -217,10 +254,21 @@ class AsrBakeoff(
             decodeMs = decodeMs,
             slots = slots,
             error = error,
+            countsForAccuracy = id != REHEARSAL_CLIP_ID,
         )
     }
 
-    /** `labels.json` from assets, as clip name → (claim type name → expected). */
+    /**
+     * The key `labels.json` uses: the stem, without `.wav`.
+     *
+     * `:domain:evalTranscripts` keys the same file by `nameWithoutExtension`, and
+     * the whole point of sharing [SlotChecker] with it is that the two agree. They
+     * did not, until this existed.
+     */
+    private fun clipId(clipPath: String): String =
+        clipPath.substringAfterLast('/').substringBeforeLast('.')
+
+    /** `labels.json` from assets, as clip stem → (claim type name → expected). */
     private fun loadLabels(): Map<String, Map<String, String>> {
         val path = "${WavAssetAudioSource.ASSET_DIR}/labels.json"
         val text = runCatching { assets.open(path).use { it.readBytes().toString(Charsets.UTF_8) } }
@@ -231,6 +279,12 @@ class AsrBakeoff(
     }
 
     companion object {
+
+        /**
+         * The rehearsal pitch. Measured for RTF, excluded from slot accuracy —
+         * see [BakeoffRow.countsForAccuracy].
+         */
+        const val REHEARSAL_CLIP_ID = "R01_demo_pitch"
 
         /**
          * CSV for `Download/Vaakku/evidence/`.
@@ -248,8 +302,17 @@ class AsrBakeoff(
             appendLine("# rtf = decode_ms / audio_ms; budget is <= 0.50 (§11.5)")
             appendLine("# engine 5 (ANDROID_ON_DEVICE) is absent: it owns the mic and cannot be fed a WAV.")
             appendLine(
+                "# slot accuracy covers T01-T14 only. $REHEARSAL_CLIP_ID runs for RTF but is not scored " +
+                    "(counts_for_accuracy=0): it is the pitch we perform, not a test case, and its six " +
+                    "expected claims would otherwise be a quarter of the denominator.",
+            )
+            appendLine(
+                "# T11_numbers expects zero claims by design, so it scores 0/0. That is the correct " +
+                    "result, not a gap — but it also means this table cannot show T11 passing.",
+            )
+            appendLine(
                 listOf(
-                    "kind", "engine", "clip", "segments", "audio_ms", "decode_ms", "rtf",
+                    "kind", "engine", "clip", "counts_for_accuracy", "segments", "audio_ms", "decode_ms", "rtf",
                     "slots_correct", "slots_expected", "slot_detail", "transcript", "error",
                 ).joinToString(","),
             )
@@ -261,6 +324,7 @@ class AsrBakeoff(
                             "row",
                             r.engine.name,
                             r.clip,
+                            if (r.countsForAccuracy) "1" else "0",
                             r.segments.toString(),
                             r.audioMs.toString(),
                             r.decodeMs.toString(),
@@ -282,20 +346,31 @@ class AsrBakeoff(
                     listOf(
                         "total",
                         t.engine.name,
-                        "ALL",
+                        "T01-T14",
+                        "1",
                         t.rows.sumOf { it.segments }.toString(),
                         t.rows.sumOf { it.audioMs }.toString(),
                         t.rows.sumOf { it.decodeMs }.toString(),
                         "%.3f".format(t.aggregateRtf),
                         t.slotsCorrect.toString(),
                         t.slotsExpected.toString(),
-                        "slot_accuracy=%.3f; worst_rtf=%.3f".format(t.slotAccuracy, t.worstRtf),
+                        "slot_accuracy=${formatAccuracy(t.slotAccuracy)}; worst_rtf=%.3f".format(t.worstRtf),
                         "",
                         t.errors.joinToString("; "),
                     ).joinToString(",") { csv(it) },
                 )
             }
         }
+
+        /**
+         * A null accuracy prints as `not-measured`, never as `0.000`.
+         *
+         * The CSV is the artifact that outlives this session and gets read into
+         * STATUS.md months later by someone who was not here. "0.000" and "no
+         * slots were scoreable" lead to opposite decisions.
+         */
+        fun formatAccuracy(accuracy: Double?): String =
+            accuracy?.let { "%.3f".format(it) } ?: "not-measured"
 
         /**
          * RFC 4180 quoting.
