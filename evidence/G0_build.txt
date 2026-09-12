@@ -1,0 +1,104 @@
+=== G0 build evidence — VAAKKU P0 bootstrap ===
+captured: 2026-09-12T10:39:39+05:30
+host: MINGW64_NT-10.0-26200 / Git Bash
+JAVA_HOME: /c/Program Files/Android/Android Studio/jbr
+
+--- java -version ---
+openjdk version "21.0.9" 2025-10-21
+OpenJDK Runtime Environment (build 21.0.9+-14787801-b1163.94)
+OpenJDK 64-Bit Server VM (build 21.0.9+-14787801-b1163.94, mixed mode)
+
+--- ./gradlew --version ---
+Gradle 9.3.1
+Kotlin:        2.2.21
+Launcher JVM:  21.0.9 (JetBrains s.r.o. 21.0.9+-14787801-b1163.94)
+Daemon JVM:    C:\Program Files\Android\Android Studio\jbr (no Daemon JVM specified, using current Java home)
+OS:            Windows 11 10.0 amd64
+
+--- clean ---
+
+BUILD SUCCESSFUL in 2s
+2 actionable tasks: 2 executed
+
+--- guards: :domain:test :domain:fixtureReport checkBannedWords ---
+
+> Task :domain:processTestResources
+
+[Incubating] Problems report is available at: file:///C:/Users/clash/Videos/KAAVAL/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':checkBannedWords'.
+> checkBannedWords: 1 banned word(s) found. VAAKKU never renders a verdict (CLAUDE.md #1).
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.3.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 2s
+4 actionable tasks: 4 executed
+
+--- guards: :domain:test :domain:fixtureReport checkBannedWords ---
+> Task :domain:compileTestJava NO-SOURCE
+> Task :domain:processTestResources UP-TO-DATE
+
+> Task :checkBannedWords
+checkBannedWords: clean (19 files scanned, 0 findings).
+
+> Task :domain:testClasses UP-TO-DATE
+> Task :domain:test NO-SOURCE
+
+> Task :domain:fixtureReport
+fixtureReport: wrote C:/Users/clash/Videos/KAAVAL/evidence/fixture_report.md (0 fixture file(s) found).
+
+[Incubating] Problems report is available at: file:///C:/Users/clash/Videos/KAAVAL/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.3.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 2s
+5 actionable tasks: 2 executed, 3 up-to-date
+
+--- :app:assembleDebug (from clean) ---
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeDebugNativeLibs
+> Task :app:mergeExtDexDebug FROM-CACHE
+> Task :app:mergeLibDexDebug FROM-CACHE
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libLiteRt.so, libLiteRtClGlAccelerator.so, libandroidx.graphics.path.so, libimage_processing_util_jni.so, liblitert_jni.so, libmlkit_google_ocr_pipeline.so, libsurface_util_jni.so. Run with --info option to learn more.
+
+> Task :app:compileDebugKotlin
+> Task :app:compileDebugJavaWithJavac FROM-CACHE
+> Task :app:processDebugJavaRes
+> Task :app:dexBuilderDebug
+> Task :app:mergeProjectDexDebug
+> Task :app:mergeDebugJavaResource
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+
+[Incubating] Problems report is available at: file:///C:/Users/clash/Videos/KAAVAL/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.3.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 11s
+40 actionable tasks: 19 executed, 19 from cache, 2 up-to-date

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Launcher icon, adaptive form. minSdk is 31 so mipmap-anydpi-v26 always applies;
+  no PNG density buckets are needed.
+
+  The mark is a speech mark (the spoken side) set against a ruled line (the
+  written side) — the two things VAAKKU compares. Deliberately no shield, no
+  gavel, no guard imagery: this product points at no one
+  (FINAL LOCKED SPEC §1).
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>

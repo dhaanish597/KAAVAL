@@ -1,0 +1,64 @@
+# VAAKKU version catalog.
+#
+# Every version below is PINNED. Rule: "never upgrade dependency versions"
+# (CLAUDE.md "Never do"). The Android toolchain versions come verbatim from
+# handoff/versions_from_scratch.txt, which records a build that already succeeded
+# on this machine (Gradle 9.3.1 / AGP 8.13.1 / Kotlin 2.3.0, BUILD SUCCESSFUL).
+# The three AndroidX/CameraX/ML Kit/LiteRT lines are the ones §6.1 of the build
+# plan pins by name. JUnit 5 (domain tests) is the one entry that file did not
+# cover; see STATUS.md "Decisions log" for why 5.11.4 was chosen.
+
+[versions]
+agp = "8.13.1"
+kotlin = "2.3.0"
+coreKtx = "1.15.0"
+lifecycleRuntimeKtx = "2.10.0"
+activityCompose = "1.12.0"
+composeBom = "2025.11.01"
+cameraX = "1.5.1"
+mlkitTextRecognition = "16.0.1"
+litert = "2.1.6"
+kotlinxCoroutines = "1.10.1"
+kotlinxSerializationJson = "1.8.0"
+junit5 = "5.11.4"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeKtx" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+
+# CameraX — all four artifacts must stay on one version (build plan §6.1).
+androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraX" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "cameraX" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "cameraX" }
+androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraX" }
+
+# Bundled Latin recognizer. Deliberately NOT the play-services-mlkit-* variant:
+# the bundled one carries its model in the APK and works with no network
+# (build plan §6.1). It does still contribute INTERNET to the merged manifest
+# transitively, which is exactly why the manifest removes it explicitly.
+mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitTextRecognition" }
+
+litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
+
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit5" }
+junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Carbon Copy visual language (build plan §6.6). Paper, ink, rule, and one
+      violet stamp. There is deliberately NO red, amber or green here — states are
+      never colour-coded (CLAUDE.md #9). If a future colour is added to this file,
+      ask whether it is being used to grade something; if it is, it is banned.
+    -->
+    <color name="paper">#FAF7F0</color>
+    <color name="ink">#1F1B2E</color>
+    <color name="ink_muted">#6B6577</color>
+    <color name="rule">#D9D3C7</color>
+    <color name="stamp_violet">#5E35B1</color>
+    <color name="paper_raised">#FFFDF8</color>
+</resources>

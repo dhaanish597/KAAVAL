@@ -1,0 +1,30 @@
+# VAAKKU
+
+# --- Models and large binaries (build plan §4) ---
+models/**
+!models/MANIFEST.md
+app/libs/*.aar
+litert_npu_runtime_libraries/
+
+# --- Build output ---
+**/build/
+.gradle/
+.kotlin/
+*.apks
+*.aab
+
+# --- Machine-local ---
+local.properties
+.idea/
+*.iml
+captures/
+
+# --- OS noise ---
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# --- Human handoff material: reference assets, not app source.
+#     Kept on disk so the human can move files around without re-downloading,
+#     but never committed (it is ~70 MB of models, AARs and sample repos).
+handoff/

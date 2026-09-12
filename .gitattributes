@@ -1,0 +1,18 @@
+# Keep shell scripts LF. Git's Windows default (core.autocrlf) would rewrite them
+# to CRLF on checkout, and a CRLF shebang line makes `./scripts/*.sh` fail in Git Bash
+# with "bad interpreter". The repo is used from Git Bash on Windows, so this matters.
+*.sh text eol=lf
+
+# Gradle wrapper script is also a shell script on this platform.
+gradlew text eol=lf
+gradlew.bat text eol=crlf
+
+# Binary assets: never translated, never diffed as text.
+*.ttf binary
+*.otf binary
+*.jar binary
+*.png binary
+*.jpg binary
+*.apk binary
+*.aar binary
+*.zip binary

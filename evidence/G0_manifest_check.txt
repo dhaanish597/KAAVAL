@@ -1,0 +1,63 @@
+=== G0 manifest check — VAAKKU P0 ===
+captured: 2026-09-12T10:44:21+05:30
+
+--- scripts/check_manifest.sh ---
+==> check_manifest.sh
+    repo: /c/Users/clash/Videos/KAAVAL
+==> :app:processDebugMainManifest
+    merged manifest: app/build/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml
+    ok: RECORD_AUDIO present
+    ok: CAMERA present
+    ok: INTERNET absent from merged manifest
+    ok: ACCESS_NETWORK_STATE absent from merged manifest
+    apk: app/build/outputs/apk/debug/app-debug.apk
+    ok: INTERNET absent from APK
+    ok: ACCESS_NETWORK_STATE absent from APK
+    ok: SessionService not yet declared (P0 state)
+
+RESULT: PASS — no INTERNET, no ACCESS_NETWORK_STATE, in both the merged manifest and (if present) the APK.
+
+--- permissions the app REQUESTS (uses-permission in the merged manifest) ---
+  android.permission.CAMERA
+  android.permission.FOREGROUND_SERVICE
+  android.permission.FOREGROUND_SERVICE_DATA_SYNC
+  android.permission.FOREGROUND_SERVICE_MICROPHONE
+  android.permission.POST_NOTIFICATIONS
+  android.permission.RECEIVE_BOOT_COMPLETED
+  android.permission.RECORD_AUDIO
+  android.permission.VIBRATE
+  android.permission.WAKE_LOCK
+  app.vaakku.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+
+  Declared by us (build plan 6.2): RECORD_AUDIO, CAMERA, FOREGROUND_SERVICE,
+  FOREGROUND_SERVICE_MICROPHONE, VIBRATE, POST_NOTIFICATIONS.
+  Added by libraries: FOREGROUND_SERVICE_DATA_SYNC (litert),
+  RECEIVE_BOOT_COMPLETED + WAKE_LOCK (androidx.work, pulled in by ML Kit),
+  and the app-scoped DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION.
+  None of these grant network access. Reviewed for removal at P3.
+
+--- proof the tools:node="remove" lines are doing real work ---
+(from app/build/outputs/logs/manifest-merger-debug-report.txt)
+Without those two lines these declarations would have been merged in:
+  INTERNET:
+    REJECTED from [com.google.android.datatransport:transport-backend-cct:2.3.3] C:\Users\clash\.gradle\caches\9.3.1\transforms\c7d8fd31189dd0ee54611bba42536225\workspace\transformed\transport-backend-cct-2.3.3\AndroidManifest.xml:26:5-67
+  ACCESS_NETWORK_STATE:
+    REJECTED from [androidx.work:work-runtime:2.9.1] C:\Users\clash\.gradle\caches\9.3.1\transforms\521b21e880c288bdc0402156cf2f9beb\workspace\transformed\work-runtime-2.9.1\AndroidManifest.xml:24:5-79
+    REJECTED from [com.google.android.datatransport:transport-backend-cct:2.3.3] C:\Users\clash\.gradle\caches\9.3.1\transforms\c7d8fd31189dd0ee54611bba42536225\workspace\transformed\transport-backend-cct-2.3.3\AndroidManifest.xml:25:5-79
+    REJECTED from [com.google.android.datatransport:transport-runtime:2.2.6] C:\Users\clash\.gradle\caches\9.3.1\transforms\4b08c069c561b317efd82de9794eeae8\workspace\transformed\transport-runtime-2.2.6\AndroidManifest.xml:22:5-79
+
+--- <queries> element (needed for SpeechRecognizer.isRecognitionAvailable) ---
+        <queries> block the call returns false on a phone that *does* have a
+        recognizer — the Rung-0 probe would report "no recognizer available" and we
+        would draw the wrong conclusion about the whole ASR plan.
+        This grants visibility of speech-recognition services only. It is not a
+        network capability and does not affect the offline guarantee.
+      -->
+      <queries>
+          <intent>
+              <action android:name="android.speech.RecognitionService" />
+          </intent>
+      </queries>
+
+--- APK ---
+  -rw-r--r-- 1 clash 197609 48M Sep 12 10:42 app/build/outputs/apk/debug/app-debug.apk

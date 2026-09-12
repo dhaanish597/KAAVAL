@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ALL user-visible text for VAAKKU.
+
+  Two standing rules for this file:
+
+  1. Tamil strings are grouped and marked with a TAMIL-REVIEW comment. A native
+     Tamil speaker (Dhaanish) reviews every one before the demo (build plan §8.1).
+     Do not treat any Tamil here as final until that review happens.
+
+  2. NOTHING in this file may grade a person or colour-code a state. CLAUDE.md #1
+     lists the words that are forbidden anywhere in the source tree, and
+     checkBannedWords enforces that list over this file too — which is why this
+     comment names none of them. The three user-facing state labels are
+     MATCHES / NOT_IN_DOCUMENT / DIFFERS and nothing else. If the guard fires,
+     fix the string; do not relax the check.
+-->
+<resources>
+    <!-- ===================== APP NAME ===================== -->
+    <!--
+      The display name comes from this ONE string (build plan §1). If organizers
+      do not allow a rename away from the registered name, the human changes this
+      single value to "KAAVAL" — and nothing else in the app changes.
+    -->
+    <string name="app_name" translatable="false">VAAKKU</string>
+    <string name="app_subtitle">வாக்கு — சொன்னதும் எழுதியதும்</string>
+
+    <!-- ===================== SETUP SCREEN ===================== -->
+    <string name="setup_title">தயாரிப்பு</string>
+    <string name="setup_checklist_header">தொடங்குவதற்கு முன்</string>
+
+    <!-- TAMIL-REVIEW -->
+    <!-- Evidence Mode disclosure (build plan §8.4). Shown on the Setup screen. -->
+    <string name="disclosure_evidence_mode">இந்த உரையாடலில் சொல்லப்படும் தகவல்கள் குறிக்கப்படுகின்றன. ஒலி சேமிக்கப்படாது.</string>
+    <string name="disclosure_evidence_mode_en">Statements in this conversation are being noted. Audio is not stored.</string>
+
+    <string name="setup_row_airplane">✈ விமானப் பயன்முறை (Airplane mode)</string>
+    <string name="setup_row_mic_camera">மைக்ரோஃபோன் மற்றும் கேமரா அனுமதி</string>
+    <string name="setup_row_asr_engine">பேச்சு இயந்திரம் (ASR engine)</string>
+    <string name="setup_row_npu">NPU நிலை</string>
+
+    <string name="status_on">இயக்கத்தில்</string>
+    <string name="status_off">இயக்கத்தில் இல்லை</string>
+    <string name="status_pending">நிலுவையில்</string>
+    <string name="status_granted">அனுமதிக்கப்பட்டது</string>
+    <string name="status_not_granted">அனுமதிக்கப்படவில்லை</string>
+
+    <string name="setup_start_session">அமர்வைத் தொடங்கு</string>
+    <string name="setup_start_blocked_hint">விமானப் பயன்முறையை இயக்கினால் மட்டுமே தொடங்க முடியும்.</string>
+
+    <string name="setup_background_hint">OriginOS பின்னணியில் செயலியை நிறுத்தலாம் — Settings-இல் battery exemption வைக்கவும்.</string>
+
+    <!-- ===================== SESSION SCREEN (later phases) ===================== -->
+    <!-- TAMIL-REVIEW -->
+    <string name="session_listening">கேட்கிறது…</string>
+    <string name="session_scan_document">ஆவணத்தை ஸ்கேன் செய்</string>
+    <string name="session_done_scanning">ஸ்கேன் முடிந்தது</string>
+    <string name="session_details">விவரங்கள்</string>
+    <string name="session_end">அமர்வை முடி</string>
+    <string name="session_recheck">மறுபரிசீலனை</string>
+    <string name="session_next">அடுத்து</string>
+
+    <!-- ===================== STATE LABELS (locked) ===================== -->
+    <!-- TAMIL-REVIEW -->
+    <!-- The only three states a user ever sees. PENDING and UNCERTAIN are silent. -->
+    <string name="state_matches">பொருந்துகிறது</string>
+    <string name="state_matches_en">Matches</string>
+    <string name="state_not_in_document">ஆவணத்தில் இல்லை</string>
+    <string name="state_not_in_document_en">Not in document</string>
+    <string name="state_differs">வேறுபடுகிறது</string>
+    <string name="state_differs_en">Differs</string>
+
+    <!-- ===================== CARD TEMPLATES ===================== -->
+    <!-- TAMIL-REVIEW -->
+    <string name="card_differs_line1">பேச்சில்: %1$s</string>
+    <string name="card_differs_line2">ஆவணத்தில்: %1$s</string>
+    <string name="card_footer_verify">சரிபார்க்கவும்</string>
+    <string name="card_not_in_document_line1">அவர் சொன்னது: %1$s</string>
+    <string name="card_not_in_document_line2">ஆவணத்தில் இது இல்லை — கேளுங்கள்</string>
+
+    <!-- ===================== VALUE PHRASES ===================== -->
+    <!-- TAMIL-REVIEW -->
+    <string name="v_guaranteed_pct">உறுதியான %1$s%%</string>
+    <string name="v_not_guaranteed">உறுதி இல்லை</string>
+    <string name="v_illustrative_pcts">%1$s%% (உதாரணம் மட்டும்)</string>
+    <string name="v_years">%1$d வருடம்</string>
+    <string name="v_months">%1$d மாதம்</string>
+    <string name="v_withdraw_after">%1$d வருடத்துக்குப் பிறகு எடுக்கலாம்</string>
+    <string name="v_surrender_nil_before">%1$d வருடத்துக்கு முன் சரண்டர் மதிப்பு இல்லை</string>
+    <string name="v_required_for_loan">கடனுக்கு இது கட்டாயம்</string>
+    <string name="v_voluntary">விருப்பத்தின் பேரில் மட்டும்</string>
+    <string name="v_no_charges">கட்டணம் இல்லை</string>
+    <string name="v_charge_pct">%1$s%% கட்டணம்</string>
+
+    <!-- ===================== FOLLOW-UP QUESTIONS ===================== -->
+    <!-- TAMIL-REVIEW -->
+    <string name="ask_guarantee">"உறுதி" என்று ஆவணத்தில் எங்கே உள்ளது என்று கேளுங்கள்</string>
+    <string name="ask_lock_in">இந்தக் காலம் ஆவணத்தில் எங்கே உள்ளது என்று கேளுங்கள்</string>
+    <string name="ask_bundling">கடனுக்கு இது கட்டாயம் என்பது எழுத்தில் உள்ளதா என்று கேளுங்கள்</string>
+    <string name="ask_number">இந்த எண் ஆவணத்தில் எங்கே உள்ளது என்று கேளுங்கள்</string>
+
+    <!-- ===================== FREE LOOK ===================== -->
+    <!-- TAMIL-REVIEW -->
+    <string name="free_look_note">பாலிசி ஆவணம் கிடைத்த நாளிலிருந்து 30 நாட்கள் ஃப்ரீ-லுக் காலம் உள்ளது.</string>
+
+    <!-- ===================== DEV MENU (debug builds only) ===================== -->
+    <!-- Rung-0 probe screen (build plan §6.3). English is fine: the user here is
+         the developer, and clarity beats localisation. This screen is unreachable
+         in a release build (gated on BuildConfig.DEBUG). -->
+    <string name="dev_menu_title">Dev menu</string>
+    <string name="dev_menu_probe_title">Rung-0 probe — on-device speech recognition</string>
+    <string name="dev_menu_open">Open Rung-0 probe</string>
+    <string name="dev_menu_close">Close</string>
+    <string name="dev_probe_refresh">Refresh</string>
+    <string name="dev_probe_trigger_download">triggerModelDownload(ta-IN)</string>
+    <string name="dev_probe_export">Export to Download/Vaakku/evidence/</string>
+    <string name="dev_probe_ondevice_available">isOnDeviceRecognitionAvailable()</string>
+    <string name="dev_probe_default_service">Default recognizer (voice_recognition_service)</string>
+    <string name="dev_probe_support_header">checkRecognitionSupport()</string>
+    <string name="dev_probe_exported_to">Exported: %1$s</string>
+    <string name="dev_probe_export_failed">Export failed: %1$s</string>
+</resources>

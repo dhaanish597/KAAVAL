@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only manifest overlay.
+
+  This file is merged ONLY into debug builds, so [DevMenuActivity] does not exist
+  in a release APK — it is not merely hidden. MainActivity reaches it by component
+  name (a string) behind a BuildConfig.DEBUG guard, which is why there is no class
+  reference from main source to this one.
+
+  exported="false" is deliberate: nothing outside the app may launch the probe.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <activity
+            android:name="app.vaakku.dev.DevMenuActivity"
+            android:exported="false"
+            android:label="VAAKKU Dev"
+            android:theme="@style/Theme.Vaakku" />
+    </application>
+
+</manifest>

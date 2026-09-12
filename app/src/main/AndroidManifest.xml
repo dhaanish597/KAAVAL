@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      VAAKKU permissions (build plan §6.2).
+
+      Note what is NOT here and what is explicitly removed below: no INTERNET,
+      no ACCESS_NETWORK_STATE. This is the "visible privacy" promise — the app
+      cannot phone home even if some library wanted it to.
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
+      REMOVED ON PURPOSE. ML Kit's transport/logging dependencies pull INTERNET
+      and ACCESS_NETWORK_STATE into the merged manifest transitively. Removing
+      them here is the enforcement point for CLAUDE.md #3; scripts/check_manifest.sh
+      proves it worked on the actual merged output.
+
+      Do not delete these two lines. If a future dependency needs the network,
+      that dependency is wrong for this product, not this manifest.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
+
+    <!-- Camera is required; a device without one cannot scan the document. -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="true" />
+
+    <!--
+      No microphone feature requirement: RECORD_AUDIO is requested at runtime and
+      the app degrades to "scan only" if it is refused.
+    -->
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+
+    <!--
+      Package visibility (Android 11+ / targetSdk 36).
+
+      SpeechRecognizer.isRecognitionAvailable() calls
+      PackageManager.queryIntentServices(RecognitionService.SERVICE_INTERFACE),
+      and queryIntentServices is filtered by package visibility. Without this
+      <queries> block the call returns false on a phone that *does* have a
+      recognizer — the Rung-0 probe would report "no recognizer available" and we
+      would draw the wrong conclusion about the whole ASR plan.
+
+      This grants visibility of speech-recognition services only. It is not a
+      network capability and does not affect the offline guarantee.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Vaakku"
+        tools:targetApi="36">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Vaakku"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          SessionService (foregroundServiceType="microphone") is declared in P2/P5
+          when the ASR pipeline lands. Declaring it now would fail the manifest
+          merge because the class does not exist yet, so it is deliberately
+          absent rather than declared-and-missing (§6.2, §6.7).
+        -->
+
+    </application>
+
+</manifest>
