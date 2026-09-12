@@ -29,11 +29,8 @@ import app.vaakku.asr.LanguageSupport
 import app.vaakku.asr.RecognizerProbe
 import app.vaakku.asr.Rung0Probe
 import app.vaakku.asr.Rung0Report
-import app.vaakku.ui.theme.Ink
-import app.vaakku.ui.theme.InkMuted
 import app.vaakku.ui.theme.MonoStyle
-import app.vaakku.ui.theme.Paper
-import app.vaakku.ui.theme.Rule
+import app.vaakku.ui.theme.VaakkuTheme
 import app.vaakku.ui.theme.VaakkuTypography
 import kotlinx.coroutines.launch
 
@@ -75,19 +72,19 @@ fun Rung0ProbeScreen(onClose: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Paper)
+            .background(VaakkuTheme.colors.paper)
             .verticalScroll(rememberScrollState())
             .padding(24.dp),
     ) {
-        Text("Rung-0 probe", style = VaakkuTypography.titleLarge, color = Ink)
+        Text("Rung-0 probe", style = VaakkuTypography.titleLarge, color = VaakkuTheme.colors.ink)
         Text(
             "On-device speech recognition availability",
             style = VaakkuTypography.labelMedium,
-            color = InkMuted,
+            color = VaakkuTheme.colors.inkSoft,
         )
 
         Spacer(Modifier.height(16.dp))
-        HorizontalDivider(color = Rule)
+        HorizontalDivider(color = VaakkuTheme.colors.rule)
         Spacer(Modifier.height(16.dp))
 
         val r = report
@@ -125,7 +122,7 @@ fun Rung0ProbeScreen(onClose: () -> Unit) {
             }
 
             Spacer(Modifier.height(20.dp))
-            HorizontalDivider(color = Rule)
+            HorizontalDivider(color = VaakkuTheme.colors.rule)
             Spacer(Modifier.height(16.dp))
 
             Button(
@@ -153,7 +150,7 @@ fun Rung0ProbeScreen(onClose: () -> Unit) {
             Text(
                 "Needs a network — press BEFORE airplane mode goes on.",
                 style = VaakkuTypography.labelSmall,
-                color = InkMuted,
+                color = VaakkuTheme.colors.inkSoft,
                 modifier = Modifier.padding(top = 4.dp),
             )
 
@@ -215,11 +212,11 @@ private fun List<String>.render(): String = joinToString(", ").ifEmpty { "(none)
 
 @Composable
 private fun Section(title: String) {
-    Text(title, style = VaakkuTypography.labelMedium, color = InkMuted)
+    Text(title, style = VaakkuTypography.labelMedium, color = VaakkuTheme.colors.inkSoft)
     Spacer(Modifier.height(4.dp))
 }
 
 @Composable
 private fun Mono(line: String) {
-    Text(line, style = MonoStyle, color = Ink)
+    Text(line, style = MonoStyle, color = VaakkuTheme.colors.ink)
 }
