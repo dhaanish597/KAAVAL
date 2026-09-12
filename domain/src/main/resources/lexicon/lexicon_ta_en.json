@@ -1,0 +1,156 @@
+{
+  "_comment": "VAAKKU lexicon — build plan §5.3. Data, not code: a native Tamil speaker can add a variant here without touching Kotlin. Loaded at startup by LexiconLoader; the app may also load an override copy from app storage (debug 'reload lexicon').",
+
+  "numbers_ta": {
+    "0": ["பூஜ்ஜியம்", "ஜீரோ"],
+    "1": ["ஒன்று", "ஒண்ணு", "ஒரு", "ஓர்"],
+    "2": ["இரண்டு", "ரெண்டு"],
+    "3": ["மூன்று", "மூணு"],
+    "4": ["நான்கு", "நாலு"],
+    "5": ["ஐந்து", "அஞ்சு"],
+    "6": ["ஆறு"],
+    "7": ["ஏழு"],
+    "8": ["எட்டு"],
+    "9": ["ஒன்பது"],
+    "10": ["பத்து"],
+    "11": ["பதினொன்று", "பதினொண்ணு"],
+    "12": ["பன்னிரண்டு", "பன்னெண்டு"],
+    "15": ["பதினைந்து", "பதினஞ்சு"],
+    "18": ["பதினெட்டு"],
+    "20": ["இருபது"],
+    "25": ["இருபத்தைந்து", "இருபத்தஞ்சு"],
+    "30": ["முப்பது"],
+    "50": ["ஐம்பது"],
+    "100": ["நூறு"],
+    "1000": ["ஆயிரம்"],
+    "100000": ["லட்சம்", "லக்ஷம்"],
+    "10000000": ["கோடி"]
+  },
+
+  "_numbers_ta_comment": "Values ending in 000 that fuse into one written token without a space (Indian numbering, spoken quickly) — added beyond §5.3's list so parseNumber can resolve 'ஒரு லட்சம் இருபதாயிரம்' -> 120000 (build plan §5.4) without guessing a general sandhi rule. Each entry here is a literal value, not a multiplier.",
+  "compound_numbers_ta": {
+    "10000": ["பத்தாயிரம்"],
+    "20000": ["இருபதாயிரம்"],
+    "30000": ["முப்பதாயிரம்"],
+    "50000": ["ஐம்பதாயிரம்"]
+  },
+
+  "_fractions_ta_comment": "Standalone fraction words (§5.3).",
+  "fractions_ta": {
+    "0.5": ["அரை"],
+    "0.25": ["கால்"],
+    "0.75": ["முக்கால்"]
+  },
+
+  "_half_compounds_ta_comment": "The '-அரை' suffix fuses onto a number root with Tamil sandhi (எட்டு + அரை -> எட்டரை) that has no safe general algorithm — guessing it would violate CLAUDE.md #2's 'never guess'. So the fused forms are listed explicitly, exactly as §5.3 names two of them (எட்டரை 8.5, நாலரை 4.5); the rest follow the same pattern for 1-10.",
+  "half_compounds_ta": {
+    "1.5": ["ஒன்னரை", "ஒண்ணரை"],
+    "2.5": ["இரண்டரை", "ரெண்டரை"],
+    "3.5": ["மூணரை"],
+    "4.5": ["நாலரை"],
+    "5.5": ["அஞ்சரை"],
+    "6.5": ["ஆறரை"],
+    "7.5": ["ஏழரை"],
+    "8.5": ["எட்டரை"],
+    "9.5": ["ஒன்பதரை"],
+    "10.5": ["பத்தரை"]
+  },
+
+  "digits_ta": {
+    "௦": "0", "௧": "1", "௨": "2", "௩": "3", "௪": "4",
+    "௫": "5", "௬": "6", "௭": "7", "௮": "8", "௯": "9"
+  },
+
+  "numbers_en": {
+    "0": ["zero"], "1": ["one"], "2": ["two"], "3": ["three"], "4": ["four"],
+    "5": ["five"], "6": ["six"], "7": ["seven"], "8": ["eight"], "9": ["nine"],
+    "10": ["ten"], "11": ["eleven"], "12": ["twelve"], "13": ["thirteen"],
+    "14": ["fourteen"], "15": ["fifteen"], "16": ["sixteen"], "17": ["seventeen"],
+    "18": ["eighteen"], "19": ["nineteen"], "20": ["twenty"], "30": ["thirty"],
+    "40": ["forty"], "50": ["fifty"], "60": ["sixty"], "70": ["seventy"],
+    "80": ["eighty"], "90": ["ninety"], "100": ["hundred"], "1000": ["thousand"],
+    "100000": ["lakh", "lac"], "10000000": ["crore"]
+  },
+
+  "en_fraction_words": {
+    "0.5": ["half", "and a half"]
+  },
+
+  "percent_markers": [
+    "%", "percent", "per cent", "pc", "பர்சன்ட்", "பெர்சன்ட்", "பெர்சென்ட்",
+    "பர்சென்ட்", "சதவீதம்", "சதவிகிதம்", "சதம்", "p.a.", "per annum", "வருஷத்துக்கு"
+  ],
+
+  "year_units": [
+    "year", "years", "yr", "வருஷம்", "வருடம்", "ஆண்டு", "இயர்",
+    "வருஷத்துல", "வருடத்தில்"
+  ],
+
+  "month_units": [
+    "month", "months", "மாசம்", "மாதம்", "மந்த்"
+  ],
+
+  "after_markers": [
+    "after", "கழிச்சு", "அப்புறம்", "பிறகு", "பின்"
+  ],
+
+  "guarantee_words": [
+    "guaranteed", "guarantee", "assured", "sure", "fixed",
+    "கேரண்டி", "கியாரண்டி", "காரண்டி", "கேரன்டி", "கியாரன்டீ",
+    "உறுதி", "உறுதியான", "நிச்சயம்", "நிச்சயமா", "கண்டிப்பா"
+  ],
+
+  "negation": [
+    "not", "no", "non", "without", "never",
+    "இல்லை", "இல்ல", "கிடையாது", "கிடைக்காது", "இல்லாத",
+    "non-guaranteed", "not guaranteed"
+  ],
+
+  "hedge_up_to": [
+    "up to", "upto", "வரைக்கும்", "வரை", "வரலாம்"
+  ],
+
+  "hedge_illustrative": [
+    "illustrat", "scenario", "assumed", "projected"
+  ],
+
+  "hedge_generic": [
+    "around", "approx", "approximately", "expected", "may", "might", "could",
+    "maybe", "சுமார்", "கிட்டத்தட்ட", "எதிர்பார்க்கலாம்"
+  ],
+
+  "conditional": [
+    "if", "suppose", "இருந்தா", "இருந்தால்", "அப்படின்னா"
+  ],
+
+  "lockin_words": [
+    "lock-in", "lock in", "lockin", "லாக் இன்", "லாக்கின்"
+  ],
+
+  "term_words": [
+    "policy term", "term"
+  ],
+
+  "liquidity_words": [
+    "withdraw", "withdrawal", "எடுக்கலாம்", "எடுத்துக்கலாம்", "வித்ட்ரா",
+    "surrender", "சரண்டர்", "எப்ப வேணாலும்"
+  ],
+
+  "bundling_words": [
+    "loan", "லோன்", "கடன்"
+  ],
+
+  "bundling_required_words": [
+    "required", "compulsory", "mandatory", "must",
+    "கட்டாயம்", "எடுத்தா தான்", "இல்லாம loan கிடைக்காது"
+  ],
+
+  "bundling_voluntary_words": [
+    "voluntary", "not mandatory", "not a condition", "independent of loan", "இல்லாம கூட கிடைக்கும்"
+  ],
+
+  "charges_words": [
+    "charge", "charges", "fee", "commission",
+    "சார்ஜ்", "கட்டணம்", "கமிஷன்"
+  ]
+}
