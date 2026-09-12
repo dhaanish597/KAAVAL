@@ -1,0 +1,104 @@
+{
+  "_readme": [
+    "Build plan §11.2. One entry per testdata/testaudio/<file>.wav (16 kHz mono 16-bit PCM, recorded by the human).",
+    "expectedClaims encodes the 'Expected spoken claims' column as plain strings, one per ClaimType, compared by :domain:evalTranscripts (domain/src/test/kotlin/app/vaakku/domain/fixtures/EvalTranscriptsRunner.kt) against what SpokenExtractor actually produces from a pre-screen transcript:",
+    "  GUARANTEE   -> \"true\" | \"false\"",
+    "  RETURN_RATE -> comma-separated percent numbers, e.g. \"8\" or \"4,8\"",
+    "  LOCK_IN     -> months as an integer string, e.g. \"12\"",
+    "  LIQUIDITY   -> \"withdrawAfter:<months>\" or \"nilBefore:<months>\"",
+    "  BUNDLING    -> \"true\" | \"false\" (requiredForLoan)",
+    "  CHARGES     -> \"true\" | \"false\" (anyCharges)",
+    "A file with no expectedClaims entry for a type means that type is not asserted for it (e.g. T11 deliberately produces no claim at all — see its note).",
+    "HUMAN ACTION: confirm these scripts match what you recorded — you may reword a line, but keep the values (build plan §11.2's own instruction). See STATUS.md for the exact question."
+  ],
+  "files": [
+    {
+      "file": "T01_guarantee_fd",
+      "script": "Sir, இது FD மாதிரி தான். Guaranteed எட்டு percent return.",
+      "expectedClaims": { "GUARANTEE": "true", "RETURN_RATE": "8" }
+    },
+    {
+      "file": "T02_lockin_liquidity",
+      "script": "Lock-in ஒரு வருஷம் தான் sir. One year கழிச்சு full-ஆ எடுக்கலாம்.",
+      "expectedClaims": { "LOCK_IN": "12", "LIQUIDITY": "withdrawAfter:12" }
+    },
+    {
+      "file": "T03_bundling",
+      "script": "இந்த policy எடுத்தா தான் loan sanction ஆகும் sir, இது compulsory.",
+      "expectedClaims": { "BUNDLING": "true" }
+    },
+    {
+      "file": "T04_charges",
+      "script": "Charges எதுவும் இல்லை sir, zero commission.",
+      "expectedClaims": { "CHARGES": "false" }
+    },
+    {
+      "file": "T05_honest_rate",
+      "script": "Return guarantee இல்லை sir. Illustration-ல நாலு percent, எட்டு percent ரெண்டு scenario இருக்கு.",
+      "expectedClaims": { "GUARANTEE": "false", "RETURN_RATE": "4,8" }
+    },
+    {
+      "file": "T06_honest_lockin",
+      "script": "Lock-in அஞ்சு வருஷம். அதுக்கு முன்னாடி surrender value கிடையாது.",
+      "expectedClaims": { "LOCK_IN": "60", "LIQUIDITY": "nilBefore:60" }
+    },
+    {
+      "file": "T07_selfcorrect",
+      "script": "Lock-in மூணு வருஷம்… இல்ல இல்ல, அஞ்சு வருஷம்.",
+      "note": "Latest wins — expected value is the SECOND (corrected) one.",
+      "expectedClaims": { "LOCK_IN": "60" }
+    },
+    {
+      "file": "T08_hedge",
+      "script": "Up to எட்டு percent வரைக்கும் வரலாம் sir.",
+      "expectedClaims": { "RETURN_RATE": "8" }
+    },
+    {
+      "file": "T09_conditional",
+      "script": "Guaranteed-ஆ இருந்தா எட்டு percent கிடைக்கும், ஆனா இது guaranteed இல்லை.",
+      "note": "The conditional half is not a claim; the later plain negation is.",
+      "expectedClaims": { "GUARANTEE": "false" }
+    },
+    {
+      "file": "T10_english",
+      "script": "It's like a fixed deposit, guaranteed eight percent, and you can withdraw after one year.",
+      "expectedClaims": { "GUARANTEE": "true", "RETURN_RATE": "8", "LIQUIDITY": "withdrawAfter:12" }
+    },
+    {
+      "file": "T11_numbers",
+      "script": "Premium வருஷத்துக்கு ஒரு லட்சம் இருபதாயிரம், term பத்து வருஷம்.",
+      "note": "Number-parse test only (120000). 'term' is not lock-in, so NO LOCK_IN claim is expected — expectedClaims is deliberately empty.",
+      "expectedClaims": {}
+    },
+    {
+      "file": "T12_formal_tamil",
+      "script": "இது உறுதியான எட்டு சதவீத வருமானம் தரும்.",
+      "expectedClaims": { "GUARANTEE": "true", "RETURN_RATE": "8" }
+    },
+    {
+      "file": "T13_noisy_T01",
+      "script": "Sir, இது FD மாதிரி தான். Guaranteed எட்டு percent return.",
+      "note": "T01 re-recorded with background chatter/fan noise. Same expected claims as T01.",
+      "expectedClaims": { "GUARANTEE": "true", "RETURN_RATE": "8" }
+    },
+    {
+      "file": "T14_noisy_T02",
+      "script": "Lock-in ஒரு வருஷம் தான் sir. One year கழிச்சு full-ஆ எடுக்கலாம்.",
+      "note": "T02 re-recorded with background chatter/fan noise. Same expected claims as T02.",
+      "expectedClaims": { "LOCK_IN": "12", "LIQUIDITY": "withdrawAfter:12" }
+    },
+    {
+      "file": "R01_demo_pitch",
+      "script": "Sir, இது FD மாதிரி தான். Guaranteed எட்டு percent return. Lock-in ஒரு வருஷம் தான் sir. One year கழிச்சு full-ஆ எடுக்கலாம். இந்த policy எடுத்தா தான் loan sanction ஆகும் sir, இது compulsory. Charges எதுவும் இல்லை sir, zero commission.",
+      "note": "T01 + T02 + T03 + T04 concatenated (build plan §11.2: 'create with a script') — this is that script's actual text, not a description of it. Union of T01-T04's expected claims.",
+      "expectedClaims": {
+        "GUARANTEE": "true",
+        "RETURN_RATE": "8",
+        "LOCK_IN": "12",
+        "LIQUIDITY": "withdrawAfter:12",
+        "BUNDLING": "true",
+        "CHARGES": "false"
+      }
+    }
+  ]
+}

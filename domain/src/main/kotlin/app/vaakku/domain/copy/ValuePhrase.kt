@@ -15,8 +15,8 @@ import java.math.BigDecimal
  *  - `v_illustrative_pcts` is the only percent-list phrase §8.3 defines; it
  *    is used for every [RateQualifier], not only ILLUSTRATIVE — the list of
  *    percents is the content that matters on a Delta Card, and the
- *    qualifier itself is never shown as a separate word (CLAUDE.md #1: no
- *    judgement language like "hedged" or "asserted" on screen).
+ *    qualifier itself is never shown as a separate word (CLAUDE.md #1: this
+ *    module characterizes nothing — "hedged"/"asserted" stay internal).
  */
 object ValuePhrase {
 

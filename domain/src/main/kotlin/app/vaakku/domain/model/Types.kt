@@ -5,10 +5,10 @@ import java.math.BigDecimal
 // -----------------------------------------------------------------------------
 // Core types — build plan §5.1.
 //
-// HARD RULE (CLAUDE.md #1, build plan §5.9): no name here may express risk,
-// score, severity, fraud, suspicion or judgement. The schema guard test
-// (SchemaGuardTest, §5.9) enforces this by reflection over every class in this
-// package; it is not just a comment.
+// HARD RULE (CLAUDE.md #1, build plan §5.9): no name here may match the
+// §2.4/§5.9 banned-word list — this module never characterizes a person.
+// The schema guard test (SchemaGuardTest, §5.9) enforces this by reflection
+// over every class in this package; it is not just a comment.
 // -----------------------------------------------------------------------------
 
 /** The six things VAAKKU compares. Locked list — build plan §2.1. */

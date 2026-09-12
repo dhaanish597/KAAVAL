@@ -46,63 +46,36 @@ tasks.withType<Test>().configureEach {
 // ---------------------------------------------------------------------------
 // fixtureReport — writes evidence/fixture_report.md  (build plan §5.10, §9 item 2)
 //
-// P0 placeholder. P0 creates no fixtures (P1 does), so this task would have
-// nothing real to report. Rather than print invented numbers — which CLAUDE.md
-// #7 and #8 forbid — it writes an honest "no fixtures yet" report and passes.
-// P1 replaces this body with the real confusion matrix and DIFFERS precision.
+// Runs FixtureReportRunner.main() (domain/src/test/kotlin/.../fixtures/) on
+// the TEST runtime classpath, because the fixtures themselves are test
+// resources and the runner shares FixturePipeline with FixturesTest — one
+// pipeline, exercised the same way by both the assertions and the report.
+// The runner throws if any fixture assertion fails, so this task goes red
+// exactly when :domain:test's FixturesTest would.
 // ---------------------------------------------------------------------------
-tasks.register("fixtureReport") {
+tasks.register<JavaExec>("fixtureReport") {
     group = "verification"
-    description = "Writes evidence/fixture_report.md (P0: placeholder, real matrix lands in P1)."
+    description = "Runs every fixture and writes evidence/fixture_report.md (confusion matrix, DIFFERS precision/recall)."
+    dependsOn("testClasses")
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("app.vaakku.domain.fixtures.FixtureReportRunnerKt")
+    workingDir = rootProject.projectDir
+}
 
-    val outFile = rootProject.layout.projectDirectory.file("evidence/fixture_report.md")
-    val fixtureDir = layout.projectDirectory.dir("src/test/resources/fixtures")
-    inputs.dir(fixtureDir)
-
-    doLast {
-        val fixtures = fixtureDir.asFile.listFiles()?.filter { it.extension == "json" } ?: emptyList()
-        val target = outFile.asFile
-        target.parentFile.mkdirs()
-
-        val body = if (fixtures.isEmpty()) {
-            """
-            # Fixture report — VAAKKU domain
-
-            **Status: P0 placeholder. No fixtures exist yet, so there is nothing to report.**
-
-            This task is deliberately honest about being empty. It exists in P0 only so
-            that the pre-commit guard list (`:domain:test :domain:fixtureReport
-            checkBannedWords`, CLAUDE.md "Always do") is runnable from the first commit.
-
-            P1 builds the real thing: >= 26 fixtures (10 adversarial, 6 demo-path,
-            6 normalization, 4 honest-agent) and this file becomes the confusion
-            matrix of expected {MATCHES, NOT_IN_DOCUMENT, DIFFERS, SILENT} against
-            actual, with **precision on DIFFERS printed (must be 1.00)**.
-
-            Expected shape once P1 lands:
-
-            | expected \ actual | MATCHES | NOT_IN_DOCUMENT | DIFFERS | SILENT |
-            |---|---|---|---|---|
-            | MATCHES | | | | |
-            | NOT_IN_DOCUMENT | | | | |
-            | DIFFERS | | | | |
-            | SILENT | | | | |
-
-            **Precision on DIFFERS: not yet measured.**
-            """.trimIndent()
-        } else {
-            """
-            # Fixture report — VAAKKU domain
-
-            Fixture files found: ${fixtures.size}
-            ${fixtures.joinToString("\n") { "- ${it.name}" }}
-
-            **The comparison logic is not implemented yet (P1).** Fixtures exist but no
-            matrix is computed, so no precision figure is claimed here.
-            """.trimIndent()
-        }
-
-        target.writeText(body + "\n")
-        logger.lifecycle("fixtureReport: wrote ${target.invariantSeparatorsPath} (${fixtures.size} fixture file(s) found).")
-    }
+// ---------------------------------------------------------------------------
+// evalTranscripts — writes evidence/asr_slot_accuracy.md  (build plan §5.10
+// item 10, §11.3 item 1)
+//
+// Runs EvalTranscriptsRunner.main() the same way. P1 has no ASR pre-screen
+// transcripts yet (P2 produces evidence/asr_prescreen/<engine>/<file>.txt),
+// so this honestly reports emptiness rather than inventing a number
+// (CLAUDE.md #7/#8) — see the runner's own doc comment.
+// ---------------------------------------------------------------------------
+tasks.register<JavaExec>("evalTranscripts") {
+    group = "verification"
+    description = "Reads evidence/asr_prescreen + testdata/testaudio/labels.json and writes evidence/asr_slot_accuracy.md."
+    dependsOn("testClasses")
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("app.vaakku.domain.fixtures.EvalTranscriptsRunnerKt")
+    workingDir = rootProject.projectDir
 }

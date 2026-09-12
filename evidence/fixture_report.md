@@ -1,23 +1,16 @@
 # Fixture report — VAAKKU domain
 
-**Status: P0 placeholder. No fixtures exist yet, so there is nothing to report.**
-
-This task is deliberately honest about being empty. It exists in P0 only so
-that the pre-commit guard list (`:domain:test :domain:fixtureReport
-checkBannedWords`, CLAUDE.md "Always do") is runnable from the first commit.
-
-P1 builds the real thing: >= 26 fixtures (10 adversarial, 6 demo-path,
-6 normalization, 4 honest-agent) and this file becomes the confusion
-matrix of expected {MATCHES, NOT_IN_DOCUMENT, DIFFERS, SILENT} against
-actual, with **precision on DIFFERS printed (must be 1.00)**.
-
-Expected shape once P1 lands:
+Fixtures run: 26. Assertions checked: 45.
 
 | expected \ actual | MATCHES | NOT_IN_DOCUMENT | DIFFERS | SILENT |
 |---|---|---|---|---|
-| MATCHES | | | | |
-| NOT_IN_DOCUMENT | | | | |
-| DIFFERS | | | | |
-| SILENT | | | | |
+| MATCHES | 23 | 0 | 0 | 0 |
+| NOT_IN_DOCUMENT | 0 | 3 | 0 | 0 |
+| DIFFERS | 0 | 0 | 12 | 0 |
+| SILENT | 0 | 0 | 0 | 7 |
 
-**Precision on DIFFERS: not yet measured.**
+**Precision on DIFFERS: 1.00** (TP=12, FP=0)
+
+Recall on DIFFERS: 1.00 (TP=12, FN=0) — reported per §5.10, not required.
+
+All 45 fixture assertions passed.
