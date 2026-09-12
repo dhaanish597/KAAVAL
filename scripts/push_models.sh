@@ -60,7 +60,19 @@ echo "    dest:   ${DEST_ROOT}"
 
 require_device "${ADB}"
 
-"${ADB}" shell mkdir -p "${DEST_ROOT}"
+# Every adb call below reads its stdin from /dev/null. This is not decoration.
+#
+# `adb` forwards its own stdin to the device, and the push loops are `while read`
+# loops fed by process substitution — so an adb invocation inside the loop body
+# consumes the file list the loop is still reading from. The first version of this
+# script pushed exactly TWO of 1.1 GB of model files and exited 0, because adb
+# drained the `find` output after the first iteration. It reported
+# "pushed 2, skipped 0, failed 0" and looked like a success.
+#
+# That failure mode is worth spelling out: it is silent, it is green, and the
+# engines would then fail on the phone with "missing model.int8.onnx" pointing the
+# blame at the app. Keep the redirects.
+"${ADB}" shell mkdir -p "${DEST_ROOT}" </dev/null
 
 pushed=0
 skipped=0
@@ -71,7 +83,7 @@ failed=0
 remote_size() {
   local path="$1"
   local out
-  out="$("${ADB}" shell stat -c %s "'${path}'" 2>/dev/null | tr -d '\r\n' || true)"
+  out="$("${ADB}" shell stat -c %s "'${path}'" 2>/dev/null </dev/null | tr -d '\r\n' || true)"
   case "${out}" in
     ''|*[!0-9]*) echo "" ;;
     *) echo "${out}" ;;
@@ -94,7 +106,7 @@ push_one() {
   fi
 
   echo "    push   (${local_size} B) ${remote_path}"
-  if "${ADB}" push "${local_path}" "${remote_path}" >/dev/null; then
+  if "${ADB}" push "${local_path}" "${remote_path}" >/dev/null </dev/null; then
     pushed=$((pushed + 1))
   else
     echo "    FAILED ${local_path}" >&2
@@ -109,16 +121,31 @@ push_one() {
 while read -r dir; do
   name="$(basename "${dir}")"
   echo "  ${name}"
-  "${ADB}" shell mkdir -p "${DEST_ROOT}/${name}"
+  "${ADB}" shell mkdir -p "${DEST_ROOT}/${name}" </dev/null
   while read -r f; do
     rel="${f#${dir}/}"
     # adb push does not create intermediate directories, so make them first.
     rel_dir="$(dirname "${rel}")"
     if [ "${rel_dir}" != "." ]; then
-      "${ADB}" shell mkdir -p "${DEST_ROOT}/${name}/${rel_dir}"
+      "${ADB}" shell mkdir -p "${DEST_ROOT}/${name}/${rel_dir}" </dev/null
     fi
     push_one "${f}" "${DEST_ROOT}/${name}/${rel}"
   done < <(find "${dir}" -type f | sort)
+
+  # Make the directory traversable by the app. This is not optional.
+  #
+  # `adb shell mkdir` creates directories owned by `shell`, mode 2770 (group
+  # ext_data_rw, NO world execute). The app runs as its own uid, is not shell and
+  # is not in that group, so it can stat the directory but cannot traverse INTO
+  # it. The observed symptom is precise and misleading: every engine reports
+  # "missing: model.int8.onnx, tokens.txt" while `adb shell ls` shows both files
+  # present at the right size. `File.isDirectory()` succeeds (it only needs the
+  # parent, which the app owns) and `File.isFile()` on each child fails.
+  #
+  # DEST_ROOT itself is created by the app via getExternalFilesDir() and is owned
+  # by the app, so chmod on it fails with "Operation not permitted" — expected,
+  # and not a problem, because the app already owns it.
+  "${ADB}" shell chmod -R 777 "${DEST_ROOT}/${name}" </dev/null 2>/dev/null || true
 done < <(find "${SOURCE_DIR}" -mindepth 1 -maxdepth 1 -type d | sort)
 
 # --- Loose files at the top level (silero_vad.onnx). -------------------------
@@ -126,14 +153,38 @@ done < <(find "${SOURCE_DIR}" -mindepth 1 -maxdepth 1 -type d | sort)
 # files/models/.
 while read -r f; do
   push_one "${f}" "${DEST_ROOT}/$(basename "${f}")"
+  "${ADB}" shell chmod 666 "${DEST_ROOT}/$(basename "${f}")" </dev/null 2>/dev/null || true
 done < <(find "${SOURCE_DIR}" -mindepth 1 -maxdepth 1 -type f | sort)
 
 echo
 echo "==> pushed ${pushed}, skipped ${skipped} (already present, same size), failed ${failed}"
 
+# --- Completeness check ------------------------------------------------------
+# Every local file must have been either pushed or skipped-as-identical. Without
+# this, the stdin bug described at the top of this script exits 0 after moving two
+# of several hundred files, and the first sign of trouble is an engine failing to
+# load on the phone twenty minutes later. Counting is cheap; being wrong here is
+# not (CLAUDE.md #7).
+local_total="$(find "${SOURCE_DIR}" -type f | wc -l | tr -d ' ')"
+accounted=$((pushed + skipped))
+
+if [ "${failed}" -ne 0 ]; then
+  echo "push_models.sh: ${failed} file(s) FAILED to push." >&2
+  exit 1
+fi
+
+if [ "${accounted}" -ne "${local_total}" ]; then
+  echo "push_models.sh: accounted for ${accounted} file(s) but ${SOURCE_DIR} holds ${local_total}." >&2
+  echo "  Nothing was reported as failed, so files were silently skipped by the loop," >&2
+  echo "  not by the device. Do not treat this run as a successful push." >&2
+  exit 1
+fi
+
+echo "==> all ${local_total} file(s) under ${SOURCE_DIR} are accounted for."
+
 echo
 echo "==> done. Files on the phone:"
-"${ADB}" shell "du -sh ${DEST_ROOT}/* 2>/dev/null || ls -la ${DEST_ROOT}" || true
+"${ADB}" shell "du -sh ${DEST_ROOT}/* 2>/dev/null || ls -la ${DEST_ROOT}" </dev/null || true
 
 echo
 echo "Reminder: uninstalling ${PKG} deletes ${DEST_ROOT}. Always install with -r."

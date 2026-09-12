@@ -1,0 +1,61 @@
+==> push_models.sh
+    source: models
+    dest:   /sdcard/Android/data/app.vaakku/files/models
+    device count: 1
+  sherpa-onnx-dolphin-base-ctc-multi-lang-int8-2025-04-02
+    skip   (141 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-dolphin-base-ctc-multi-lang-int8-2025-04-02/README.md
+    push   (103729802 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-dolphin-base-ctc-multi-lang-int8-2025-04-02/model.int8.onnx
+models/sherpa-onnx-dolphin-base-ctc-multi-lang-int8-2025-04-02/model.int8.onnx: 1 file pushed, 0 skipped. 42.2 MB/s (103729802 bytes in 2.345s)
+    push   (179646 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-dolphin-base-ctc-multi-lang-int8-2025-04-02/test_wavs/0.wav
+models/sherpa-onnx-dolphin-base-ctc-multi-lang-int8-2025-04-02/test_wavs/0.wav: 1 file pushed, 0 skipped. 93.6 MB/s (179646 bytes in 0.002s)
+    push   (504662 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-dolphin-base-ctc-multi-lang-int8-2025-04-02/tokens.txt
+models/sherpa-onnx-dolphin-base-ctc-multi-lang-int8-2025-04-02/tokens.txt: 1 file pushed, 0 skipped. 64.4 MB/s (504662 bytes in 0.007s)
+  sherpa-onnx-dolphin-small-ctc-multi-lang-int8-2025-04-02
+    push   (141 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-dolphin-small-ctc-multi-lang-int8-2025-04-02/README.md
+models/sherpa-onnx-dolphin-small-ctc-multi-lang-int8-2025-04-02/README.md: 1 file pushed, 0 skipped. 0.5 MB/s (141 bytes in 0.000s)
+    push   (249658954 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-dolphin-small-ctc-multi-lang-int8-2025-04-02/model.int8.onnx
+models/sherpa-onnx-dolphin-small-ctc-multi-lang-int8-2025-04-02/model.int8.onnx: 1 file pushed, 0 skipped. 42.0 MB/s (249658954 bytes in 5.671s)
+    push   (179646 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-dolphin-small-ctc-multi-lang-int8-2025-04-02/test_wavs/0.wav
+models/sherpa-onnx-dolphin-small-ctc-multi-lang-int8-2025-04-02/test_wavs/0.wav: 1 file pushed, 0 skipped. 77.4 MB/s (179646 bytes in 0.002s)
+    push   (504662 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-dolphin-small-ctc-multi-lang-int8-2025-04-02/tokens.txt
+models/sherpa-onnx-dolphin-small-ctc-multi-lang-int8-2025-04-02/tokens.txt: 1 file pushed, 0 skipped. 75.7 MB/s (504662 bytes in 0.006s)
+  sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12
+    push   (581 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/LICENSE
+models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/LICENSE: 1 file pushed, 0 skipped. 1.8 MB/s (581 bytes in 0.000s)
+    push   (13928 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/README.md
+models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/README.md: 1 file pushed, 0 skipped. 42.2 MB/s (13928 bytes in 0.000s)
+    push   (365352120 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/model.int8.onnx
+models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/model.int8.onnx: 1 file pushed, 0 skipped. 40.5 MB/s (365352120 bytes in 8.611s)
+    push   (121388 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/test_wavs/de.wav
+models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/test_wavs/de.wav: 1 file pushed, 0 skipped. 116.7 MB/s (121388 bytes in 0.001s)
+    push   (184608 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/test_wavs/en.wav
+models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/test_wavs/en.wav: 1 file pushed, 0 skipped. 93.9 MB/s (184608 bytes in 0.002s)
+    push   (235052 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/test_wavs/es.wav
+models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/test_wavs/es.wav: 1 file pushed, 0 skipped. 92.4 MB/s (235052 bytes in 0.002s)
+    push   (219180 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/test_wavs/fr.wav
+models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/test_wavs/fr.wav: 1 file pushed, 0 skipped. 87.6 MB/s (219180 bytes in 0.002s)
+    push   (86423 B) /sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/tokens.txt
+models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/tokens.txt: 1 file pushed, 0 skipped. 70.2 MB/s (86423 bytes in 0.001s)
+  whisper-small-ta
+    push   (262200764 B) /sdcard/Android/data/app.vaakku/files/models/whisper-small-ta/decoder.int8.onnx
+models/whisper-small-ta/decoder.int8.onnx: 1 file pushed, 0 skipped. 38.5 MB/s (262200764 bytes in 6.490s)
+    push   (112413411 B) /sdcard/Android/data/app.vaakku/files/models/whisper-small-ta/encoder.int8.onnx
+models/whisper-small-ta/encoder.int8.onnx: 1 file pushed, 0 skipped. 46.2 MB/s (112413411 bytes in 2.323s)
+    push   (816730 B) /sdcard/Android/data/app.vaakku/files/models/whisper-small-ta/tokens.txt
+models/whisper-small-ta/tokens.txt: 1 file pushed, 0 skipped. 49.9 MB/s (816730 bytes in 0.016s)
+    skip   (2103 B) /sdcard/Android/data/app.vaakku/files/models/MANIFEST.md
+    push   (643854 B) /sdcard/Android/data/app.vaakku/files/models/silero_vad.onnx
+models/silero_vad.onnx: 1 file pushed, 0 skipped. 49.1 MB/s (643854 bytes in 0.013s)
+
+==> pushed 19, skipped 2 (already present, same size), failed 0
+==> all 21 file(s) under models are accounted for.
+
+==> done. Files on the phone:
+4.0K	/sdcard/Android/data/app.vaakku/files/models/MANIFEST.md
+100M	/sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-dolphin-base-ctc-multi-lang-int8-2025-04-02
+239M	/sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-dolphin-small-ctc-multi-lang-int8-2025-04-02
+350M	/sdcard/Android/data/app.vaakku/files/models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12
+632K	/sdcard/Android/data/app.vaakku/files/models/silero_vad.onnx
+358M	/sdcard/Android/data/app.vaakku/files/models/whisper-small-ta
+
+Reminder: uninstalling app.vaakku deletes /sdcard/Android/data/app.vaakku/files/models. Always install with -r.
