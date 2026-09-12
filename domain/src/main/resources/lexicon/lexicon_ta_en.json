@@ -78,8 +78,9 @@
 
   "percent_markers": [
     "%", "percent", "per cent", "pc", "பர்சன்ட்", "பெர்சன்ட்", "பெர்சென்ட்",
-    "பர்சென்ட்", "சதவீதம்", "சதவிகிதம்", "சதம்", "p.a.", "per annum", "வருஷத்துக்கு"
+    "பர்சென்ட்", "சதவீதம்", "சதவீத", "சதவிகிதம்", "சதம்", "p.a.", "per annum", "வருஷத்துக்கு"
   ],
+  "_percent_markers_comment": "'சதவீத' (no trailing ம்) is the bound-stem form that appears before another noun in a compound ('சதவீத வருமானம்' = percentage income, labels.json T12) — a real Tamil inflection, not an ASR typo, so it is listed rather than left to fuzzy matching (the missing 'ம்' is a 2-code-point difference, over the distance-1 budget).",
 
   "year_units": [
     "year", "years", "yr", "வருஷம்", "வருடம்", "ஆண்டு", "இயர்",
@@ -101,7 +102,7 @@
   ],
 
   "negation": [
-    "not", "no", "non", "without", "never",
+    "not", "no", "non", "without", "never", "zero", "nil",
     "இல்லை", "இல்ல", "கிடையாது", "கிடைக்காது", "இல்லாத",
     "non-guaranteed", "not guaranteed"
   ],
@@ -121,6 +122,11 @@
 
   "conditional": [
     "if", "suppose", "இருந்தா", "இருந்தால்", "அப்படின்னா"
+  ],
+
+  "_self_correction_markers_comment": "A repeated negation immediately before a restated value ('lock-in மூணு வருஷம்... இல்ல இல்ல, அஞ்சு வருஷம்', build plan §5.10 A2) is the spoken-language signal for 'I meant this number instead', not a claim negation. Used only to let a later duration mention inherit the claim type of an earlier one in the same segment when the later mention has no disambiguating word of its own nearby (extract/SpokenExtractor) — never to invent a claim type from nothing.",
+  "self_correction_markers": [
+    "இல்ல இல்ல", "இல்லை இல்லை", "no no", "sorry", "correction"
   ],
 
   "lockin_words": [

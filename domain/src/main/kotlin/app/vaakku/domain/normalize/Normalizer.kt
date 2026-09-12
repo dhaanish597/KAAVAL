@@ -12,6 +12,9 @@ sealed interface DurationDisambiguation {
     data object NoClaim : DurationDisambiguation
 }
 
+/** Same classification as [DurationDisambiguation], without a months value attached. */
+enum class DurationClaimKind { LOCK_IN, WITHDRAWABLE_AFTER, NO_CLAIM }
+
 /**
  * Pure number/duration/percent parsing over Tamil–English tokens — build
  * plan §5.4. Every function here is a pure function of its arguments: same
@@ -82,15 +85,30 @@ class Normalizer(private val lexicon: Lexicon) {
      * rule from §5.3 made concrete: [anchorIdx] is always a unit/marker
      * token, so a lone number with no marker anywhere near it is never
      * reached by this search at all.
+     *
+     * Public because the spoken extractor (§5.5) needs to resolve a number
+     * at ONE SPECIFIC, already-known anchor position when a segment has
+     * multiple anchors of the same kind (two "percent"s, two "வருஷம்"s —
+     * build plan T05/A2). [parsePercent] and [parseDurationMonths] re-find
+     * "a" marker from scratch inside whatever window they are given, which
+     * is right for their own single-value contract but wrong for that case:
+     * calling this directly at the known anchor avoids re-discovering the
+     * wrong (e.g. first) marker.
      */
-    private fun numberNear(window: List<String>, anchorIdx: Int, maxDistance: Int): BigDecimal? {
+    fun numberNear(tokens: List<String>, anchorIdx: Int, maxDistance: Int): BigDecimal? {
         for (d in 1..maxDistance) {
             val left = anchorIdx - d
-            if (left in window.indices) tokenValue(window[left])?.let { return it }
+            if (left in tokens.indices) tokenValue(tokens[left])?.let { return it }
             val right = anchorIdx + d
-            if (right in window.indices) tokenValue(window[right])?.let { return it }
+            if (right in tokens.indices) tokenValue(tokens[right])?.let { return it }
         }
         return null
+    }
+
+    /** [n] years -> months if [isYear], else [n] taken as months directly. Rounds to the nearest whole month. */
+    fun monthsFrom(n: BigDecimal, isYear: Boolean): Int {
+        val months = if (isYear) n.multiply(BigDecimal(12)) else n
+        return months.setScale(0, RoundingMode.HALF_UP).intValueExact()
     }
 
     private fun markerIndex(window: List<String>, group: Collection<String>): Int? =
@@ -151,15 +169,36 @@ class Normalizer(private val lexicon: Lexicon) {
      */
     fun disambiguateDuration(window: List<String>): DurationDisambiguation? {
         val months = parseDurationMonths(window) ?: return null
+        return when (classifyDurationKind(window)) {
+            DurationClaimKind.NO_CLAIM -> DurationDisambiguation.NoClaim
+            DurationClaimKind.LOCK_IN -> DurationDisambiguation.LockIn(months)
+            DurationClaimKind.WITHDRAWABLE_AFTER -> DurationDisambiguation.WithdrawableAfter(months)
+            null -> null
+        }
+    }
+
+    /**
+     * The lexical-signal half of [disambiguateDuration], without requiring a
+     * number to be parseable from the same window first. The spoken
+     * extractor needs this split: when a segment has two duration mentions
+     * sharing one local window, [disambiguateDuration]'s own internal
+     * [parseDurationMonths] call can fail on a DECOY marker that happens to
+     * sit first in that window (no number adjacent to *that* marker) and
+     * bail out before ever checking the lock-in/liquidity words — even
+     * though the extractor already resolved the actual number at its own
+     * anchor separately. This function only reads the lexical signal, so it
+     * cannot be derailed by an unrelated marker's missing number.
+     */
+    fun classifyDurationKind(window: List<String>): DurationClaimKind? {
         val text = window.joinToString(" ")
         val hasTerm = lexicon.textContainsAny(text, lexicon.data.termWords)
         val hasLockIn = lexicon.textContainsAny(text, lexicon.data.lockinWords)
         val hasAfter = lexicon.textContainsAny(text, lexicon.data.afterMarkers)
         val hasLiquidity = lexicon.textContainsAny(text, lexicon.data.liquidityWords)
         return when {
-            hasTerm && !hasLockIn -> DurationDisambiguation.NoClaim
-            hasLockIn -> DurationDisambiguation.LockIn(months)
-            hasAfter && hasLiquidity -> DurationDisambiguation.WithdrawableAfter(months)
+            hasTerm && !hasLockIn -> DurationClaimKind.NO_CLAIM
+            hasLockIn -> DurationClaimKind.LOCK_IN
+            hasAfter && hasLiquidity -> DurationClaimKind.WITHDRAWABLE_AFTER
             else -> null
         }
     }

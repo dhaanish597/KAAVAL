@@ -35,6 +35,7 @@ data class LexiconData(
     @SerialName("hedge_illustrative") val hedgeIllustrative: List<String> = emptyList(),
     @SerialName("hedge_generic") val hedgeGeneric: List<String> = emptyList(),
     @SerialName("conditional") val conditional: List<String> = emptyList(),
+    @SerialName("self_correction_markers") val selfCorrectionMarkers: List<String> = emptyList(),
     @SerialName("lockin_words") val lockinWords: List<String> = emptyList(),
     @SerialName("term_words") val termWords: List<String> = emptyList(),
     @SerialName("liquidity_words") val liquidityWords: List<String> = emptyList(),

@@ -195,8 +195,12 @@ class NormalizerTest {
     }
 
     @Test
-    fun `tokenizer keeps a hyphenated phrase as one token`() {
-        assertEquals(listOf("lock-in", "ஒரு", "வருஷம்"), Tokenizer.tokenize("lock-in ஒரு வருஷம்"))
+    fun `tokenizer splits on a hyphen (punctuation), it does not glue compounds`() {
+        // §5.5 step 1: split on whitespace AND punctuation. "lock-in" becomes
+        // two tokens; extract/ matches the lexicon's "lock in" phrase variant
+        // by joining adjacent tokens, not by asking the tokenizer to fuse them.
+        assertEquals(listOf("lock", "in", "ஒரு", "வருஷம்"), Tokenizer.tokenize("lock-in ஒரு வருஷம்"))
+        assertEquals(listOf("Guaranteed", "ஆ", "இருந்தா"), Tokenizer.tokenize("Guaranteed-ஆ இருந்தா"))
     }
 
     @Test
