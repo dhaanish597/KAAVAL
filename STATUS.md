@@ -1,7 +1,8 @@
 # STATUS — VAAKKU
 
 Current light: GREEN · Current phase: **P2 (ASR)** — step 1 (laptop pre-screen) complete,
-step 2 (ASR in the app) in progress · Hour: H1–H6
+step 2 (ASR in the app) **written and green on the laptop; not yet run on the phone** ·
+Hour: H1–H6
 
 Red Light ruling: **unknown** — no organizer statement recorded yet.
 Name ruling: **unknown** — displayed name is VAAKKU, changed by editing the single
@@ -161,6 +162,38 @@ truncated the recording *before* the correction, so the extractor never saw it).
 all four engines there are three wrong values in 112 scored slots; everything else is
 silence. **The pipeline degrades to silence, not to false claims** (CLAUDE.md #2) — this
 is the first time that has been observed against real speech rather than fixtures.
+
+### G2 evidence — part 2 of 3: ASR in the app (§6.3, §11.3 item 2)
+
+Commit `bfff0c4`. **Written and green on the laptop; nothing here has run on the phone
+yet**, so no number in this section is a measurement — the measurements are part 3.
+
+| Item | Status | Path / number |
+|---|---|---|
+| sherpa-onnx AAR on the `:app` classpath | **done** | `app/libs/sherpa-onnx-1.13.8.aar` (50 MB, gitignored), `implementation(files(...))` |
+| API read from the AAR, not guessed | **done** | `evidence/sherpa_api_1.13.8.txt` (from P2 step 1) — every class and signature used here came from it |
+| `AudioSource` / `MicAudioSource` / `WavAssetAudioSource` | **done** | `app/src/main/java/app/vaakku/asr/` — one interface, so the VAD and the engines cannot tell a mic from a clip |
+| Silero VAD segmentation (§6.3 parameters) | **done** | `VadSegmenter.kt` — window 512, threshold 0.5, min speech 0.25 s, max speech 8.0 s, min silence 0.5 s |
+| `segmentQuality` | **done** | `SegmentQuality.kt` + **10 unit tests** (`app/src/test/`), dBFS anchors taken from `evidence/asr_prescreen/vad_calibration.md` |
+| `AsrEngine` interface + the five §6.3 engines | **done** | `AsrEngine.kt` (ids, required files, availability), `SherpaAsrEngine.kt` (1–4), `AndroidOnDeviceRecogniser.kt` (5) |
+| Engine switching with unload | **done** | `AsrEngineHolder` closes the previous recognizer before constructing the next; the bake-off holds exactly one engine at a time |
+| `numThreads` setting | **done** | 1 / 2 / 4 / 6 on both Dev screens, default 4, written into every exported file |
+| `AsrSegment` → `SpokenExtractor` wiring | **done** | `AsrPipeline.kt` — source → VAD → engine → `AsrSegment` → observations, per segment, nothing retained |
+| Debug "Live ASR" screen | **done** | `app/src/debug/java/app/vaakku/dev/LiveAsrScreen.kt` |
+| Bake-off screen + CSV export | **done** | `AsrBakeoffScreen.kt` → `Download/Vaakku/evidence/G2_asr_bakeoff_<stamp>.csv` |
+| `:app:assembleDebug` | **PASS** | zero Kotlin warnings, G0 baseline restored (4 pre-existing `:domain` warnings fixed in the same commit) |
+| `:app:testDebugUnitTest` | **PASS** | 10 tests (`SegmentQualityTest`) |
+| `:domain:test` / `fixtureReport` | **PASS** | unchanged: 26 fixtures, DIFFERS precision 1.00, recall 1.00, 0 mismatches |
+| `checkBannedWords` | **PASS** | 59 files scanned, 0 findings |
+| `scripts/check_manifest.sh` | **PASS** | no INTERNET, no ACCESS_NETWORK_STATE, in both the merged manifest and the APK |
+| Release APK carries no answer key | **verified** | `app/build/intermediates/assets/release/` contains `R01_demo_pitch.wav` only — no `T*.wav`, no `labels.json` |
+| `scripts/push_models.sh` run | **NOT DONE** | needs a human; the models have never been on the phone |
+| `SessionService` (§6.7) | **NOT DONE** | still absent from the manifest; `check_manifest.sh` still asserts the P0 state |
+
+**What is still missing for G2** — all three need the phone and a human:
+`push_models.sh`, the bake-off run + CSV, and the live-mic scorecard. Until those exist
+**no default engine is set in code** (open issue 12), and the §13 P2 rule cannot be
+applied, because it gates on *phone* RTF.
 
 ## Decisions log
 
@@ -352,6 +385,72 @@ is the first time that has been observed against real speech rather than fixture
     renders the extractor's actual output in the same vocabulary `labels.json` uses, so
     the report reads `expected 60, got 36`. Test-first; three new cases in
     `SlotCheckerTest`. This is what made decisions 28 and 29 possible to reach.
+31. **`segmentQuality`'s energy anchors are measured, not chosen.** §6.3 says "mean VAD
+    speech probability × a clipped energy factor" and leaves the clip points open. They
+    are load-bearing: `SpokenExtractor` sets `confidence = matchQuality × segmentQuality`
+    and `Reconciler` refuses DIFFERS on a single mention below `spokenStrong` (0.80), so
+    with `FuzzyMatcher.EXACT_QUALITY` at 0.95 **any segment scoring under 0.842 can never
+    produce a DIFFERS card** however clearly the words were said. An energy curve
+    pessimistic by two tenths does not lower confidence a little — it silences the
+    product. So `tools/asr_prescreen/vad_calibrate.py` ran the real Silero VAD over all
+    15 recordings (`evidence/asr_prescreen/vad_calibration.md`): 24 speech segments, RMS
+    dBFS min −22.5, p10 −14.9, median −13.3. Full credit starts at **−30 dBFS** (≈7 dB
+    below the quietest real segment, margin for a phone-recorder's gain control versus
+    raw `AudioRecord`, and for a speaker a metre away in a hall) and runs out at **−50**
+    (room tone). Linear in dB, not in amplitude, because an amplitude-linear ramp puts
+    every realistic speech level into the top few percent of the scale.
+32. **`segmentQuality` deliberately does not try to grade transcription quality.** It
+    answers "was this loud enough and speech-like enough to be worth believing" and
+    nothing else. A loud, confidently-voiced segment that the recogniser mangled still
+    scores high — guarding against mangled text is the lexicon's and the reconciler's
+    job, and a number that pretended to do both would be trusted for a property it
+    cannot see.
+33. **Engine 5 is not an `AsrEngine` and takes no part in the bake-off.** It owns the
+    microphone and returns text, never PCM, so it cannot be fed a WAV and cannot be
+    scored against the same clips as engines 1–4. Forcing it into the interface would
+    have produced a column in the evidence CSV that looked comparable and was not. It
+    lives in `AndroidOnDeviceRecogniser.kt` as a separate `Flow<AsrSegment>` source, and
+    the CSV header says in words why it is absent. (M1 already put it out for Tamil;
+    this is about not fabricating a comparison, not about that.)
+34. **Unmeasurable audio gets `segmentQuality = 0.80`, and the number is arithmetic, not
+    taste.** Engine 5 never hands over samples, so there is no energy to measure. 0.80 is
+    above `Thresholds.spokenMin` (0.55), so a claim heard there still enters the ledger
+    and can still reach NOT_IN_DOCUMENT; and 0.80 × 0.95 = 0.76 is below `spokenStrong`
+    (0.80), so **one** unmeasured mention can never on its own produce a DIFFERS card. A
+    claim said twice still can, because `Reconciler` accepts `mentionCount >= 2`. This is
+    CLAUDE.md #2 applied to a missing measurement rather than papered over with 1.0.
+35. **The bake-off scores through `:domain`'s `SlotChecker`, not a second scorer.** The
+    phone CSV and `evidence/asr_slot_accuracy.md` are meant to corroborate each other; a
+    separate scoring implementation on the app side would be a second thing that can
+    quietly disagree with the file it is corroborating. `AsrBakeoff` loads the same
+    `labels.json` and calls the same `SlotChecker.describe`, so a slot that reads
+    `expected 60, got 36` reads identically in both places.
+36. **The VAD is constructed fresh per clip, and `VadSegmenter` holds two `Vad`
+    instances.** Silero is recurrent: state from the end of one clip changes the
+    segmentation of the next, which would make bake-off rows depend on clip order. And
+    `acceptWaveform` and `compute` share that hidden state inside one instance, so
+    measuring per-window speech probability with the same object that is segmenting
+    corrupts the segmentation — one instance segments, one meters.
+37. **Test audio is copied into assets at build time, and the answer key is debug-only.**
+    `syncRehearsalAudio` puts `R01_demo_pitch.wav` into **main** assets (it ships in
+    release, because §13's fallback makes the rehearsal clip the demo's primary path);
+    `syncBakeoffAudio` puts `T01`–`T14` and `labels.json` into **debug** assets only.
+    Copying at build time rather than committing a second copy keeps 3.4 MB of WAVs out
+    of the source tree, and the split was verified against the built release assets, not
+    assumed. A release APK carrying the answer key would be an accuracy claim shipped
+    next to the thing it grades.
+38. **Stop the audio source; do not cancel the flow.** `AsrPipeline` ends when
+    `AudioSource.read` returns a negative value, and `VadSegmenter.flush()` then emits
+    the sentence still sitting in the VAD's buffer. Cancelling the collecting coroutine
+    also stops it, but throws that segment away — and in a sales pitch the last sentence
+    is the one that closes. Both Dev screens' Stop buttons call `source.stop()`.
+    Related trap, fixed before it shipped: `MicAudioSource.read` returns **0** when no
+    frames are ready yet, so the loop is `if (n < 0) break; if (n == 0) continue`, not
+    `if (n <= 0) break` — the obvious version ends the stream on the first quiet moment.
+39. **The Live ASR screen shows text, timing, quality and claims on the same row on
+    purpose.** A segment with good text and no claims is a lexicon problem; a segment
+    with no text at all is an engine problem; and those have opposite fixes (§11.3).
+    Showing only the transcript would make them look like the same failure.
 
 ## Measurements
 
@@ -516,6 +615,26 @@ screen), `evidence/language_setting_persisted_after_restart.png` (after
     demo is rehearsed, and the phone bake-off could still move the numbers. **Do not set
     the default engine in code until the phone bake-off has run**, since the §13 rule
     gates on *phone* RTF, which is still unmeasured.
+13. **The models have never been on the phone.** `scripts/push_models.sh` has still never
+    been run (it was noted as unexercised in open issue 5 at P0 and nothing since has
+    needed it). Every ASR engine in the app checks for its files at construction and
+    reports what is missing rather than crashing, so the app installs and runs today —
+    the Dev screens will simply say the engines are unavailable. This is the single
+    action that unblocks all three remaining G2 evidence items. See the HUMAN ACTION
+    block below.
+14. **`SessionService` (§6.7) is still not written.** It is the foreground-service host
+    the real session screen needs; the Dev screens run the pipeline in a plain coroutine
+    scope instead, which is fine for a screen you are looking at and wrong for a session
+    that must survive the screen turning off. When it lands, `<service
+    android:name=".session.SessionService" android:foregroundServiceType="microphone"
+    android:exported="false"/>` goes into the manifest **and the corresponding assertion
+    in `scripts/check_manifest.sh` must be updated** — it currently asserts the P0 state
+    ("SessionService not yet declared") and will fail the moment the service is correct.
+15. **Two MCP servers in this environment need authorization and could not be used:**
+    `plugin:catalyst-by-zoho:catalyst-by-zoho` and `plugin:supabase:supabase`. Neither is
+    needed by VAAKKU, which is offline by design and has no backend — recorded only so
+    nobody spends time wondering why those tools are inert. Authorize via claude.ai
+    connector settings, or `claude mcp` / `/mcp` in an interactive session.
 
 ## On-device verification status (P0)
 
@@ -549,11 +668,24 @@ or a file in `evidence/`:
 
 ## Next Red Light test list
 
-**P1 touched only `domain/**`, `testdata/testaudio/labels.json` and this file — no
-`app/**` or Gradle changes, so the phone's installed build is still exactly the one
-G0 verified.** There is nothing new to hand-test from P1; the "Not yet verified" list
-above (P0) is still the standing queue for the next Red Light window. The next thing
-worth adding here is whatever P2 (ASR) puts on the phone.
+P2 step 2 puts three new things on the phone, and **none of them has been installed
+yet** — the build on the device is still the G0 one. Once `push_models.sh` and
+`adb install -r` have run (see the HUMAN ACTION block below), this is the queue:
+
+- [ ] Dev menu → **Live ASR** → source `T01_*.wav`, engine Whisper small (Tamil) →
+      Start. Expect segments with non-empty text, `q=` above 0.8, and an `rtf=` line.
+      This is the first proof that sherpa-onnx runs at all on this phone.
+- [ ] Same clip, each of the other three engines. Engine 5 must stay un-selectable.
+- [ ] Dev menu → **ASR bake-off** → Run → Export CSV. Pull it from
+      `Download/Vaakku/evidence/` — this is the G2 evidence file.
+- [ ] **Live mic, a teammate speaking T01–T04 from 1 m**, in the room's real noise, with
+      the best engine from the bake-off. Score it by ear against `labels.json` and write
+      the result here as a MEASUREMENT — it is the third G2 item and the only one that
+      tests the microphone path rather than the WAV path.
+- [ ] Watch the phone's temperature during the bake-off (four engines, fifteen clips).
+      §11.5 budgets thermal at ≤ MODERATE after 15 minutes; this is the first workload
+      heavy enough to test it.
+- [ ] The P0 "Not yet verified" list above is still the standing queue underneath this.
 
 ## Handoff notes for the next session
 
@@ -578,6 +710,22 @@ worth adding here is whatever P2 (ASR) puts on the phone.
   a field per model family (`whisper`, `dolphin`, `omnilingual`, …) rather than a
   sealed hierarchy, and the VAD's segment type is `SpeechSegment(start: Int, samples:
   FloatArray)` where `start` is in **samples**, not milliseconds.
+- **P2 step 2's code is written and green (commit `bfff0c4`); what is missing is the
+  phone.** `app/src/main/java/app/vaakku/asr/` holds the whole subsystem and
+  `app/src/debug/java/app/vaakku/dev/` holds the two instruments that produce G2's
+  evidence. Nothing in it has ever executed on a device — the models have never been
+  pushed (open issue 13) and `adb devices` currently reports the phone as
+  `unauthorized`. Start there, not by reading the code again.
+- **The three ASR numbers to keep straight.** Laptop RTF (measured, indicative only),
+  **phone** RTF (the one §13's P2 rule actually gates on, still unmeasured), and slot
+  accuracy (39% at best on the laptop, against a 70% threshold). Do not quote a laptop
+  RTF as if it settled the gate, and do not set a default engine before the phone
+  numbers exist.
+- **`segmentQuality` under 0.842 silences a single-mention DIFFERS.** That arithmetic
+  (decision 31) is the reason `SegmentQuality`'s dBFS anchors were calibrated against
+  real recordings instead of picked. If a live-mic test shows claims registering but no
+  DIFFERS cards, check `q=` on the Live ASR screen before suspecting the reconciler.
+
 - **The Rung-0 question is answered — do not re-litigate it.** See M1.
   `isOnDeviceRecognitionAvailable()` is *true*, but the on-device recognizer does not
   offer `ta-IN` at all, so engine 5 (`AndroidOnDevice`) is out for Tamil and Rung 1
@@ -586,7 +734,9 @@ worth adding here is whatever P2 (ASR) puts on the phone.
   ta-IN means "never offered", not "ready".
 - `SessionService` is deliberately NOT in the manifest. Declaring it before the class
   exists breaks the build. It arrives in P2 (build plan §6.7) along with the
-  `foregroundServiceType="microphone"` attribute.
+  `foregroundServiceType="microphone"` attribute. **It is still not written** — the Dev
+  screens run the pipeline in a plain coroutine scope instead — and when it lands,
+  `scripts/check_manifest.sh` needs its assertion updated too; see open issue 14.
 - The Gradle wrapper is generated and pinned to 9.3.1; `./gradlew` works in Git Bash
   with `JAVA_HOME` set to Android Studio's JBR. If it is ever missing, `gradle wrapper`
   regenerates it from the cached distribution.
