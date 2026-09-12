@@ -27,8 +27,8 @@ import androidx.compose.ui.graphics.Color
  *   - [Stamp] = "these two copies differ". Nothing else, ever.
  *
  * Putting amber on a claim — or violet on anything that is not a delta — collapses
- * that distinction and turns the palette back into the risk ramp §1.1 of the design
- * spec argues against. Do not do it.
+ * that distinction and turns the palette back into the red/amber/green ramp that
+ * §1.1 of the design spec argues against. Do not do it.
  */
 
 // ---------------------------------------------------------------------------
@@ -83,7 +83,7 @@ val Stamp = Color(0xFF5B3E8E)
 /** Violet tint fill, for a delta's background wash. */
 val StampWash = Color(0xFFEFE8F8)
 
-/** Delete actions only. Never a verdict, never a state. */
+/** Destructive UI actions only (delete a session). Never a claim, never a state. */
 val Destructive = Color(0xFFA03A2B)
 
 // ---------------------------------------------------------------------------

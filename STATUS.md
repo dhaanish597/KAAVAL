@@ -36,10 +36,10 @@ This assumption has not been confirmed by an organizer.
 
 Build was green on a clean `:app:assembleDebug` (40 tasks) with Gradle 9.3.1 / AGP
 8.13.1 / Kotlin 2.3.0 on a JDK 21 daemon at Java 11 target. `checkBannedWords` is
-clean over 19 files. The manifest guard passes against both the merged manifest and
-the APK, and `evidence/G0_manifest_check.txt` records the manifest-merger REJECTED
-lines proving the two `tools:node="remove"` declarations are load-bearing rather than
-passing vacuously.
+clean over 20 files, with zero Kotlin warnings. The manifest guard passes against both
+the merged manifest and the APK, and `evidence/G0_manifest_check.txt` records the
+manifest-merger REJECTED lines proving the two `tools:node="remove"` declarations are
+load-bearing rather than passing vacuously. Debug APK is 51 MB.
 
 ## Decisions log
 
@@ -85,6 +85,57 @@ passing vacuously.
     Reading only the default could have caused us to abandon a working offline Tamil
     path. `Rung0Report` therefore holds a `probes: List<RecognizerProbe>`, each with
     its own `LanguageSupport` for `ta-IN` and `en-IN`.
+11. **The v2 prototype is the design source of truth, and it supersedes the palette
+    in `docs/VAAKKU_UI_DESIGN_SPEC.md` §3.1 and the P0 fallback.** The human supplied
+    `KAAVAL Prototype.html` and the design spec; both are now in `docs/`. v2 moves to
+    neutral grey paper (`#F4F3F1`, not the green-tinted `#EDEFE9`), near-black ink
+    (`#111111`, not blue-black `#17242E`), and adds a brand amber the v1 markdown does
+    not contain. The full token set — Day and Night — is transcribed in
+    `ui/theme/Color.kt` with the source `:root` blocks named. This closes open issue 2.
+12. **Amber is permitted; it does not weaken CLAUDE.md #9.** #9 bans colour-coding
+    *states*. Counting actual usage in the prototype rather than assuming: amber
+    appears 4 times (wordmark, two offline chips, session strip) and never on a claim;
+    violet appears 25 times and is always a delta. The two accents therefore carry
+    disjoint meanings — `Brand` = "this app, and it is offline"; `Stamp` = "these two
+    copies differ" — and that separation is what must be protected. The reasoning is
+    written into `ui/theme/Color.kt` so it cannot be lost. **No state is colour-coded
+    anywhere, and there is no red/amber/green ramp.**
+13. **Visual design from v2, copy from the build plan.** The prototype is written
+    entirely in English, including its `ta:` fields, and its wordmark reads KAAVAL. The
+    build plan and CLAUDE.md require Tamil, and the build plan wins over every other
+    document. So layout, tokens, spacing and structure come from v2; every user-facing
+    string stays Tamil-first with an English gloss, marked TAMIL-REVIEW.
+14. **Three typographic voices are wired as named roles, not typefaces.** `VoiceSpeech`
+    (Noto Sans Tamil) for spoken claims and UI, `VoiceDocument` (Noto Serif Tamil) for
+    quoted written clauses, `VoiceRecord` (IBM Plex Mono) for tabular values. Spoken
+    sans against written serif is the product encoded typographically — on a Delta Card
+    you can tell which half is which without reading it. Named by role because getting
+    them backwards inverts the metaphor silently.
+15. **Night is implemented but `MainActivity` passes `night = false` explicitly.** Day
+    reads as paper and photographs better under stage lighting, and the demo must not
+    flip because the phone happened to be in dark mode. `VaakkuTheme(night: Boolean)`
+    takes the flag as a parameter rather than reading `isSystemInDarkTheme()` directly.
+16. **`Domain` (six document kinds) is orthogonal to the six claim types.** INSURANCE /
+    LOAN / RENTAL / PURCHASE / JOB / SERVICE decide which claim types are *armed* and
+    what the camera expects; RETURN_RATE / GUARANTEE / LOCK_IN / LIQUIDITY / BUNDLING /
+    CHARGES are what gets compared. A rental agreement and an insurance illustration can
+    both carry a CHARGES claim. The enum sits in `ui/` at P0 because it carries no rules
+    yet; when the arming table is written it belongs in `:domain` as pure data.
+17. **The Setup screen keeps the two build-plan §6.6 rows the prototype frame omits.**
+    Frame 07 has no ASR or accelerator row; §6.6 requires both, and the build plan wins.
+    Both are worded to satisfy CLAUDE.md #8: the ASR row reports *the recognizer the ROM
+    ships* and says in as many words that the app has loaded nothing yet, and the
+    accelerator row reads "not measured" and will keep reading that until logcat proves
+    a dispatch. Neither invents a name. `Rung0Probe.quickAvailability()` was added for
+    this — a cheap synchronous metadata read, not the full probe, which creates
+    recognizers and is far too heavy for a screen that re-reads state every second.
+18. **The §6.6 debug override is attached to its own line, not to the Start button.**
+    Development needs the radio on (adb), so the airplane-mode gate must be bypassable
+    in debug and nowhere else. Whether a *disabled* Material button lets a long-press
+    reach an ancestor has changed between Compose versions; a dev escape hatch that
+    silently stopped working would cost debugging time at the worst possible moment. The
+    flag is `allowOverride = BuildConfig.DEBUG`, so the override state cannot become
+    true in a release build.
 
 ## Measurements (from the human)
 
@@ -101,10 +152,15 @@ verbatim from the exported file.
    confirm this substitution is acceptable** — it is a deviation from the written plan,
    though not from the originality rule, since fonts are assets and were not copied
    from the prototype repo.
-2. **`docs/VAAKKU_UI_DESIGN_SPEC_v2.md` and `docs/kaaval-tokens.css` are also
-   absent.** §6.6 documents the fallback palette for exactly this case, and that
-   fallback is what the theme uses: paper `#FAF7F0`, ink `#1F1B2E`, muted ink
-   `#6B6577`, rule `#D9D3C7`, stamp violet `#5E35B1`.
+2. ~~**`docs/VAAKKU_UI_DESIGN_SPEC_v2.md` and `docs/kaaval-tokens.css` are also
+   absent.**~~ **RESOLVED.** The human supplied `KAAVAL Prototype.html` and
+   `VAAKKU_UI_DESIGN_SPEC.md`. Both are now committed in `docs/`, along with
+   `docs/prototype/prototype_v2_extracted.html` (the design gallery recovered from the
+   self-extracting bundle, so the markup is readable without running its JavaScript).
+   The fallback palette is gone; see decisions 11–14. Two things the human should still
+   confirm: the prototype wordmark reads **KAAVAL**, not VAAKKU (the name ruling above
+   is still unknown, and `app_name` is the single string that changes), and the
+   prototype's own copy is English while the app ships Tamil.
 3. **`docs/VAAKKU_FINAL_LOCKED_SPEC.md` does not exist**; the file is
    `docs/FINAL LOCKED BUILD SPECIFICATION.md`.
 4. **The prompt names `docs/versions_from_scratch.txt`** and
@@ -131,9 +187,27 @@ verbatim from the exported file.
 ## Next Red Light test list
 
 Not yet applicable — no Red Light ruling has been issued, and no build has been
-installed. Once G0 closes: launch the app, confirm the Tamil renders in Noto Sans
-Tamil (not tofu boxes), toggle airplane mode and confirm the Start button enables,
-then run the Rung-0 probe and export it.
+installed. Once the phone is attached and `scripts/install.sh` has run:
+
+1. Launch the app. Confirm the Tamil renders in Noto Sans Tamil, **not tofu boxes** —
+   check the title, the six domain labels, and the long offline help line.
+2. Confirm nothing clips. Tamil runs ~30% longer than English; the domain cells are
+   60dp and the labels are the most likely thing to overflow.
+3. Tap through all six domain cells. The selected cell inverts to ink fill; the source
+   line beneath the grid should change with each.
+4. Type in the counterparty field. Confirm the Tamil hint disappears and the underline
+   is visible.
+5. Grant mic and camera. Confirm the row flips to அனுமதிக்கப்பட்டது without a restart.
+6. Toggle airplane mode ON. Confirm the amber offline chip appears and **Start enables**;
+   toggle it off and confirm Start disables again (this is the offline proof).
+7. Tap the offline row. Confirm it opens the real airplane-mode settings panel.
+8. Long-press the debug override line with airplane mode off. Confirm Start enables and
+   the "override armed" line appears — then confirm this line is absent when the radio
+   is on.
+9. Read the accelerator row. It must say அளக்கப்படவில்லை (not measured). If it ever
+   shows an accelerator name before G4, that is a CLAUDE.md #8 violation.
+10. Long-press the screen title → Dev menu → run the Rung-0 probe → export it.
+11. Screenshot for `evidence/G0_setup.png`.
 
 ## Handoff notes for the next session
 
@@ -156,3 +230,15 @@ then run the Rung-0 probe and export it.
   was assumed from memory and had to be caught by the compiler; reading the real
   `SpeechRecognizer.java` then found the package-visibility bug in decision 9 above.
   The SDK sources are on disk — use them instead of recalling an API.
+- **The design source is `docs/prototype/prototype_v2_extracted.html`**, not the
+  original bundle. `docs/vaakku_prototype_v2.html` is a self-extracting file: line 379
+  is a JSON manifest of base64+gzip assets and the actual design gallery is a
+  JSON-encoded HTML shell on line 391. The extracted copy is the one to read. Frames
+  beyond the v1 spec's list exist there: 12b, 15b, 27, and a six-domain Home.
+- **The theme is token-driven; do not reach for a top-level colour.** Read
+  `VaakkuTheme.colors` / `.type` / `.space` inside a composable. A top-level `Ink` or
+  `Paper` would silently stay in Day colours when Night is active, which is why the
+  retired names were removed rather than kept as aliases.
+- **`checkBannedWords` scans comments too.** Two of its first findings were prose in a
+  doc comment ("risk ramp", "never a verdict"), not product strings. The guard was
+  right both times. Reword the comment; never touch the list.

@@ -153,6 +153,15 @@ data class Rung0Report(
     private fun List<String>.render(): String = joinToString(", ").ifEmpty { "(none)" }
 }
 
+/**
+ * The cheap subset of [Rung0Report] that the Setup checklist can afford to poll.
+ * See [Rung0Probe.quickAvailability].
+ */
+data class QuickAvailability(
+    val onDeviceAvailable: Boolean,
+    val defaultRecognizerPackage: String?,
+)
+
 object Rung0Probe {
 
     /** The two languages the product actually needs (§6.3). */
@@ -447,7 +456,35 @@ object Rung0Probe {
         }
     }
 
-    /** The intent every support query and download request is built from. */
+    /**
+     * A cheap, synchronous "what speech engine does this phone have" check for the
+     * Setup checklist (build plan §6.6 asks for an ASR engine row there).
+     *
+     * Deliberately *not* [run]: that creates recognizers and waits on callbacks,
+     * which is far too heavy for a screen that re-reads its state every second.
+     * This only asks the platform two metadata questions and touches neither the
+     * microphone nor a recognizer instance.
+     *
+     * The name it returns is the recognizer **the ROM ships**, not an engine this
+     * app has loaded — at P0 the app has loaded none. The Setup row that displays
+     * it must say so; see `setup_asr_note`.
+     */
+    fun quickAvailability(context: Context): QuickAvailability {
+        val onDevice = runCatching { SpeechRecognizer.isOnDeviceRecognitionAvailable(context) }
+            .getOrDefault(false)
+        val default = runCatching {
+            Settings.Secure.getString(context.contentResolver, KEY_VOICE_RECOGNITION_SERVICE)
+        }.getOrNull()
+        return QuickAvailability(
+            onDeviceAvailable = onDevice,
+            defaultRecognizerPackage = default
+                ?.let { ComponentName.unflattenFromString(it)?.packageName ?: it },
+        )
+    }
+
+    /**
+     * The intent every support query and download request is built from.
+     */
     private fun recognizerIntent(tag: String): Intent =
         Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)

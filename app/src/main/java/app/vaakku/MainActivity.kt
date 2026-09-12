@@ -27,7 +27,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            VaakkuTheme {
+            // Day explicitly, not isSystemInDarkTheme(): Day looks like paper and
+            // photographs better under stage lighting, and the demo must not flip
+            // because the phone happened to be in dark mode. A user-facing theme
+            // setting can come later; until then this is a deliberate constant.
+            VaakkuTheme(night = false) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     SetupScreen(
                         onStartSession = {
@@ -36,6 +40,7 @@ class MainActivity : ComponentActivity() {
                             // transition that would look like a working feature.
                         },
                         onOpenDevMenu = devMenuLauncher(),
+                        allowOverride = BuildConfig.DEBUG,
                     )
                 }
             }

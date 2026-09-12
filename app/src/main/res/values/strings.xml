@@ -26,27 +26,80 @@
     <string name="app_subtitle">வாக்கு — சொன்னதும் எழுதியதும்</string>
 
     <!-- ===================== SETUP SCREEN ===================== -->
-    <string name="setup_title">தயாரிப்பு</string>
-    <string name="setup_checklist_header">தொடங்குவதற்கு முன்</string>
+    <string name="setup_title">அமர்வு தயாரிப்பு</string>
+
+    <!-- TAMIL-REVIEW -->
+    <!-- Domain picker (design spec frame 07). The six document kinds drive which
+         claim types are armed for the session. The three-letter marks are set in
+         the mono "Record" voice and stay Latin on purpose: they are index marks on
+         a form, not words to read. -->
+    <string name="setup_choose_document">எந்த வகை ஆவணம் என்பதைத் தேர்வு செய்யுங்கள்.</string>
+
+    <string name="domain_insurance">காப்பீடு</string>
+    <string name="domain_loan">கடன்</string>
+    <string name="domain_rental">வாடகை</string>
+    <string name="domain_purchase">வாங்குதல்</string>
+    <string name="domain_job">வேலை</string>
+    <string name="domain_service">சேவை</string>
+
+    <string name="domain_src_insurance">பலன் விளக்கப் படிவம்</string>
+    <string name="domain_src_loan">கடன் ஒப்புதல் கடிதம்</string>
+    <string name="domain_src_rental">வாடகை ஒப்பந்தம்</string>
+    <string name="domain_src_purchase">MRP விலைச் சீட்டு</string>
+    <string name="domain_src_job">வேலை நியமனக் கடிதம்</string>
+    <string name="domain_src_service">அச்சிட்ட கட்டணப் பட்டியல்</string>
+
+    <!-- TAMIL-REVIEW -->
+    <string name="setup_language">மொழி</string>
+    <string name="setup_language_value">தமிழ் + English</string>
+    <string name="setup_locked">locked</string>
+
+    <string name="setup_counterparty">எதிர்த் தரப்பு</string>
+    <string name="setup_counterparty_optional">விருப்பம்</string>
+    <string name="setup_counterparty_hint">எ.கா. K.M. வங்கி, அடையாறு</string>
+
+    <string name="setup_offline_check">ஆஃப்லைன் சரிபார்ப்பு</string>
+    <string name="setup_offline_chip">✈ இணைப்பு இல்லை ✓</string>
+    <string name="setup_offline_help">ரேடியோ இயக்கத்தில் இருக்கும் வரை அமர்வு தொடங்காது. இந்த வரியைத் தட்டி அமைப்புகளைத் திறக்கவும்.</string>
+    <string name="setup_permissions">மைக்ரோஃபோன் மற்றும் கேமரா</string>
+    <string name="setup_grant">அனுமதி</string>
 
     <!-- TAMIL-REVIEW -->
     <!-- Evidence Mode disclosure (build plan §8.4). Shown on the Setup screen. -->
     <string name="disclosure_evidence_mode">இந்த உரையாடலில் சொல்லப்படும் தகவல்கள் குறிக்கப்படுகின்றன. ஒலி சேமிக்கப்படாது.</string>
     <string name="disclosure_evidence_mode_en">Statements in this conversation are being noted. Audio is not stored.</string>
 
-    <string name="setup_row_airplane">✈ விமானப் பயன்முறை (Airplane mode)</string>
-    <string name="setup_row_mic_camera">மைக்ரோஃபோன் மற்றும் கேமரா அனுமதி</string>
+    <!-- TAMIL-REVIEW -->
+    <!-- ASR engine and NPU rows (build plan §6.6).
+
+         CLAUDE.md #8 governs both values. The ASR row reports the recognizer the
+         ROM ships, which is NOT an engine this app has loaded — the note says so
+         in as many words, because a bare package name next to "ASR engine" would
+         read as a claim that we are using it. The NPU row must never read "NPU"
+         as though dispatch were confirmed; until logcat proves it, it says the
+         measurement has not been made. -->
     <string name="setup_row_asr_engine">பேச்சு இயந்திரம் (ASR engine)</string>
-    <string name="setup_row_npu">NPU நிலை</string>
+    <string name="setup_asr_note">இது இந்த ஃபோனில் உள்ள இயந்திரம் — செயலி இன்னும் எதையும் ஏற்றவில்லை.</string>
+    <string name="setup_asr_unavailable">சாதனத்தில் ஆஃப்லைன் இயந்திரம் இல்லை</string>
+    <string name="setup_asr_available">ஆஃப்லைன் இயந்திரம் உள்ளது</string>
+
+    <string name="setup_row_npu">முடுக்கி (accelerator)</string>
+    <string name="setup_npu_unmeasured">அளக்கப்படவில்லை</string>
+    <string name="setup_npu_note">சான்று இல்லாமல் முடுக்கி பெயர் காட்டப்படாது.</string>
 
     <string name="status_on">இயக்கத்தில்</string>
     <string name="status_off">இயக்கத்தில் இல்லை</string>
-    <string name="status_pending">நிலுவையில்</string>
     <string name="status_granted">அனுமதிக்கப்பட்டது</string>
     <string name="status_not_granted">அனுமதிக்கப்படவில்லை</string>
 
     <string name="setup_start_session">அமர்வைத் தொடங்கு</string>
     <string name="setup_start_blocked_hint">விமானப் பயன்முறையை இயக்கினால் மட்டுமே தொடங்க முடியும்.</string>
+
+    <!-- Debug builds only (build plan §6.6: "long-press to override for
+         development"). English on purpose: the only reader is the developer, and
+         this string does not exist in a release build's reachable UI. -->
+    <string name="setup_debug_override">Long-press this line to start without airplane mode (debug only)</string>
+    <string name="setup_debug_override_armed">Override armed — airplane-mode gate bypassed</string>
 
     <string name="setup_background_hint">OriginOS பின்னணியில் செயலியை நிறுத்தலாம் — Settings-இல் battery exemption வைக்கவும்.</string>
 
