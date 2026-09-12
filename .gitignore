@@ -32,3 +32,10 @@ handoff/
 # Windows shortcuts. One of these gets created by an accidental drag-drop in
 # Explorer; it points at the repo root and is not app source.
 *.lnk
+
+# The human's recordings as they came off the phone, at 44.1 kHz.
+# tools/asr_prescreen/prepare_testaudio.py rewrites testdata/testaudio/*.wav to
+# the 16 kHz the build plan §11.1 specifies and drops the originals here. They
+# are NOT committed again because commit 3ee21a8 already holds them byte-exact
+# at their original paths — this folder is a local convenience, not the backup.
+testdata/testaudio/original_44k/

@@ -23,7 +23,14 @@ import java.io.File
  * real labels.json, so "wired but no data yet" is a true statement, not an
  * unverified one.
  */
-private data class SlotRow(val engine: String, val file: String, val correct: Int, val total: Int) {
+private data class SlotRow(
+    val engine: String,
+    val file: String,
+    val correct: Int,
+    val total: Int,
+    /** "expected -> actual" for each slot this engine's transcript failed to recover. */
+    val misses: List<String> = emptyList(),
+) {
     val accuracy: Double? get() = if (total == 0) null else correct.toDouble() / total
 }
 
@@ -85,10 +92,17 @@ fun main() {
             }
             val transcript = txtFile.readText(Charsets.UTF_8).trim()
             val observations = extractor.extract(AsrSegment(transcript, 0, 1000, engineDir.name, segmentQuality = 1.0))
-            val correct = label.expectedClaims.count { (typeName, expected) ->
-                SlotChecker.matches(ClaimType.valueOf(typeName), expected, observations)
+            var correct = 0
+            val misses = mutableListOf<String>()
+            label.expectedClaims.forEach { (typeName, expected) ->
+                val type = ClaimType.valueOf(typeName)
+                if (SlotChecker.matches(type, expected, observations)) {
+                    correct++
+                } else {
+                    misses += "$typeName: expected `$expected`, got `${SlotChecker.describe(type, observations)}`"
+                }
             }
-            rows += SlotRow(engineDir.name, fileId, correct, label.expectedClaims.size)
+            rows += SlotRow(engineDir.name, fileId, correct, label.expectedClaims.size, misses)
         }
     }
 
@@ -97,13 +111,33 @@ fun main() {
         appendLine()
         appendLine("Transcripts scored: ${rows.size}, across ${rows.map { it.engine }.distinct().size} engine(s).")
         appendLine()
+        appendLine("Each transcript in `evidence/asr_prescreen/<engine>/<file>.txt` is run through the")
+        appendLine("real `SpokenExtractor` and compared with `testdata/testaudio/labels.json`. A slot")
+        appendLine("counts as correct only if the extracted VALUE matches the label exactly.")
+        appendLine()
+
+        // The §13 P2 decision rule ranks engines by slot accuracy, so lead with
+        // the ranking rather than making a reader add up per-file tables.
+        appendLine("## Summary — engines ranked by slot accuracy")
+        appendLine()
+        appendLine("| engine | correct / total | slot accuracy |")
+        appendLine("|---|---|---|")
+        rows.groupBy { it.engine }
+            .map { (engine, engineRows) -> Triple(engine, engineRows.sumOf { it.correct }, engineRows.sumOf { it.total }) }
+            .sortedByDescending { (_, correct, total) -> if (total == 0) 0.0 else correct.toDouble() / total }
+            .forEach { (engine, correct, total) ->
+                appendLine("| $engine | $correct / $total | ${formatAccuracy(if (total == 0) null else correct.toDouble() / total)} |")
+            }
+        appendLine()
+
         rows.groupBy { it.engine }.toSortedMap().forEach { (engine, engineRows) ->
             appendLine("## $engine")
             appendLine()
-            appendLine("| file | correct / total | accuracy |")
-            appendLine("|---|---|---|")
+            appendLine("| file | correct / total | accuracy | missed slots (expected -> actual) |")
+            appendLine("|---|---|---|---|")
             engineRows.sortedBy { it.file }.forEach { row ->
-                appendLine("| ${row.file} | ${row.correct} / ${row.total} | ${formatAccuracy(row.accuracy)} |")
+                val missText = if (row.misses.isEmpty()) "—" else row.misses.joinToString("<br>")
+                appendLine("| ${row.file} | ${row.correct} / ${row.total} | ${formatAccuracy(row.accuracy)} | $missText |")
             }
             val totalCorrect = engineRows.sumOf { it.correct }
             val totalSlots = engineRows.sumOf { it.total }

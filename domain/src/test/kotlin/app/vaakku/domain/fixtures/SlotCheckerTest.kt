@@ -7,6 +7,7 @@ import app.vaakku.domain.model.Observation
 import app.vaakku.domain.model.Provenance
 import app.vaakku.domain.model.RateQualifier
 import app.vaakku.domain.model.Source
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -55,5 +56,38 @@ class SlotCheckerTest {
     @Test
     fun `no observation of the type at all is never a match`() {
         assertFalse(SlotChecker.matches(ClaimType.GUARANTEE, "true", emptyList()))
+    }
+
+    @Test
+    fun `describe renders each type in the same vocabulary labels-json uses`() {
+        assertEquals("true", SlotChecker.describe(ClaimType.GUARANTEE, listOf(obs(ClaimType.GUARANTEE, ClaimValue.Guarantee(true)))))
+        assertEquals("true", SlotChecker.describe(ClaimType.BUNDLING, listOf(obs(ClaimType.BUNDLING, ClaimValue.Bundling(true)))))
+        assertEquals("false", SlotChecker.describe(ClaimType.CHARGES, listOf(obs(ClaimType.CHARGES, ClaimValue.Charges(false, null, null)))))
+        assertEquals("60", SlotChecker.describe(ClaimType.LOCK_IN, listOf(obs(ClaimType.LOCK_IN, ClaimValue.LockIn(60)))))
+        assertEquals(
+            "4,8",
+            SlotChecker.describe(
+                ClaimType.RETURN_RATE,
+                listOf(obs(ClaimType.RETURN_RATE, ClaimValue.Rate(setOf(BigDecimal("8"), BigDecimal("4")), RateQualifier.ILLUSTRATIVE))),
+            ),
+        )
+        assertEquals("withdrawAfter:12", SlotChecker.describe(ClaimType.LIQUIDITY, listOf(obs(ClaimType.LIQUIDITY, ClaimValue.Liquidity(12, null)))))
+        assertEquals("nilBefore:60", SlotChecker.describe(ClaimType.LIQUIDITY, listOf(obs(ClaimType.LIQUIDITY, ClaimValue.Liquidity(null, 60)))))
+    }
+
+    @Test
+    fun `describe says nothing-extracted when the type is absent`() {
+        assertEquals("(nothing extracted)", SlotChecker.describe(ClaimType.GUARANTEE, emptyList()))
+        // Observations of OTHER types must not be mistaken for this one.
+        assertEquals("(nothing extracted)", SlotChecker.describe(ClaimType.LOCK_IN, listOf(obs(ClaimType.GUARANTEE, ClaimValue.Guarantee(true)))))
+    }
+
+    @Test
+    fun `describe lists every competing observation of the same type, latest last`() {
+        // T07-style self-correction: the transcript yielded two LOCK_IN values.
+        // The report must show both, or "why did this miss" is unanswerable.
+        val three = obs(ClaimType.LOCK_IN, ClaimValue.LockIn(36))
+        val five = obs(ClaimType.LOCK_IN, ClaimValue.LockIn(60))
+        assertEquals("36 | 60", SlotChecker.describe(ClaimType.LOCK_IN, listOf(three, five)))
     }
 }
