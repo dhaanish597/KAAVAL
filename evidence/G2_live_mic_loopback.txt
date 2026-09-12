@@ -1,0 +1,25 @@
+VAAKKU live ASR transcript (build plan §6.3, gate G2)
+captured_at: 2026-09-13T00:07:25.011+05:30
+engine: SHERPA_WHISPER_TA (Whisper small (Tamil))
+num_threads: 4
+source: (microphone)
+segments: 5
+audio_ms: 10334  decode_ms: 2578  aggregate_rtf: 0.249
+
+#1 3526-7948 ms  q=0.058  decode=538 ms  rtf=0.122
+  text: சார்
+  claims: (none)
+#2 17350-18700 ms  q=0.000  decode=504 ms  rtf=0.373
+  text: ருக்கு
+  claims: (none)
+#3 19398-20748 ms  q=0.000  decode=424 ms  rtf=0.314
+  text: ்
+  claims: (none)
+#4 25542-26892 ms  q=0.000  decode=470 ms  rtf=0.348
+  text: ்டேட்
+  claims: (none)
+#5 28870-30732 ms  q=0.026  decode=642 ms  rtf=0.345
+  text: ருபத்து
+  claims: (none)
+
+No audio was written to disk. This file is text only (CLAUDE.md #4).

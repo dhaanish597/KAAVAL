@@ -27,17 +27,24 @@ enum class DevScreen(val title: String, val subtitle: String) {
     LIVE_ASR("Live ASR", "Mic or clip → VAD → engine → claim ledger (§6.3)"),
     BAKEOFF("ASR bake-off", "Every engine × every clip, RTF + slot accuracy (§11.3)"),
     SCAN("Document scan", "Camera → ML Kit → clauses read from the page, + evidence (§6.4)"),
+    REPLAY("Page replay", "Staged image file → the same OCR + extractor path, no camera (§6.4)"),
 }
 
 /**
  * The debug menu — build plan §6.6.
  *
- * Four instruments, in the order they were needed: the Rung-0 probe answered
+ * Five instruments, in the order they were needed: the Rung-0 probe answered
  * "can the platform do this at all", Live ASR answers "does our pipeline work",
  * the bake-off answers "which engine, and is it fast enough on this phone", and
  * Document scan answers the same two questions for the written half — does the
  * camera → OCR → extractor path read the real printed prop, and how long does
  * ML Kit take to do it (§6.4, gate G3).
+ *
+ * Page replay is the scan screen's other half: it runs the identical
+ * `PageScanner` over an image file already on the phone, so a clause the scan
+ * screen failed to read can be tried again on a clean render and the extractor
+ * can be told apart from the photograph. It never touches the camera, and says
+ * so.
  *
  * Debug-only, so the copy is plain English: the reader is the developer holding
  * the phone, not the buyer.

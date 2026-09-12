@@ -399,7 +399,7 @@ private fun PageBlock(page: ScannedPage) {
  * is at or above the gate. A NaN is neither above nor below it — `>=` is false
  * for NaN — so it is named as its own case rather than reported as a number.
  */
-private fun gateNote(observation: Observation, page: ScannedPage): String {
+internal fun gateNote(observation: Observation, page: ScannedPage): String {
     val gate = PageConfidence.format2(page.confidence.gate)
     return when {
         observation.confidence.isNaN() -> " — not a number, so it does not reach the ledger"
@@ -419,7 +419,7 @@ private fun gateNote(observation: Observation, page: ScannedPage): String {
  * Nothing here compares anything: no state, no colour, and no claim about
  * whether any of this agrees with a word that was spoken.
  */
-private fun plainClause(observation: Observation): String {
+internal fun plainClause(observation: Observation): String {
     val value = when (val v = observation.value) {
         is ClaimValue.Rate -> {
             val percents = ValuePhrase.formatPercentList(v.percents)
@@ -455,7 +455,7 @@ private fun plainClause(observation: Observation): String {
 }
 
 /** Whole years when the months divide evenly, months otherwise. */
-private fun duration(months: Int): String = when {
+internal fun duration(months: Int): String = when {
     months == 12 -> "1 year"
     months % 12 == 0 -> "${months / 12} years"
     months == 1 -> "1 month"
