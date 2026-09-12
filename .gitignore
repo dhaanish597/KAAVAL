@@ -39,3 +39,10 @@ handoff/
 # are NOT committed again because commit 3ee21a8 already holds them byte-exact
 # at their original paths — this folder is a local convenience, not the backup.
 testdata/testaudio/original_44k/
+
+# The packet CLI keeps its source HTML beside every PDF it prints (§7.4), and
+# that HTML embeds the app's four fonts as base64 — about 950 KB of bytes that
+# are already in the repo under app/src/main/res/font/, rewritten on every
+# render. The PDF next to it is the artefact worth reviewing, so that is what
+# gets committed.
+evidence/**/packet*.html

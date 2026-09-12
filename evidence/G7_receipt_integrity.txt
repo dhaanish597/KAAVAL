@@ -1,0 +1,34 @@
+G7 — receipt integrity, verified by an independent implementation
+Build plan §7.1, §7.2, §7.4. Written by tools/packet-cli, which shares no
+code with the Kotlin chain — only the written canonicalization rule.
+
+$ node --version
+v24.14.1
+
+$ node tools/packet-cli/index.js --in evidence/receipt_fixture/receipt.json
+INTEGRITY: PASSED
+SIGNATURE: none — this receipt is not signed
+Session:   session_2026-09-13T04-12-00  ·  7 events  ·  head dcb92a12813b3d17c4e128f0cd454396cbbe17492faa91793b40e94a409ece53
+exit=0
+
+$ node tools/packet-cli/index.js --in evidence/receipt_fixture/receipt_tampered.json
+INTEGRITY: FAILED (event 2 of 7 does not match h2)
+SIGNATURE: none — this receipt is not signed
+Session:   session_2026-09-13T04-12-00  ·  7 events  ·  head dcb92a12813b3d17c4e128f0cd454396cbbe17492faa91793b40e94a409ece53
+exit=2
+
+$ node tools/packet-cli/index.js --in evidence/receipt_fixture/receipt_signed.json
+INTEGRITY: PASSED
+SIGNATURE: verified (StrongBox reported by the phone: no)
+Session:   session_2026-09-13T04-12-00  ·  7 events  ·  head dcb92a12813b3d17c4e128f0cd454396cbbe17492faa91793b40e94a409ece53
+exit=0
+
+A good chain with a signature that does not match — one bit flipped in the DER:
+$ node tools/packet-cli/index.js --in <receipt_signed.json, one signature bit flipped>
+INTEGRITY: FAILED (the signature does not match the head of this receipt)
+SIGNATURE: FAILED (the signature does not match the head of this receipt)
+exit=2
+
+Recomputed in Node: h0 from sessionId|startEpochMs|appVersion, h1..h7 over each
+re-canonicalized event, and head over the closing record. All nine agree with
+the values Kotlin wrote.

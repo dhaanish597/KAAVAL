@@ -79,3 +79,35 @@ tasks.register<JavaExec>("evalTranscripts") {
     mainClass.set("app.vaakku.domain.fixtures.EvalTranscriptsRunnerKt")
     workingDir = rootProject.projectDir
 }
+
+// ---------------------------------------------------------------------------
+// receiptFixture — writes evidence/receipt_fixture/*.json  (build plan §7.1, §7.4)
+//
+// The bridge between the Kotlin hash chain and the Node packet CLI. HashChainTest
+// proves this code agrees with itself; that says nothing about whether a second
+// implementation in another language produces the same 64 hex characters. So
+// this task writes a receipt and a tampered copy of it, and
+// `node tools/packet-cli/index.js --verify` re-canonicalizes and re-hashes them
+// with its own code. The first must print INTEGRITY: PASSED and the second must
+// not — and if the two canonicalizers ever disagree by one byte, the first one
+// fails.
+//
+// Deterministic: every value in ReceiptFixtureRunner is a literal, so re-running
+// this rewrites the same bytes. A diff here means something in the format moved.
+// ---------------------------------------------------------------------------
+tasks.register<JavaExec>("receiptFixture") {
+    group = "verification"
+    description = "Writes evidence/receipt_fixture/receipt.json and receipt_tampered.json for tools/packet-cli to verify."
+    dependsOn("testClasses")
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("app.vaakku.domain.receipt.ReceiptFixtureRunnerKt")
+    workingDir = rootProject.projectDir
+    // Optional: <keystore.p12> <password>, which adds a real ECDSA signature.
+    // scripts/receipt_fixture_signed.sh passes them; a bare run does not, and
+    // then leaves receipt_signed.json alone rather than replacing it with an
+    // unsigned file.
+    if (project.hasProperty("keystore")) {
+        args(project.property("keystore").toString(), project.property("keystorePassword").toString())
+    }
+}
+
