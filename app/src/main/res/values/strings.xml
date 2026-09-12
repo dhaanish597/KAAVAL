@@ -171,33 +171,139 @@
     <string name="state_differs_en">Differs</string>
 
     <!-- ===================== CARD TEMPLATES ===================== -->
-    <!-- TAMIL-REVIEW -->
-    <string name="card_differs_line1">பேச்சில்: %1$s</string>
-    <string name="card_differs_line2">ஆவணத்தில்: %1$s</string>
-    <string name="card_footer_verify">சரிபார்க்கவும்</string>
-    <string name="card_not_in_document_line1">அவர் சொன்னது: %1$s</string>
-    <string name="card_not_in_document_line2">ஆவணத்தில் இது இல்லை — கேளுங்கள்</string>
+    <!--
+      TAMIL-REVIEW
+
+      From here to the end of the follow-up section, EVERY resource name is a key
+      the `:domain` module emits as a `CopyRef`/`LineRef` (build plan §5.8). The
+      names are not free: `CopyRes` maps each domain key to `R.string.<same name>`
+      and `R.string.<same name>_en`, and `CopyResTest` fails the build if a key the
+      domain can emit has no entry. Rename a string here and the test says so.
+
+      The domain never emits prose — only these identifiers and numbers — which is
+      why a banned word (CLAUDE.md #1) cannot reach a card through the domain. It
+      can only get in *here*, which is why this file is scanned by
+      checkBannedWords.
+    -->
+    <string name="card_differs_spoken_line">பேச்சில்: %1$s</string>
+    <string name="card_differs_spoken_line_en">Said: %1$s</string>
+    <string name="card_differs_written_line">ஆவணத்தில்: %1$s</string>
+    <string name="card_differs_written_line_en">Document: %1$s</string>
+    <string name="card_differs_footer">சரிபார்க்கவும்</string>
+    <string name="card_differs_footer_en">Please check</string>
+
+    <!--
+      The small English line printed *under* the big Tamil pair on a DIFFERS card
+      (§6.6 screen 3), so a reader who does not read Tamil can still follow the
+      one fact on screen. It is English in both language modes by design — it has
+      no `_en` sibling and `CopyRes` points both ids at this one string. In
+      ENGLISH_ONLY mode the big lines are already English and the card simply does
+      not draw this line; that is the card's decision, not a second resource.
+    -->
+    <string name="card_differs_english_small_line">Said: %1$s · Document: %2$s</string>
+
+    <string name="card_not_in_document_spoken_line">அவர் சொன்னது: %1$s</string>
+    <string name="card_not_in_document_spoken_line_en">They said: %1$s</string>
+    <string name="card_not_in_document_hint_line">ஆவணத்தில் இது இல்லை — கேளுங்கள்</string>
+    <string name="card_not_in_document_hint_line_en">This is not in the document — ask about it</string>
+
+    <!--
+      The label for a state that is deliberately shown as nothing: PENDING and
+      UNCERTAIN are silent (CLAUDE.md #2). An em dash, not a word — naming the
+      silence would turn "we are not saying anything" into a statement, and the
+      Details ledger has a row per claim type whether or not there is anything to
+      say in it.
+    -->
+    <string name="state_silent">—</string>
+    <string name="state_silent_en">—</string>
 
     <!-- ===================== VALUE PHRASES ===================== -->
     <!-- TAMIL-REVIEW -->
     <string name="v_guaranteed_pct">உறுதியான %1$s%%</string>
+    <string name="v_guaranteed_pct_en">guaranteed %1$s%%</string>
+    <string name="v_guaranteed">உறுதி அளிக்கப்படுகிறது</string>
+    <string name="v_guaranteed_en">guaranteed</string>
     <string name="v_not_guaranteed">உறுதி இல்லை</string>
+    <string name="v_not_guaranteed_en">not guaranteed</string>
     <string name="v_illustrative_pcts">%1$s%% (உதாரணம் மட்டும்)</string>
-    <string name="v_years">%1$d வருடம்</string>
-    <string name="v_months">%1$d மாதம்</string>
-    <string name="v_withdraw_after">%1$d வருடத்துக்குப் பிறகு எடுக்கலாம்</string>
-    <string name="v_surrender_nil_before">%1$d வருடத்துக்கு முன் சரண்டர் மதிப்பு இல்லை</string>
+    <string name="v_illustrative_pcts_en">%1$s%% (illustration only)</string>
+
+    <!--
+      TAMIL-REVIEW
+      The four duration phrases are plurals, not plain strings: `ValuePhrase`
+      produces "1" as readily as "5" (a twelve-month lock-in is an ordinary
+      spoken claim), and "1 years" on the one large line of a Delta Card is not
+      something to ship. `%1$s` rather than `%d` because `CopyRef.args` is a list
+      of strings — see `CopyRes.resolve`.
+    -->
+    <plurals name="v_years">
+        <item quantity="one">%1$s வருடம்</item>
+        <item quantity="other">%1$s வருடங்கள்</item>
+    </plurals>
+    <plurals name="v_years_en">
+        <item quantity="one">%1$s year</item>
+        <item quantity="other">%1$s years</item>
+    </plurals>
+    <plurals name="v_months">
+        <item quantity="one">%1$s மாதம்</item>
+        <item quantity="other">%1$s மாதங்கள்</item>
+    </plurals>
+    <plurals name="v_months_en">
+        <item quantity="one">%1$s month</item>
+        <item quantity="other">%1$s months</item>
+    </plurals>
+    <plurals name="v_withdraw_after">
+        <item quantity="one">%1$s வருடத்துக்குப் பிறகு எடுக்கலாம்</item>
+        <item quantity="other">%1$s வருடங்களுக்குப் பிறகு எடுக்கலாம்</item>
+    </plurals>
+    <plurals name="v_withdraw_after_en">
+        <item quantity="one">can be withdrawn after %1$s year</item>
+        <item quantity="other">can be withdrawn after %1$s years</item>
+    </plurals>
+    <plurals name="v_surrender_nil_before">
+        <item quantity="one">%1$s வருடத்துக்கு முன் சரண்டர் மதிப்பு இல்லை</item>
+        <item quantity="other">%1$s வருடங்களுக்கு முன் சரண்டர் மதிப்பு இல்லை</item>
+    </plurals>
+    <plurals name="v_surrender_nil_before_en">
+        <item quantity="one">no surrender value before %1$s year</item>
+        <item quantity="other">no surrender value before %1$s years</item>
+    </plurals>
+
+    <!--
+      TAMIL-REVIEW
+      `v_liquidity_unspecified` is what the ledger shows when a liquidity claim
+      carries no period at all. It states the absence of a number and nothing
+      else — it is not a way of saying the document is wrong.
+    -->
+    <string name="v_liquidity_unspecified">காலம் சொல்லப்படவில்லை</string>
+    <string name="v_liquidity_unspecified_en">no period stated</string>
+
     <string name="v_required_for_loan">கடனுக்கு இது கட்டாயம்</string>
+    <string name="v_required_for_loan_en">required for the loan</string>
     <string name="v_voluntary">விருப்பத்தின் பேரில் மட்டும்</string>
+    <string name="v_voluntary_en">voluntary only</string>
     <string name="v_no_charges">கட்டணம் இல்லை</string>
+    <string name="v_no_charges_en">no charge</string>
     <string name="v_charge_pct">%1$s%% கட்டணம்</string>
+    <string name="v_charge_pct_en">%1$s%% charge</string>
+    <!-- A charge is stated but no percentage was read with it. -->
+    <string name="v_charge_present">கட்டணம் உண்டு</string>
+    <string name="v_charge_present_en">there is a charge</string>
 
     <!-- ===================== FOLLOW-UP QUESTIONS ===================== -->
-    <!-- TAMIL-REVIEW -->
-    <string name="ask_guarantee">"உறுதி" என்று ஆவணத்தில் எங்கே உள்ளது என்று கேளுங்கள்</string>
-    <string name="ask_lock_in">இந்தக் காலம் ஆவணத்தில் எங்கே உள்ளது என்று கேளுங்கள்</string>
-    <string name="ask_bundling">கடனுக்கு இது கட்டாயம் என்பது எழுத்தில் உள்ளதா என்று கேளுங்கள்</string>
-    <string name="ask_number">இந்த எண் ஆவணத்தில் எங்கே உள்ளது என்று கேளுங்கள்</string>
+    <!--
+      TAMIL-REVIEW
+      §8.4. Each one is a question for the buyer to ask the person across the
+      table — never a statement about that person.
+    -->
+    <string name="followup_guarantee">"உறுதி" என்று ஆவணத்தில் எங்கே உள்ளது என்று கேளுங்கள்</string>
+    <string name="followup_guarantee_en">Ask where the document says "guaranteed"</string>
+    <string name="followup_lockin_liquidity">இந்தக் காலம் ஆவணத்தில் எங்கே உள்ளது என்று கேளுங்கள்</string>
+    <string name="followup_lockin_liquidity_en">Ask where this period is in the document</string>
+    <string name="followup_bundling">கடனுக்கு இது கட்டாயம் என்பது எழுத்தில் உள்ளதா என்று கேளுங்கள்</string>
+    <string name="followup_bundling_en">Ask whether it is in writing that this is required for the loan</string>
+    <string name="followup_rate_charges">இந்த எண் ஆவணத்தில் எங்கே உள்ளது என்று கேளுங்கள்</string>
+    <string name="followup_rate_charges_en">Ask where this number is in the document</string>
 
     <!-- ===================== FREE LOOK ===================== -->
     <!-- TAMIL-REVIEW -->
