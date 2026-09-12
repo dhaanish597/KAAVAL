@@ -9,8 +9,6 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
-import androidx.camera.core.resolutionselector.ResolutionSelector
-import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -71,13 +69,16 @@ class DocumentCamera {
         val preview = Preview.Builder().build()
         preview.setSurfaceProvider(surfaceProvider)
 
+        // No ResolutionSelector: §6.4 asks for full resolution and CameraX
+        // already does exactly that by default. `ImageCapture.Defaults`
+        // (camera-core 1.5.1 sources, read from the Gradle cache) builds its
+        // DEFAULT_RESOLUTION_SELECTOR from RATIO_4_3_FALLBACK_AUTO_STRATEGY +
+        // ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY, and
+        // ResolutionSelector.Builder defaults to that same aspect-ratio
+        // strategy — so spelling it out here would produce an identical
+        // selector, with one more thing to get wrong.
         val capture = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-            .setResolutionSelector(
-                ResolutionSelector.Builder()
-                    .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
-                    .build(),
-            )
             .build()
 
         val analysis = ImageAnalysis.Builder()
