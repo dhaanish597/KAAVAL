@@ -19,7 +19,7 @@ This assumption has not been confirmed by an organizer.
 | G0 Bootstrap | **PASS** | see below | H0–H1 |
 | G1 Domain | **PASS** | see below | H1–H5 |
 | G2 ASR decision | **DECISION TAKEN — 2 of 3 evidence items** | `evidence/asr_prescreen/`, `evidence/G2_asr_bakeoff.csv`; live-mic scorecard still needs a human | H5– |
-| G3 OCR | NOT STARTED | — | — |
+| G3 OCR | **CODE READY — no scan yet** | `docs/superpowers/plans/p3-ocr-plan.md`; five clauses proven against the real document in `:domain`. Needs 5 scan sessions on the phone. | H6– |
 | G4 NPU | NOT STARTED | — | — |
 | G5 End-to-end | NOT STARTED | — | — |
 | G6 Go/No-Go | NOT STARTED | — | — |
@@ -223,6 +223,38 @@ The budget is not the constraint here — accuracy is.
 | All four engines report ready on the phone | **done** | `evidence/G2_engines_ready.png` |
 | Bake-off CSV | **done** | `evidence/G2_asr_bakeoff.csv` (22 clips × 4 engines) |
 | Human live-mic scorecard | **NOT DONE** | needs a teammate speaking T01–T04 at 1 m — see the Red Light list |
+
+### G3 evidence — P3 OCR (§6.4, §5.6, §11.2)
+
+Commits `70f8ba5`, `e113d78`, `c8e2ff7`, `ee8e3af`, `a706688`, `1026250`, `b7b7c85`, `d4513de`.
+Built with three subagents under review; every task was reviewed and four fix rounds were
+run. **Nothing in this section has seen a camera yet** — the phone half compiles and passes
+every guard, but produces no measurement until the human scans.
+
+| Item | Status | Path / number |
+|---|---|---|
+| Real prop document read and confronted | **done** | `testdata/prop/_Document.pdf` (10 pages); `RealPropDocumentTest` drives `WrittenExtractor` from the verbatim text of pages 5–6 |
+| Five G3 clauses extracted from the real text | **done** | RATE {4,8} ILLUSTRATIVE · GUARANTEE false · LOCK_IN 60 · LIQUIDITY nil-before 60 · CHARGES 5% |
+| BUNDLING confirmed absent | **done** | whole-document grep for `voluntary\|loan\|mandatory\|independent` finds nothing → NOT_IN_DOCUMENT is measured, not assumed |
+| ML Kit bundled Latin recognizer → `OcrLine` | **done** | `app/src/main/java/app/vaakku/ocr/` — `MlKitTextRecognizer`, `OcrLineMapper` |
+| Per-line OCR confidence | **REAL, not the 1.0 default** | `Text.Line.getConfidence()` returns a primitive `float` — verified by `javap` on the cached AAR and by bytecode (`aload_0; getfield zzb:F; freturn`), twice, independently |
+| CameraX Preview + ImageCapture + ImageAnalysis stub | **done** | `DocumentCamera.kt`; the analyzer reads nothing and closes every frame — it is P4's seat |
+| Clause list after each scan | **done** | `DocumentScanScreen.kt` — a reading of the document, carrying no state language |
+| `DocumentScanCompleted` on "Done scanning" | **done** | multi-page sessions accumulate first |
+| Evidence images + crops | **done** | `files/sessions/<sessionId>/`, crops q80 ≤ 800 px, `cropFile` filled app-side |
+| P4 privacy-mask hook | **done, and inactive** | `PrivacyMask.applyOrPassThrough` returns its input; the screen says so on every run |
+| `:domain:test` | **PASS** | 303 tests |
+| `:domain:fixtureReport` | **PASS** | 26 fixtures, precision=1.00, recall=1.00, 0 mismatches |
+| `checkBannedWords` | **PASS** | 66 files, 0 findings |
+| `:app:testDebugUnitTest` | **PASS** | 23 tests incl. 8 new `SessionEvidenceTest` crop-clamp cases |
+| `:app:assembleDebug` | **PASS** | — |
+| `scripts/check_manifest.sh` | **PASS** | no INTERNET, no ACCESS_NETWORK_STATE, in merged manifest and APK; `SessionService` still absent |
+| **5 scan sessions on the phone** | **NOT DONE** | needs a human — the whole of G3's actual criterion |
+| `evidence/G3_clauses.png` | **NOT DONE** | needs a human |
+
+**What G3 still requires:** the gate is "expected clauses extracted in ≥4 of 5 scans". Nothing
+above measures that. The domain half is proven against the document's *text*; the camera half
+has never converted a photograph into that text.
 
 ## Decisions log
 
@@ -526,6 +558,69 @@ The budget is not the constraint here — accuracy is.
     than switching engines would. Recorded here rather than acted on, because changing
     the lexicon now would invalidate the bake-off the decision above rests on.
 
+45. **§11.2's "prop document" paragraph was a hypothesis, and the real PDF differs
+    from it in one structural way that matters.** The build plan described the prop as
+    e.g. "Guaranteed returns: No" and "Premium allocation charge: 5% in year 1". The real
+    `testdata/prop/_Document.pdf` is a 10-page benefit illustration in which (a) the §6
+    sentence is **"Guaranteed Returns on premiums paid: No."** — an intervening phrase
+    that broke the §5.6 GUARANTEE regex outright, now fixed; and (b) the 5% charge is a
+    genuine **three-column table row** ("Premium Allocation Charge" | "Year 1" | "5% of
+    Annualised Premium"), not a colon-joined sentence, so it only reads correctly if
+    `RowAssembler` merges three separately-boxed OCR cells. Everything else in §11.2
+    agrees, including "silent on loans" — a whole-document grep for
+    `voluntary|loan|mandatory|independent` finds nothing, so BUNDLING = NOT_IN_DOCUMENT is
+    confirmed against the real paper rather than assumed. The extractor was fixed; the
+    expectations were not touched.
+46. **No single page of the prop carries all five G3 clauses; pages 5 and 6 together do.**
+    RATE, GUARANTEE, LOCK_IN, LIQUIDITY and CHARGES are spread over pages 3–6. §6.4
+    explicitly allows multiple pages per scan session, so one "scan" in the G3 sense is a
+    two-page session. The human has printed pages 5–6 only, which is the minimum paper
+    that can satisfy the gate.
+47. **`WrittenExtractor.extract()` is called once per captured page, never over a
+    concatenation of pages.** `RowAssembler` groups OCR lines purely by vertical pixel
+    position and has no page awareness, and every photo has its own near-(0,0) pixel
+    space — so concatenating two pages' lines into one call can merge a row from page 5
+    with a row from page 6, producing an observation whose text appeared on neither page
+    and whose provenance crop would point at the wrong photo. Per-page extraction costs
+    nothing: the reconciler already holds written observations per claim type as a list.
+
+48. **P3 was built by three subagents under review, and the reviews found two defects that
+    would have reached the demo.** The first: the §5.6 GUARANTEE regex could not read the real
+    document's clearest disclosure ("Guaranteed Returns on premiums paid: No.") at all, so the
+    document's own statement that returns are not guaranteed was silently invisible. The second:
+    `ImageCapture` was uncapped at the sensor's maximum, ~201 MB per ARGB_8888 bitmap and ~402 MB
+    peak across the rotate — an almost certain `OutOfMemoryError` on the first Scan tap, and a
+    breach of both §11.5 budgets. Neither was visible from a passing build. Four fix rounds ran
+    in total; every round ended with a scoped re-review that verified the fix rather than the
+    claim.
+49. **The capture is capped at a 4000 px long edge, overriding §6.4's "full resolution".**
+    §6.4's phrase exists to contrast the OCR capture against the ~256 px `ImageAnalysis` stream —
+    it means "enough to read small print", not "the sensor's maximum" — and §11.5's budgets are
+    numeric where that phrase is not. The cap is applied **during** the JPEG decode via
+    `inSampleSize`, not after it, because a post-decode downscale still has to allocate the frame
+    the cap exists to avoid. Peak per tap: ~402 MB → ~110 MB. An A4 page filling the 3000 px short
+    edge is about 360 px/inch, so 8 pt table type is about 40 px tall — **whether that is enough
+    to read is a G3 measurement, not a claim.** If fine print is lost, raise `MAX_LONG_EDGE`.
+50. **The written-confidence path carries real numbers, not the 1.0 the build plan allows.**
+    §6.4 says to use ML Kit's line confidence "if the API exposes it in this version, else 1.0,
+    and tell me which". It does: `Text.Line.getConfidence()` returns a **primitive `float`** (so
+    it cannot be null and cannot crash), established twice independently by `javap` and bytecode
+    inspection of the AAR actually resolved onto the classpath. This matters downstream: §5.6's
+    written confidence is `min(OCR line confidences) × format plausibility`, so a blurred or
+    badly-lit line can genuinely fall under `writtenMin` and go silent — which is the behaviour
+    CLAUDE.md #2 asks for, and it would have been impossible with a hardcoded 1.0.
+51. **`RowAssembler` now partitions by `frameId`, and the app also extracts once per page.**
+    Belt and braces, deliberately. The reasoning is decision 47's; what changed is that relying
+    on the caller's contract alone was judged too weak after the implementer tripped the failure
+    *by accident* while drafting a test, producing a fabricated `Charges(percent=4, label="Policy
+    Administration Charge")` from a page-5 cell spliced into a page-6 row. An unenforced
+    convention that yields a confidently wrong observation is worse than a few lines of
+    partitioning. Verified behaviour-identical for all 26 pre-existing single-frame fixtures.
+52. **The privacy mask is a hook that does nothing, and the scan screen says so on every run.**
+    §6.4 requires the saved page image to be masked before it is written; P4 builds the masker.
+    Until then `PrivacyMask.applyOrPassThrough` returns its input unchanged and the UI states that
+    framing is the only mitigation. CLAUDE.md #8 — no label may claim work that is not happening.
+
 ## Measurements
 
 ### M1 — Rung-0 probe, run on the phone 2026-09-12 12:06 IST
@@ -763,9 +858,20 @@ What is left:
 - [ ] **Listen to `T07_selfcorrect.wav` and `T06_honest_lockin.wav`** and answer open
       issue 11: does T07 end on the same number of years that T06 states? The label
       arithmetic depends on it and no ASR output can settle it.
-- [ ] **P3:** print the prop document (`testdata/prop/_Document.pdf`) — **pages 5 and 6
-      are the ones that matter**; no single page carries all five G3 clauses, and §6.4
-      allows a multi-page scan session. Then scan it 5 times under venue lighting.
+- [x] **P3: prop pages 5+6 printed** (human confirmed).
+- [ ] **P3 / G3: five scan sessions.** Each session is BOTH printed pages, then "Done
+      scanning" — not five single photos. `DocumentScanCompleted` must fire before any
+      NOT_IN_DOCUMENT can appear, and BUNDLING = NOT_IN_DOCUMENT is one of the six expected
+      demo outcomes. Record for each session which of the five clauses appeared. The gate is
+      ≥4 of 5. Screenshot one good session to `evidence/G3_clauses.png`.
+- [ ] **P3 / first scan only: does the shutter click?** `takePicture` can trigger the platform
+      shutter sound on some devices and locales, and the app cannot always suppress it.
+      CLAUDE.md #9 is "no sound, ever". If it clicks, we handle it at the device (media volume
+      / silent mode) and record that as a demo-day step — we do not pretend the code fixed it.
+- [ ] **P3 / first scan only: is 4000 px enough for the small print?** The capture is capped
+      (decision 49). If the §7 charges table's 5% row or the §8 lock-in line fails to read
+      while larger text reads fine, that is the cap, not the extractor — raise `MAX_LONG_EDGE`
+      in `DocumentCamera.kt` and re-scan before concluding anything about the regexes.
 - [ ] Watch the phone's temperature during a bake-off re-run if one is needed.
       §11.5 budgets thermal at ≤ MODERATE after 15 minutes.
 - [ ] The P0 "Not yet verified" list above is still the standing queue underneath this.
