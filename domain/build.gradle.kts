@@ -8,6 +8,7 @@
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 java {
@@ -22,6 +23,11 @@ kotlin {
 }
 
 dependencies {
+    // Pure-JVM JSON for the lexicon, Thresholds, fixtures and labels.json.
+    // kotlinx.serialization is a Kotlin/JVM library — not an Android or ML
+    // dependency — so it does not violate CLAUDE.md #5.
+    implementation(libs.kotlinx.serialization.json)
+
     // JUnit 5 per §13 P0 ("Kotlin JVM library, JUnit 5").
     testImplementation(libs.junit.jupiter)
     // Gradle 9 no longer puts a launcher on the test runtime classpath
