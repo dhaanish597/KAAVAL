@@ -1,6 +1,7 @@
 # STATUS — VAAKKU
 
-Current light: GREEN · Current phase: P1 **complete** → P2 next · Hour: H1–H5
+Current light: GREEN · Current phase: **P2 (ASR)** — step 1 (laptop pre-screen) complete,
+step 2 (ASR in the app) in progress · Hour: H1–H6
 
 Red Light ruling: **unknown** — no organizer statement recorded yet.
 Name ruling: **unknown** — displayed name is VAAKKU, changed by editing the single
@@ -16,7 +17,7 @@ This assumption has not been confirmed by an organizer.
 |---|---|---|---|
 | G0 Bootstrap | **PASS** | see below | H0–H1 |
 | G1 Domain | **PASS** | see below | H1–H5 |
-| G2 ASR decision | NOT STARTED | — | — |
+| G2 ASR decision | **IN PROGRESS** | laptop pre-screen done — see below | H5– |
 | G3 OCR | NOT STARTED | — | — |
 | G4 NPU | NOT STARTED | — | — |
 | G5 End-to-end | NOT STARTED | — | — |
@@ -117,7 +118,52 @@ never needed there) rather than patched over in the pipeline — recorded here b
 it is a real, narrow scoping gap in `extractRate` worth knowing about in P2/P5, not a
 fixture-authoring slip to quietly forget.
 
+### G2 evidence — part 1 of 3: laptop ASR pre-screen (§11.3 item 1, §13 P2)
+
+The human delivered the 14 recordings (open issue 10 is closed). `tools/asr_prescreen/`
+now holds two scripts, and both have been run:
+
+| Item | Status | Path / number |
+|---|---|---|
+| Test audio in repo | **done** | `testdata/testaudio/*.wav` — 14 human recordings + `R01_demo_pitch.wav` built from T01–T04 |
+| Pre-screen transcripts | **done** | `evidence/asr_prescreen/<engine>/<file>.txt` — **60 files** (4 engines × 15 clips), UTF-8 |
+| Pre-screen timings | **done** | `evidence/asr_prescreen/prescreen_results.csv` — engine, file, duration_s, decode_s, rtf, text |
+| `:domain:evalTranscripts` | **PASS, with real data** | `evidence/asr_slot_accuracy.md` — ranked summary + per-slot "expected → actual" |
+| sherpa-onnx API read, not guessed | **done** | `evidence/sherpa_api_1.13.8.txt` — `javap` over the AAR's `classes.jar` |
+| `:domain:test` | **PASS** | **280 tests, 0 failures** (277 + 3 new `SlotCheckerTest` cases) |
+| `fixtureReport` | **PASS** | unchanged: 26 fixtures, DIFFERS precision 1.00, recall 1.00 |
+| `checkBannedWords` | **PASS** | 0 findings |
+
+**Slot accuracy — the number the §13 P2 decision rule is written against.**
+Each transcript goes through the real `SpokenExtractor`; a slot counts only if the
+extracted VALUE equals the `labels.json` value exactly.
+
+| engine | slots correct | slot accuracy | laptop RTF (aggregate / median / worst) |
+|---|---|---|---|
+| `whisper_small_ta` | 11 / 28 | **39%** | 0.535 / 0.537 / 0.748 |
+| `omnilingual_300m` | 5 / 28 | 18% | 0.131 / 0.126 / 0.147 |
+| `dolphin_base` | 3 / 28 | 11% | 0.024 / 0.022 / 0.028 |
+| `dolphin_small` | 0 / 28 | 0% | 0.053 / 0.051 / 0.064 |
+
+Laptop RTF is **indicative only** — the §13 gate's "phone RTF ≤ 0.5" is a phone number
+and is still unmeasured. It is recorded because the ordering (whisper ~20× slower than
+dolphin_base) will survive the move to the phone even if the absolute values do not.
+
+**The headline: no engine reaches the 70% threshold §13 P2 sets.** That is not a
+failure to work around; §13 P2 states the consequence itself — *"If no engine gets ≥ 70%
+slot accuracy on clean clips, the demo uses the rehearsal WAV as primary and live mic as
+a 'try it' moment."* See decision 29.
+
+**The safety property held under real ASR noise.** Of the 17 slots `whisper_small_ta`
+missed, 16 report `(nothing extracted)` and exactly one produced a wrong value (T07,
+LOCK_IN: expected 60, got 36 — the clip is a deliberate self-correction and Whisper
+truncated the recording *before* the correction, so the extractor never saw it). Across
+all four engines there are three wrong values in 112 scored slots; everything else is
+silence. **The pipeline degrades to silence, not to false claims** (CLAUDE.md #2) — this
+is the first time that has been observed against real speech rather than fixtures.
+
 ## Decisions log
+
 
 1. **Version catalog is `gradle/libs.versions.toml`.** Every version comes from
    `handoff/versions_from_scratch.txt` (the prompt's `docs/versions_from_scratch.txt`
@@ -258,6 +304,54 @@ fixture-authoring slip to quietly forget.
     item 4 ("Record evidence paths in STATUS.md") require it, and both files are Gradle
     task *output*, not hand-edited product code — no `app/**` or root Gradle file was
     touched to produce them.
+24. **The human's recordings were 44.1 kHz; they are now 16 kHz, and the 44.1 kHz
+    originals are untouched in git.** §11.1 specifies 16 kHz mono 16-bit PCM.
+    `tools/asr_prescreen/prepare_testaudio.py` resamples in place (polyphase, `scipy`)
+    and keeps the originals at `testdata/testaudio/original_44k/` (gitignored — commit
+    `3ee21a8` already holds them byte-exact at their original paths, so that folder is a
+    convenience, not the backup). **The pre-screen transcripts were not invalidated by
+    this**: measured, not assumed — sherpa-onnx logs `Creating a resampler: in_sample_rate:
+    44100 output_sample_rate: 16000` and decoding at the native 44.1 kHz produced text
+    *byte-identical* to an explicit resample to 16 kHz. The conversion was done anyway
+    because `WavAssetAudioSource` will share `MicAudioSource`'s fixed 16 kHz pipeline
+    (§6.3), where a 44.1 kHz asset would play 2.76× slow.
+25. **`accept_waveform()` is always given the file's TRUE sample rate, never a
+    hard-coded 16000.** Passing a false 16000 for a 44.1 kHz file does not fail — it
+    silently decodes garbage (a Tamil clip came back as `つかパパかけシャ。`). This is
+    written into `tools/asr_prescreen/prescreen.py` as a comment because it is the kind
+    of bug that looks like "the model is bad."
+26. **The models were exonerated before the engines were ranked.** A 0–39% slot accuracy
+    could equally mean "these models are weak on Tamil" or "I configured them wrong," and
+    those have opposite consequences. Control experiment: each model decoded its own
+    author-supplied `test_wavs/`. `dolphin_base`/`dolphin_small` transcribed their Chinese
+    `0.wav` correctly; `omnilingual_300m` transcribed en/de/es/fr near-perfectly. The
+    configs are right; the weak Tamil output is real.
+27. **`sherpa-onnx` 1.13.8 has no language parameter for the Omnilingual CTC model.**
+    Read from the installed `offline_recognizer.py`:
+    `from_omnilingual_asr_ctc(model, tokens, num_threads, decoding_method, debug, provider)`.
+    The model therefore picks its own output script, and for Tamil audio it sometimes
+    emits Gurmukhi or Kannada. Recorded as a real limitation of that engine, not worked
+    around — a language hint that does not exist cannot be passed.
+28. **`whisper_small_ta` truncates every clip and drops the leading character.** Not
+    accepted on faith: `tail_paddings` (-1 / 2000 / 4000) and `language` ("ta" / "" /
+    "en") changed nothing, and output byte-length varies per clip, ruling out a fixed
+    buffer cap. It is genuine behaviour of this third-party `ippocode/indic-asr-onnx`
+    export under sherpa-onnx 1.13.8, and it is the direct cause of the single wrong-value
+    slot (T07). Worth re-testing on the phone, where the decode path is C++/JNI rather
+    than the Python binding.
+29. **The lexicon is not the bottleneck, and the fuzzy budget will not be widened to
+    compensate.** The suspicion was that ASR writes English loanwords in Tamil script and
+    the lexicon misses them. Checked rather than assumed: `கேரண்டி`, `பர்சென்ட்` and
+    `லாக்கின்` are all already in `lexicon_ta_en.json` — P1 anticipated exactly this. The
+    loss is ASR mangling words beyond the §5.3 Levenshtein-1 budget, and raising that
+    budget would start matching words nobody said, which is how a false DIFFERS gets
+    produced. CLAUDE.md #2 forbids that trade, so the budget stays at 1.
+30. **`SlotChecker.describe()` was added so the accuracy report says WHY a slot missed.**
+    A bare correct/total cannot distinguish "heard the wrong number" from "heard nothing,"
+    and those have opposite fixes (§11.3: calibrate the lexicon vs change engine). It
+    renders the extractor's actual output in the same vocabulary `labels.json` uses, so
+    the report reads `expected 60, got 36`. Test-first; three new cases in
+    `SlotCheckerTest`. This is what made decisions 28 and 29 possible to reach.
 
 ## Measurements
 
@@ -390,25 +484,38 @@ screen), `evidence/language_setting_persisted_after_restart.png` (after
    rely on the long-press during a demo until it has been confirmed by a human finger.**
    (P1 was domain-only per its own scope — this is still open for whichever phase next
    touches `SetupScreen`/`Rung0ProbeScreen`.)
-10. **`testdata/testaudio/` has no `.wav` files in the repo.** §11.1 says the human
-    recorded them "last night," but nothing under `testdata/` was ever added — this
-    machine has never seen them. `testdata/testaudio/labels.json` (P1) was written
-    from the build plan §11.2 table with the exact script text, but two things need
-    the human before it can be trusted as ground truth:
+10. ~~**`testdata/testaudio/` has no `.wav` files in the repo.**~~ **RESOLVED.** The
+    human recorded and delivered all 14 clips (T01–T14); `R01_demo_pitch.wav` is built
+    from T01–T04 by `tools/asr_prescreen/prepare_testaudio.py`. All 15 are now 16 kHz
+    mono (decision 24) and all 15 have been decoded by four engines. The *second* half
+    of the original HUMAN ACTION — line-by-line confirmation that each `labels.json`
+    script matches what was actually said — has **not** been reported back, and the
+    pre-screen gives an indirect reason to ask again: see open issue 11.
+11. **One label needs a human ear before the ASR numbers can be fully trusted.** In
+    `T07_selfcorrect`, `labels.json` expects `LOCK_IN = 60` (the corrected value), and
+    three of four engines recovered nothing while `whisper_small_ta` and `dolphin_small`
+    both returned **36**. Decision 28 explains that as Whisper truncating before the
+    self-correction, and that explanation is consistent with the transcripts — but the
+    other reading is that the recording says three years and the label is wrong. These
+    are distinguishable in ten seconds by a human.
     === HUMAN ACTION NEEDED ===
-    WHAT:   Confirm labels.json's 15 scripts, and get the recorded .wav files into the repo.
-    WHY:    P1's evalTranscripts/labels.json only have a real "last night's recording"
-            behind them if the files exist and the scripts match what was actually said.
-    STEPS:  1. Open testdata/testaudio/labels.json and read each "script" line.
-            2. For each of T01-T14 and R01, confirm the Tamil/English wording matches
-               what you recorded (§11.2 allows rewording a line, but the VALUES —
-               guaranteed/not, the percents, the durations, required/voluntary,
-               charges/none — must stay exactly as labelled).
-            3. Copy the 15 .wav files (16 kHz mono 16-bit PCM) into testdata/testaudio/,
-               named to match each "file" key exactly (e.g. T01_guarantee_fd.wav).
-    REPORT: Either "labels.json matches, .wav files added" or a list of which script
-            lines need correcting (file name + what's wrong).
+    WHAT:   Listen to testdata/testaudio/T07_selfcorrect.wav and T06_honest_lockin.wav.
+    WHY:    T07 is the only clip where any engine produced a WRONG value rather than
+            silence. Either the ASR truncated the correction (expected) or labels.json
+            says 60 where the recording says 36 (a bad ground truth, which would make
+            every accuracy number on this page slightly wrong).
+    STEPS:  1. Play T07_selfcorrect.wav to the end.
+            2. Say what lock-in the speaker lands on LAST — three years or five years.
+            3. Do the same for T06_honest_lockin.wav (labelled 60 months / 5 years).
+    REPORT: "T07 ends on <N> years, T06 says <N> years" — two numbers is enough.
     ===========================
+12. **No ASR engine reaches the §13 P2 slot-accuracy threshold.** Best is
+    `whisper_small_ta` at 39% against a stated 70%. The plan's own fallback applies (the
+    rehearsal WAV becomes the demo's primary path, live mic becomes "try it"), so this is
+    not a blocker — but it is a strategy change the human should know about before the
+    demo is rehearsed, and the phone bake-off could still move the numbers. **Do not set
+    the default engine in code until the phone bake-off has run**, since the §13 rule
+    gates on *phone* RTF, which is still unmeasured.
 
 ## On-device verification status (P0)
 
@@ -458,13 +565,19 @@ worth adding here is whatever P2 (ASR) puts on the phone.
   reaching the domain layer, it should slot into `SpokenExtractor.extract(AsrSegment)`
   and `Reconciler` unchanged — that boundary was the whole point of building `:domain`
   phone-free and pure-JVM.
-- `testdata/testaudio/labels.json` exists (15 rows, §11.2) but **no `.wav` files are in
-  the repo yet** and the scripts are unconfirmed against what the human actually
-  recorded — see open issue 10's HUMAN ACTION block. `evalTranscripts` is wired and
-  tested (`LabelsTest`) but has nothing real to score until both land.
-- `evidence/asr_prescreen/<engine>/<file>.txt` is what `:domain:evalTranscripts`
-  reads (build plan §11.3 item 1, a Python laptop pre-screen, not yet built) — once
-  those transcripts exist, re-run `:domain:evalTranscripts`, no code change needed.
+- `testdata/testaudio/` now holds all 15 `.wav` files at 16 kHz (open issue 10 closed),
+  and `evidence/asr_prescreen/<engine>/<file>.txt` holds 60 real transcripts.
+  `:domain:evalTranscripts` scores them with no code change and writes
+  `evidence/asr_slot_accuracy.md`. **Re-run it after any lexicon or extractor change** —
+  it is now the cheapest regression test the project has against real speech.
+- **P2 step 2 is the app.** The sherpa-onnx API surface has already been read out of the
+  AAR and written to `evidence/sherpa_api_1.13.8.txt` — use that file instead of guessing
+  or re-running `javap`. Three things in it are easy to get wrong: `OfflineRecognizer`'s
+  and `Vad`'s first constructor parameter is a **nullable** `AssetManager` (pass `null`
+  to load from `/sdcard/...` absolute paths), `OfflineModelConfig` is one flat class with
+  a field per model family (`whisper`, `dolphin`, `omnilingual`, …) rather than a
+  sealed hierarchy, and the VAD's segment type is `SpeechSegment(start: Int, samples:
+  FloatArray)` where `start` is in **samples**, not milliseconds.
 - **The Rung-0 question is answered — do not re-litigate it.** See M1.
   `isOnDeviceRecognitionAvailable()` is *true*, but the on-device recognizer does not
   offer `ta-IN` at all, so engine 5 (`AndroidOnDevice`) is out for Tamil and Rung 1
