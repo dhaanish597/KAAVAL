@@ -7,6 +7,8 @@ import app.vaakku.domain.model.Observation
 import app.vaakku.domain.model.Provenance
 import app.vaakku.session.SessionEvidence
 import com.google.mlkit.vision.common.InputImage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -23,7 +25,8 @@ data class ScannedPage(
     val observations: List<Observation>,
     val ocrElapsedMs: Long,
     val lineCount: Int,
-    val pageImage: File,
+    /** Null when the page JPEG did not land — see `SessionEvidence`. */
+    val pageImage: File?,
     val cropCount: Int,
 )
 
@@ -51,11 +54,30 @@ class PageScanner(
      * Recognises [page], extracts its observations, and writes the page image
      * and one crop per observed row.
      *
-     * **Takes ownership of [page]** — it is recycled before this returns, along
-     * with anything [PrivacyMask] allocated. The caller must not touch it
-     * afterwards.
+     * **Takes ownership of [page]** — it is recycled before this returns on
+     * every path, success or failure, along with anything [PrivacyMask]
+     * allocated. The caller must not touch it afterwards.
      */
     suspend fun scan(page: Bitmap, pageNumber: Int): ScannedPage {
+        // The bitmap is tens of MB (see DocumentCamera's capture cap), so its
+        // release is in a finally: a failed recognition, a disk error or a
+        // cancelled scan must not strand one, or two bad taps turn a
+        // recoverable error into an OutOfMemoryError.
+        var masked: Bitmap? = null
+        try {
+            return scanInternal(page, pageNumber) { masked = it }
+        } finally {
+            val maskedPage = masked
+            if (maskedPage != null && maskedPage !== page && !maskedPage.isRecycled) maskedPage.recycle()
+            if (!page.isRecycled) page.recycle()
+        }
+    }
+
+    private suspend fun scanInternal(
+        page: Bitmap,
+        pageNumber: Int,
+        onMasked: (Bitmap) -> Unit,
+    ): ScannedPage {
         val frameId = "page_$pageNumber"
         val scan = recognizer.recognize(InputImage.fromBitmap(page, 0), frameId)
 
@@ -87,7 +109,50 @@ class PageScanner(
         // cut from the same masked bitmap, because a crop goes into the
         // grievance packet exactly like the page does.
         val masked = PrivacyMask.applyOrPassThrough(page)
-        val pageImage = evidence.writePageImage(masked, pageNumber)
+        onMasked(masked)
+
+        // JPEG encoding and the writes themselves are blocking disk work, so
+        // they run on the IO dispatcher; recognition and extraction above do
+        // not. One block rather than one per crop: the encode travels with the
+        // write it feeds, and ping-ponging dispatchers per crop would cost more
+        // than it saves.
+        val evidenceWritten = withContext(Dispatchers.IO) { writeEvidence(masked, extracted, pageNumber) }
+
+        return ScannedPage(
+            pageNumber = pageNumber,
+            observations = evidenceWritten.observations,
+            ocrElapsedMs = scan.elapsedMs,
+            lineCount = scan.lines.size,
+            pageImage = evidenceWritten.pageImage,
+            cropCount = evidenceWritten.cropCount,
+        )
+    }
+
+    /** [writeEvidence]'s three results, so `scan` does not need three out-params. */
+    private data class WrittenEvidence(
+        val observations: List<Observation>,
+        val pageImage: File?,
+        val cropCount: Int,
+    )
+
+    /**
+     * Writes the page image and one crop per observed row, and returns the
+     * observations with [Provenance.Written.cropFile] filled in.
+     *
+     * **A write that fails costs its own file and nothing else.** An evidence
+     * JPEG is evidence *about* an observation; losing one must not delete the
+     * observation it describes, and a page whose `page_<n>.jpg` is already on
+     * disk must not be discarded because crop three hit an IOException. So
+     * each write is caught on its own: the observation simply keeps
+     * `cropFile = null`, and the screen shows that plainly (CLAUDE.md #2 —
+     * silence, but recorded silence).
+     */
+    private fun writeEvidence(
+        masked: Bitmap,
+        extracted: List<Observation>,
+        pageNumber: Int,
+    ): WrittenEvidence {
+        val pageImage = runCatching { evidence.writePageImage(masked, pageNumber) }.getOrNull()
 
         // One crop per row, not per observation: a table row such as
         // "Guaranteed Returns | No" can produce two observations from the same
@@ -98,7 +163,8 @@ class PageScanner(
         val observations = extracted.map { observation ->
             val written = observation.provenance as? Provenance.Written ?: return@map observation
             val crop = cropByBox[written.box]
-                ?: evidence.writeCrop(masked, written.box, pageNumber, cropByBox.size)
+                ?: runCatching { evidence.writeCrop(masked, written.box, pageNumber, cropByBox.size) }
+                    .getOrNull()
                     ?.also { cropByBox[written.box] = it }
                 ?: return@map observation
 
@@ -109,16 +175,6 @@ class PageScanner(
             observation.copy(provenance = written.copy(cropFile = crop.absolutePath))
         }
 
-        if (masked !== page) masked.recycle()
-        page.recycle()
-
-        return ScannedPage(
-            pageNumber = pageNumber,
-            observations = observations,
-            ocrElapsedMs = scan.elapsedMs,
-            lineCount = scan.lines.size,
-            pageImage = pageImage,
-            cropCount = cropByBox.size,
-        )
+        return WrittenEvidence(observations, pageImage, cropByBox.size)
     }
 }

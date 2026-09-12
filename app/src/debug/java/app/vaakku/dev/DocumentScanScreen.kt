@@ -31,7 +31,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -55,8 +54,11 @@ import app.vaakku.session.SessionEvidence
 import app.vaakku.ui.theme.VaakkuTheme
 import app.vaakku.ui.theme.VaakkuTypography
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -89,7 +91,13 @@ import kotlinx.coroutines.withContext
 fun DocumentScanScreen(onClose: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val scope = rememberCoroutineScope()
+
+    // This screen's own scope, NOT rememberCoroutineScope(). The composition
+    // scope is cancelled the instant the screen leaves, which resumes our
+    // coroutine but does not stop ML Kit's native recognition — and the
+    // teardown below has to be able to wait for that recognition to land
+    // before it closes the detector. This scope is cancelled only once it has.
+    val scanScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
 
     val camera = remember { DocumentCamera() }
 
@@ -104,7 +112,7 @@ fun DocumentScanScreen(onClose: () -> Unit) {
     // SessionService is absent from the manifest.
     val reconciler = remember { Reconciler() }
 
-    var sessionId by remember { mutableStateOf(SessionEvidence.newSessionId()) }
+    var sessionId by remember { mutableStateOf(SessionEvidence.newSessionId(context)) }
     val evidence = remember(sessionId) { SessionEvidence.forSession(context, sessionId) }
     val scanner = remember(sessionId) { PageScanner(recognizer, evidence) }
 
@@ -151,12 +159,27 @@ fun DocumentScanScreen(onClose: () -> Unit) {
 
     DisposableEffect(Unit) {
         onDispose {
-            // Order matters: stop the scan still in flight, then release the
-            // camera, then the recognizer. Closing a recognizer out from under
-            // a running recognition is how a native handle leaks.
-            job?.cancel()
+            // The camera goes first and goes immediately: unbind() keeps its
+            // executor alive until any outstanding capture callback has been
+            // delivered, so this cannot reject one.
             camera.unbind()
-            recognizer.close()
+
+            // The recognizer cannot. Cancelling the scan job would resume our
+            // coroutine at once while ML Kit's process() keeps running against
+            // the detector — closing it there is precisely the
+            // close-under-an-in-flight-recognition case. So the in-flight scan
+            // is left to finish and the close rides on its completion.
+            // ML Kit's task always completes, with a result or an error.
+            val running = job
+            if (running == null || running.isCompleted) {
+                recognizer.close()
+                scanScope.cancel()
+            } else {
+                running.invokeOnCompletion {
+                    recognizer.close()
+                    scanScope.cancel()
+                }
+            }
         }
     }
 
@@ -164,13 +187,22 @@ fun DocumentScanScreen(onClose: () -> Unit) {
         if (scanning || !bound) return
         scanning = true
         status = "Capturing…"
-        job = scope.launch {
+        job = scanScope.launch {
             try {
                 val bitmap = camera.capturePage()
                 status = "Reading…"
-                // Off the main thread: full-resolution recognition, a page JPEG
-                // and one JPEG per observed row.
-                val page = withContext(Dispatchers.Default) { scanner.scan(bitmap, pages.size + 1) }
+                // Off the main thread: recognition and extraction on Default,
+                // and PageScanner moves its own JPEG writes to IO.
+                val page = try {
+                    withContext(Dispatchers.Default) { scanner.scan(bitmap, pages.size + 1) }
+                } catch (t: Throwable) {
+                    // scan() releases the bitmap on all of its own paths; this
+                    // covers the gap between the capture returning and scan()
+                    // taking ownership, where a cancellation would otherwise
+                    // strand tens of MB.
+                    if (!bitmap.isRecycled) bitmap.recycle()
+                    throw t
+                }
                 pages += page
                 page.observations.forEach { reconciler.apply(ReconcilerEvent.WrittenObserved(it)) }
                 clausesRead += page.observations.size
@@ -199,12 +231,14 @@ fun DocumentScanScreen(onClose: () -> Unit) {
     }
 
     fun newSession() {
-        job?.cancel()
+        // No job cancellation: the button is disabled while a scan is running,
+        // so there is nothing in flight to stop, and cancelling a recognition
+        // mid-flight is the one thing this screen deliberately never does.
         reconciler.apply(ReconcilerEvent.Reset)
         pages.clear()
         clausesRead = 0
         scanCompleted = false
-        sessionId = SessionEvidence.newSessionId()
+        sessionId = SessionEvidence.newSessionId(context)
         status = "New scan session. Aim at the first page."
     }
 
@@ -325,8 +359,9 @@ private fun PageBlock(page: ScannedPage) {
         "page ${page.pageNumber} — ${page.lineCount} OCR lines, " +
             "OCR ${page.ocrElapsedMs} ms, ${page.cropCount} crop(s)",
     )
+    if (page.pageImage == null) DevMono("  page image: (not written)")
     if (page.observations.isEmpty()) {
-        DevMono("  (no clause matched on this page)")
+        DevMono("  (no clause read on this page)")
     } else {
         page.observations.forEach { observation ->
             DevMono("  ${plainClause(observation)}")
