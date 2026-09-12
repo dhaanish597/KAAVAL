@@ -123,6 +123,32 @@ class WrittenExtractorTest {
     }
 
     @Test
+    fun `GUARANTEE - the §4 table row RowAssembler joins into "Guaranteed Returns No" (no colon) still gives Guarantee false`() {
+        // The real §4 "Your Policy at a Glance" table has this as two cells —
+        // label "Guaranteed Returns", value "No" — which RowAssembler joins
+        // with a single space and no colon. "No" is still the row's very last
+        // content, so it is still the value shape, not a determiner.
+        val obs = extractOne("Guaranteed Returns No").single { it.type == ClaimType.GUARANTEE }
+        assertEquals(ClaimValue.Guarantee(false), obs.value)
+    }
+
+    @Test
+    fun `GUARANTEE - fix round 1 Critical counterexample 1 - "no exceptions" is a determiner, never Guarantee false`() {
+        // Reviewer counterexample: "no" here introduces the noun "exceptions",
+        // it is not the row's terminal value — must not fire.
+        val obs = extractOne("Guaranteed Returns apply throughout; no exceptions.")
+        assertTrue(obs.none { it.type == ClaimType.GUARANTEE })
+    }
+
+    @Test
+    fun `GUARANTEE - fix round 1 Critical counterexample 2 - "no additional underwriting" is a determiner, never Guarantee false`() {
+        // Reviewer counterexample: "no" introduces "additional underwriting",
+        // not a terminal "No" value — must not fire.
+        val obs = extractOne("Guaranteed Returns require no additional underwriting.")
+        assertTrue(obs.none { it.type == ClaimType.GUARANTEE })
+    }
+
+    @Test
     fun `CHARGES - the real §7 2 percent tier (years 2-5) is a separate, deliberate observation`() {
         val obs = extractOne("Premium Allocation Charge Years 2-5 2% of Annualised Premium")
             .single { it.type == ClaimType.CHARGES }

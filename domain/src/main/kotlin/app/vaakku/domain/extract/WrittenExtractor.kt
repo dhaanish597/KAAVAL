@@ -31,14 +31,27 @@ class WrittenExtractor {
         // label and the "No", which the original tight pattern did not tolerate.
         // The (?:\s+\S+){0,4}? run absorbs up to four intervening words, lazily,
         // so it still requires "no" to be the next sense-bearing word after the
-        // qualifier and never reaches across an unrelated sentence to a stray
-        // "no" — row text is one visual line, so the blast radius is small.
+        // qualifier.
+        //
+        // That alone is still over-broad (found in fix round 1 review): "no" can
+        // also be a DETERMINER introducing a noun — "Guaranteed Returns apply
+        // throughout; no exceptions." / "...require no additional underwriting."
+        // Both of those are affirmative sentences that must never read as
+        // Guarantee(false). The distinguishing shape across every true instance
+        // (§4's table row "Guaranteed Returns | No", which RowAssembler joins
+        // into "Guaranteed Returns No"; "Guaranteed returns: No"; "Guaranteed
+        // Returns on premiums paid: No.") is that "No" is the VALUE — it is the
+        // last content of the row, followed by nothing but trailing punctuation.
+        // A determiner "no" is instead followed by the noun it introduces. The
+        // trailing lookahead `(?=[\s.,;:)'"]*$)` enforces exactly that: after the
+        // word "no", only whitespace/punctuation may remain to the end of the
+        // row text — never another word.
         // GUARANTEE_TRUE is deliberately left tight: widening it too is not
         // needed by any known document text, and a tight positive match is the
         // safer default (a missed "yes" is silence; a loose one risks reading
         // an unrelated "yes" nearby as this policy's guarantee).
         val GUARANTEE_FALSE = Regex(
-            """not guaranteed|non-guaranteed|guaranteed returns?(?:\s+\S+){0,4}?\s*:?\s*no\b""",
+            """not guaranteed|non-guaranteed|guaranteed returns?(?:\s+\S+){0,4}?\s*:?\s*no\b(?=[\s.,;:)'"]*$)""",
             RegexOption.IGNORE_CASE,
         )
         val GUARANTEE_TRUE = Regex("""guaranteed returns?\s*:?\s*(yes|\d)""", RegexOption.IGNORE_CASE)

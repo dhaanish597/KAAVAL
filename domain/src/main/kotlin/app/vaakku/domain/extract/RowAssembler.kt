@@ -22,13 +22,25 @@ object RowAssembler {
 
     /**
      * Groups [lines] whose vertical centres are within `0.6 * medianLineHeight`
-     * of each other, then orders each group left-to-right by x. The median is
-     * computed once over the whole page, not per group, so the threshold is
-     * stable regardless of how many lines end up near each other.
+     * of each other, then orders each group left-to-right by x. [lines] is
+     * first partitioned by [OcrLine.frameId] — every [Box] is pixel coordinates
+     * within *one* photo, so two different frames legitimately reuse the same
+     * y-range; a row must never be built from lines out of two different
+     * frames, however close their `top`/`bottom` happen to land. (Found by
+     * inspection while writing RealPropDocumentTest for a multi-page scan
+     * session, fix round 1: naively concatenating two frames' lines with
+     * independently-zeroed coordinates produced a spurious cross-frame row.)
+     * Frame order in the output follows each frame's first appearance in
+     * [lines]; the median line height — and so the clustering threshold — is
+     * computed per frame, not across the whole call, since a median mixing two
+     * unrelated photos' line-height distributions was never meaningful.
      */
     fun assemble(lines: List<OcrLine>): List<Row> {
         if (lines.isEmpty()) return emptyList()
+        return lines.groupBy { it.frameId }.values.flatMap { assembleOneFrame(it) }
+    }
 
+    private fun assembleOneFrame(lines: List<OcrLine>): List<Row> {
         val heights = lines.map { (it.box.bottom - it.box.top).toDouble() }
         val threshold = 0.6 * median(heights)
 
@@ -55,6 +67,10 @@ object RowAssembler {
                     bottom = orderedByX.maxOf { it.box.bottom },
                 ),
                 minConfidence = orderedByX.minOf { it.confidence },
+                // Safe now that every line in the cluster shares one frameId —
+                // before this fix, a cross-frame cluster made this silently
+                // wrong for downstream Provenance.Written.frameId (crop/source-
+                // photo lookup).
                 frameId = orderedByX.first().frameId,
             )
         }

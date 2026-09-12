@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test
 /** Build plan §5.6 — group OcrLines whose vertical centres are within 0.6 * median line height, order by x. */
 class RowAssemblerTest {
 
-    private fun line(text: String, left: Int, top: Int, right: Int, bottom: Int, confidence: Double = 0.95) =
-        OcrLine(text = text, box = Box(left, top, right, bottom), confidence = confidence, frameId = "f1")
+    private fun line(text: String, left: Int, top: Int, right: Int, bottom: Int, confidence: Double = 0.95, frameId: String = "f1") =
+        OcrLine(text = text, box = Box(left, top, right, bottom), confidence = confidence, frameId = frameId)
 
     @Test
     fun `empty input produces no rows`() {
@@ -60,6 +60,28 @@ class RowAssemblerTest {
         val value = line("5 years", 320, 405, 420, 435)
         val rows = RowAssembler.assemble(listOf(label, value))
         assertEquals(Box(left = 40, top = 400, right = 420, bottom = 435), rows[0].box)
+    }
+
+    @Test
+    fun `two frames' lines at the same vertical position never merge into one row (fix round 1, Important)`() {
+        // Each frame's Box coordinates are pixels within *that* photo, so two
+        // different frames legitimately reuse the same y-range — RowAssembler
+        // must partition by frameId before it clusters by vertical position,
+        // never let a shared y-range alone join two frames into one row.
+        val aLabel = line("Frame A label", left = 40, top = 300, right = 300, bottom = 330, frameId = "frameA")
+        val aValue = line("Frame A value", left = 320, top = 300, right = 500, bottom = 330, frameId = "frameA")
+        val bLabel = line("Frame B label", left = 40, top = 300, right = 300, bottom = 330, frameId = "frameB")
+        val bValue = line("Frame B value", left = 320, top = 300, right = 500, bottom = 330, frameId = "frameB")
+
+        // Deliberately interleaved input order — assemble() must not rely on
+        // frame lines arriving contiguously.
+        val rows = RowAssembler.assemble(listOf(aLabel, bValue, bLabel, aValue))
+
+        assertEquals(2, rows.size, "expected exactly one row per frame, got: ${rows.map { it.frameId to it.text }}")
+        assertTrue(rows.all { row -> row.lines.all { it.frameId == row.frameId } }, "no row may mix lines from two frames")
+        assertEquals(setOf("frameA", "frameB"), rows.map { it.frameId }.toSet())
+        assertEquals("Frame A label Frame A value", rows.single { it.frameId == "frameA" }.text)
+        assertEquals("Frame B label Frame B value", rows.single { it.frameId == "frameB" }.text)
     }
 
     @Test
