@@ -1,7 +1,7 @@
 # STATUS — VAAKKU
 
-Current light: GREEN · Current phase: **P4 (NPU) has run on the phone and is proven** ·
-Hour: H1–H6
+Current light: GREEN · Current phase: **P7 (hardening) started — release build is green
+and provably offline** · Hour: H1–H6
 
 **What is real as of 2026-09-13:** the microphone genuinely opens on the phone (logcat
 proves `silero_vad.onnx` loads and `AudioRecord` starts), every P5 screen renders in Tamil,
@@ -33,6 +33,12 @@ the document side (open issue 29). **Whether the mask lands on a person is still
 untested**, though three pages from 082931 show it painting a hand-shaped region at the
 page edge and touching no clause text (open issue 22). P6's *failure* path — a session
 that starts with a model missing — has never run (open issue 21).
+**And the offline guarantee was being proved by a check that could not fail.**
+`check_manifest.sh` ASCII-grepped a UTF-16LE binary manifest, so its APK check matched
+nothing and printed "ok" on every run since P0; it also silently began checking the
+release variant while announcing debug. Both fixed, with a recorded negative control
+(open issue 30, decisions 88–89). The app really is offline — `aapt2` confirms no INTERNET
+in either APK — but until today that was luck rather than evidence.
 
 Red Light ruling: **unknown** — no organizer statement recorded yet.
 Name ruling: **unknown** — displayed name is VAAKKU, changed by editing the single
@@ -54,7 +60,7 @@ This assumption has not been confirmed by an organizer.
 | G5 End-to-end | **BOTH HALVES HAVE NOW RUN ON THE PHONE** | `evidence/P5_*.png`, `evidence/P6_*.png`; Setup→mic→scan→end→receipt→save. The camera half reached `page_1.jpg` (2448 × 3264) and ML Kit read it offline. Still unproven: a *clause* extracted from a real prop page (that is G3). | H6– |
 | G6 Go/No-Go | NOT STARTED | — | — |
 | G7 Receipt + Office Kit | **PASS — verified from a real device export** | `evidence/P6_packet_verify.txt` — a session saved on the phone, read back by `tools/packet-cli` as `INTEGRITY: PASSED` / `SIGNATURE: verified` / StrongBox **yes**, from both the folder and the zip; head on screen == head in file | H6– |
-| G8 Freeze | NOT STARTED | — | — |
+| G8 Freeze | **P7 STARTED — laptop half done** | `evidence/P7_check_manifest_both_variants.txt`; release APK builds (114 MB, lintVital pass) and is proven offline for the first time; crash review clean (crash buffer 0 B consumed, no tombstones). Remaining P7 items all need the phone and a human. | H21– |
 
 ### G0 evidence checklist (§13)
 
@@ -598,7 +604,7 @@ the folder and the zip were read back by `tools/packet-cli`.
 | Duration + short-head formatters | **PASS (JVM test)** | `ReceiptScreenFormatTest` |
 | App unit tests | **PASS** | 51 across 7 classes, `skipped="0"` |
 | Gate | **PASS** | `:domain:test`, `fixtureReport` 26 fixtures / 45 assertions / precision 1.00 / recall 1.00, `checkBannedWords`, `check_manifest.sh` **PASS** |
-| **Page images in the export are masked only if a rung loads, and none has been tried** | **KNOWN GAP** | open issue 19 — the masker is built (P4) but has never run on the phone |
+| **Page images in the export are masked** | **the masker runs; whether it lands on a person is open** | open issue 19 **closed by P4 running on the phone** — the mask now executes on the Hexagon DSP on the ordinary scan path, and three pulled pages show `FILL_COLOR` painted at the page edge. What it covers is open issue 22. |
 | **A failed session's receipt** | **NOT DONE** | the failure path at the top of the screen has not been exercised |
 
 #### The viewfinder now frames what the camera saves (commit `0d4d842`)
@@ -618,6 +624,31 @@ The box now carries the stream's own ratio, so the border is an honest viewfinde
 what it frames is what lands in `page_<n>.jpg`, to 2 parts in 10,000. Preview pixels
 vary 2…4 rather than a flat 0, which is a live surface looking at a dark desk and not
 an unrendered one.
+
+### P7 evidence — hardening (§13 P7)
+
+Started 2026-09-13. Most of P7 is human work on the phone (soak, thermal, OriginOS
+survival, three airplane-mode runs); what is recorded here is what can be established
+from the laptop.
+
+| Item | Status | Path / number |
+|---|---|---|
+| **Release build (minify off)** | **PASS** | `:app:assembleRelease`, `app-release.apk` **114,066,924 B**. `lintVitalRelease` ran and passed. R8 stays off by decision — see `app/build.gradle.kts`. |
+| **Release APK proven offline** | **PASS — first time ever checked** | `evidence/P7_check_manifest_both_variants.txt`. The release variant had never been through `check_manifest.sh` before today; the script only ever built the debug merged manifest. Open issue 30, decision 89. |
+| **`check_manifest.sh` proven able to fail** | **PASS** | negative control in the same evidence file: `tools:node="remove"` stripped from the INTERNET line → three FAILs and exit 1, including the APK-level one. Manifest restored, `git diff --stat` empty. Decision 88. |
+| **Crash review from logcat** | **clean, and the buffer is trustworthy** | `adb logcat -b crash` is **16 MiB with 0 B consumed** — no crash has been written to it. No `FATAL EXCEPTION`, no `ANR in`, no `am_crash` for `app.vaakku` in the main buffer, and `/data/tombstones/` is empty. This covers the P4 benchmark runs, the three G3 sessions and the P5/P6 screens. |
+| Release APK installed through the final install path | **NOT DONE** | needs the phone; must not land mid-scan-run |
+| 15-minute soak | **NOT DONE** | human |
+| Thermal / battery readings | **NOT DONE** | human; §11.5 budgets thermal ≤ MODERATE after 15 min |
+| OriginOS survival check | **NOT DONE** | human; §6.7 |
+| Three full airplane-mode demo runs | **NOT DONE** | human |
+
+**A note on the crash review, because "no crashes" is the kind of clean result worth
+distrusting.** The crash buffer reading `0 B consumed` could mean "nothing crashed" or
+"the buffer was cleared". Three things argue for the first: `/data/tombstones/` is also
+empty (native crashes land there and survive a logcat clear), the main buffer still holds
+the 08:19 NPU session and shows no `am_crash`, and the buffer was resized to 16 MiB after
+the G4 pull rather than cleared. The app has not crashed on this phone.
 
 ## Decisions log
 
@@ -1313,6 +1344,20 @@ an unrendered one.
     to stop a tens-of-MB bitmap per page, the failure it prevents is an OutOfMemoryError
     mid-demo, and the evidence that motivated raising it was an inference we had not
     checked against a photograph.
+88. **Every guard gets one deliberate failure before it is trusted.** Open issue 30 found
+    `check_manifest.sh` printing `ok: INTERNET absent from APK` on every run it had ever
+    made, because it ASCII-grepped a UTF-16LE binary manifest and matched nothing. It had
+    been green since P0 and green is exactly what a broken check looks like. The rule from
+    here: a guard is not evidence until it has been made to fail on purpose and the failure
+    output is in `evidence/`. `checkBannedWords` and the schema-guard test have both fired
+    for real; `check_manifest.sh` now has a recorded negative control. **When adding a new
+    guard, write the failing run into `evidence/` in the same commit as the guard.**
+89. **`check_manifest.sh` checks debug AND release, because P7 installs release.** §13's
+    P7 line requires the release build to go through the final install path. Until now the
+    script only ever produced the debug merged manifest — so the artifact that actually
+    ships had never been checked for INTERNET at all. Both variants now run, each with its
+    own explicitly derived manifest path rather than `find | sort | tail -1`, which had
+    started silently resolving to release the moment a release build existed.
 
 ## Measurements
 
@@ -1742,6 +1787,50 @@ measurement of the cable, so it is not recorded).
     With real numbers this is either a one-constant change or a VAD bug; without them it is
     a guess.
 
+30. **`check_manifest.sh` had an APK check that could not fail, and checked the wrong
+    variant.** — **FIXED 2026-09-13**, evidence
+    `evidence/P7_check_manifest_both_variants.txt`. Two independent bugs in the one script
+    that stands behind CLAUDE.md #3:
+
+    **(a) The APK check was a placebo.** It ran `grep -aq "android.permission.INTERNET"`
+    over the raw `AndroidManifest.xml` pulled from the APK. That file is binary AXML and
+    its string pool is **UTF-16LE**, so every character is followed by a NUL byte and a
+    plain ASCII grep matches *nothing* — including `RECORD_AUDIO`, which is definitely in
+    there. The check therefore printed `ok: INTERNET absent from APK` on every run it had
+    ever made, without once having read the file. Verified directly: `aapt2 dump
+    permissions` lists nine permissions in the release APK; a byte search finds
+    `android.permission.RECORD_AUDIO` at offset 3376 as UTF-16LE and at offset -1 as ASCII.
+
+    **(b) It named one variant and inspected another.** It printed
+    `==> :app:processDebugMainManifest`, then located the manifest with
+    `find app/build/intermediates ... | sort | tail -n 1`. With only a debug build on disk
+    that happened to be right. **The moment a release build existed it resolved to
+    `merged_manifest/release/...`** — so the script announced debug and checked release.
+    Nobody would have noticed, because both are clean.
+
+    **What was NOT wrong: the app really is offline.** `aapt2 dump permissions` on both
+    APKs lists RECORD_AUDIO, CAMERA, FOREGROUND_SERVICE, FOREGROUND_SERVICE_MICROPHONE,
+    VIBRATE, POST_NOTIFICATIONS, FOREGROUND_SERVICE_DATA_SYNC, WAKE_LOCK,
+    RECEIVE_BOOT_COMPLETED — and no INTERNET, no ACCESS_NETWORK_STATE. The guarantee held;
+    the proof did not.
+
+    **The fix, and why it is a real check now.** Both variants are checked explicitly, by
+    derived path rather than by `tail -1`. The APK is read with `aapt2 dump permissions`,
+    falling back to `tr -d '\000' | grep` where aapt2 is absent. And there is a **positive
+    control**: RECORD_AUDIO must be found in the APK, or the script FAILS with "cannot
+    vouch for INTERNET being absent either" — the exact shape of bug (a) can no longer pass
+    silently. Proven by **negative control**: with `tools:node="remove"` stripped from the
+    INTERNET line and debug rebuilt, the script emits three FAILs including
+    `FAIL: [debug] android.permission.INTERNET is present in the APK's manifest` and exits
+    1. The manifest was restored immediately (`git diff --stat` empty) and both variants
+    rebuilt clean.
+
+    **The general lesson, and the reason this is written down rather than just fixed:**
+    every guard in this project needs one run where it fails on purpose. `checkBannedWords`
+    and the schema-guard test have both fired for real, so they are known-live.
+    `check_manifest.sh` had never once gone red, and a check that has only ever been green
+    is indistinguishable from a check that cannot go red.
+
 Verified on the iQOO 15 by driving the real app over adb, each backed by a screenshot
 or a file in `evidence/`:
 
@@ -1895,6 +1984,32 @@ What is left:
       and the PDF from `Download/Vaakku/<sessionId>/` are both on the phone. Nobody who
       reads Tamil has seen either. Open issue 17.
 - [ ] The P0 "Not yet verified" list above is still the standing queue underneath this.
+
+**P7 hardening (§13) — all of these need the phone:**
+
+- [ ] **Install the RELEASE APK through the final install path.**
+      `app/build/outputs/apk/release/app-release.apk` (114 MB) is built, lint-clean and
+      proven offline in both the merged manifest and the APK itself. §13's P7 line wants it
+      installed the way the demo will be. Use `adb install -r` — **never `adb uninstall`**,
+      which wipes the pushed models. **Do not do this mid-scan-run**; it restarts the app.
+      Re-run `scripts/check_manifest.sh` first, as always.
+- [ ] **15-minute soak**, then read thermal and battery. §11.5 budgets thermal at
+      ≤ MODERATE after 15 min and app memory < 1.5 GB. Record both as a MEASUREMENT line.
+      The NPU mask and ML Kit both run hot; this is the first sustained workload.
+- [ ] **OriginOS survival check (§6.7).** Start a session, put the app in the background,
+      lock the screen, wait, come back. The notification must still be there and the
+      session must still be live. OriginOS is aggressive about background work and the
+      battery exemption is a human task.
+- [ ] **Three full airplane-mode demo runs, end to end.** Airplane on, Setup → mic →
+      scan → end → receipt → save, three times without a laptop attached. This is the
+      run that proves the product, not any individual gate.
+- [x] **Crash review from logcat.** Clean — `adb logcat -b crash` reports 16 MiB with
+      **0 B consumed**, `/data/tombstones/` is empty, and no `FATAL EXCEPTION` / `ANR in` /
+      `am_crash` for `app.vaakku` appears in the main buffer. Covers the P4 benchmark runs,
+      the three G3 sessions and the P5/P6 screens.
+- [x] **Release build (minify off).** `:app:assembleRelease` PASS, `lintVitalRelease` PASS.
+- [x] **Release APK proven offline.** First time it has ever been checked — see open
+      issue 30.
 
 **Superseded queue (done — kept for the record):**
 

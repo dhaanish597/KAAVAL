@@ -1,0 +1,73 @@
+# VAAKKU — check_manifest.sh, both variants, after the P7 rewrite
+# Run 2026-09-13. CLAUDE.md #3 / build plan §6.2.
+#
+# WHY THIS FILE EXISTS: the previous version of this script could not fail its
+# APK check. The APK's AndroidManifest.xml is binary AXML with a UTF-16LE
+# string pool, so the byte-wise ASCII grep matched nothing and printed
+# 'ok: INTERNET absent from APK' unconditionally. It also selected the merged
+# manifest with 'find | sort | tail -1', which began resolving to the RELEASE
+# manifest as soon as a release build existed, while still printing the debug
+# task name. Both are fixed; the negative control below proves the fix.
+#
+# ---------------------------------------------------------------------------
+# PASS RUN (clean tree)
+# ---------------------------------------------------------------------------
+==> check_manifest.sh
+    repo: /c/Users/clash/Videos/KAAVAL
+    aapt2: C:\Users\clash\AppData\Local\Android\Sdk/build-tools/36.1.0/aapt2.exe
+
+==> [debug] :app:processDebugMainManifest
+    merged manifest: app/build/intermediates/merged_manifest/debug/processDebugMainManifest/AndroidManifest.xml
+    ok: RECORD_AUDIO present
+    ok: CAMERA present
+    ok: FOREGROUND_SERVICE present
+    ok: FOREGROUND_SERVICE_MICROPHONE present
+    ok: INTERNET absent from merged manifest
+    ok: ACCESS_NETWORK_STATE absent from merged manifest
+    ok: SessionService declared
+    ok: SessionService foregroundServiceType=microphone
+    ok: SessionService not exported
+    apk: app/build/outputs/apk/debug/app-debug.apk
+    ok: APK manifest readable (RECORD_AUDIO found)
+    ok: INTERNET absent from APK
+    ok: ACCESS_NETWORK_STATE absent from APK
+
+==> [release] :app:processReleaseMainManifest
+    merged manifest: app/build/intermediates/merged_manifest/release/processReleaseMainManifest/AndroidManifest.xml
+    ok: RECORD_AUDIO present
+    ok: CAMERA present
+    ok: FOREGROUND_SERVICE present
+    ok: FOREGROUND_SERVICE_MICROPHONE present
+    ok: INTERNET absent from merged manifest
+    ok: ACCESS_NETWORK_STATE absent from merged manifest
+    ok: SessionService declared
+    ok: SessionService foregroundServiceType=microphone
+    ok: SessionService not exported
+    apk: app/build/outputs/apk/release/app-release.apk
+    ok: APK manifest readable (RECORD_AUDIO found)
+    ok: INTERNET absent from APK
+    ok: ACCESS_NETWORK_STATE absent from APK
+
+RESULT: PASS — no INTERNET, no ACCESS_NETWORK_STATE, in the merged manifest and the built APK, for BOTH debug and release.
+
+# ---------------------------------------------------------------------------
+# NEGATIVE CONTROL — verbatim output from the same script with
+# tools:node="remove" stripped from the INTERNET line of
+# app/src/main/AndroidManifest.xml and :app:assembleDebug re-run.
+# The manifest was restored immediately afterwards (git diff --stat empty).
+#
+# This is the part the old script could not do. The APK line in particular:
+# it now catches a permission that is genuinely inside the built artifact.
+# ---------------------------------------------------------------------------
+FAIL: [debug] android.permission.INTERNET appears 1x in the merged manifest.
+FAIL: [debug] android.permission.INTERNET is present in the APK's manifest.
+FAIL: [release] android.permission.INTERNET appears 1x in the merged manifest.
+    ok: INTERNET absent from APK
+RESULT: FAIL — the app is not provably offline.
+EXIT: 1
+
+# The one "ok" in that list is honest and worth reading: only :app:assembleDebug
+# was re-run under the broken manifest, so the release APK on disk was still the
+# earlier clean artifact. The release *merged manifest* caught the regression,
+# which is the check that governs that variant. Re-running assembleRelease under
+# the break would have produced a fourth FAIL.
