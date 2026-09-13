@@ -281,11 +281,25 @@ upgraded casually — a version bump mid-event is a self-inflicted outage.
 scripts/check_manifest.sh
 ```
 
-**Install on a connected phone:**
+**Install on a connected phone.** Runs the manifest guard, builds, installs with
+`adb install -r`, and launches. Debug by default; `--release` for the build that ships:
 
 ```bash
 scripts/install.sh
 ```
+
+```bash
+scripts/install.sh --release
+```
+
+It never uninstalls. Debug and release share the package name `app.vaakku` with no
+suffix, so they replace each other in place and the pushed ASR models — hundreds of
+megabytes in the app's files directory — survive either way. An `adb uninstall` would
+delete them.
+
+Installing release loses two things, both deliberate: the Dev menu (which only exists in
+`app/src/debug`) and the three-finger-hold debug overlay (gated on `BuildConfig.DEBUG`).
+The scan sheet's mask latency label is not debug-gated and still shows.
 
 **Push the ASR models** (once per device; ~hundreds of MB):
 

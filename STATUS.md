@@ -633,12 +633,12 @@ from the laptop.
 
 | Item | Status | Path / number |
 |---|---|---|
-| **Release build (minify off)** | **PASS** | `:app:assembleRelease`, `app-release.apk` **114,066,924 B**. `lintVitalRelease` ran and passed. R8 stays off by decision — see `app/build.gradle.kts`. |
+| **Release build (minify off)** | **PASS** | `:app:assembleRelease`, `app-release.apk` **≈114.07 MB** (114,066,924 B on the first build; a later rebuild produced 114,066,900 B — APK packaging is not byte-stable, so the exact count is not a fact to quote, only the magnitude). `lintVitalRelease` ran and passed. R8 stays off by decision — see `app/build.gradle.kts`. |
 | **Release APK proven offline** | **PASS — first time ever checked** | `evidence/P7_check_manifest_both_variants.txt`. The release variant had never been through `check_manifest.sh` before today; the script only ever built the debug merged manifest. Open issue 30, decision 89. |
 | **`check_manifest.sh` proven able to fail** | **PASS** | negative control in the same evidence file: `tools:node="remove"` stripped from the INTERNET line → three FAILs and exit 1, including the APK-level one. Manifest restored, `git diff --stat` empty. Decision 88. |
 | **`checkBannedWords` proven able to fail in both directions** | **PASS** | `evidence/P7_checkbannedwords_control.txt`. Fires on a planted banned word (`CopyRes.kt`, tested separately) **and** on a collapsed scan, checked per root: pass / fail / fail / pass over four runs. The first attempt at the second half — a floor of 40 on the total file count — **passed a scan that had lost 46 of 100 files**; see decision 90. |
 | **Crash review from logcat** | **clean, and the buffer is trustworthy** | `adb logcat -b crash` is **16 MiB with 0 B consumed** — no crash has been written to it. No `FATAL EXCEPTION`, no `ANR in`, no `am_crash` for `app.vaakku` in the main buffer, and `/data/tombstones/` is empty. This covers the P4 benchmark runs, the three G3 sessions and the P5/P6 screens. |
-| Release APK installed through the final install path | **NOT DONE** | needs the phone; must not land mid-scan-run |
+| Release APK installed through the final install path | **NOT DONE — but no longer blocked** | needs the phone; must not land mid-scan-run. `scripts/install.sh --release` now exists (see below) |
 | 15-minute soak | **NOT DONE** | human |
 | Thermal / battery readings | **NOT DONE** | human; §11.5 budgets thermal ≤ MODERATE after 15 min |
 | OriginOS survival check | **NOT DONE** | human; §6.7 |
@@ -650,6 +650,30 @@ distrusting.** The crash buffer reading `0 B consumed` could mean "nothing crash
 empty (native crashes land there and survive a logcat clear), the main buffer still holds
 the 08:19 NPU session and shows no `am_crash`, and the buffer was resized to 16 MiB after
 the G4 pull rather than cleared. The app has not crashed on this phone.
+
+**P7's install step was blocked by two things nobody had looked at, and neither is a
+phone problem.** Found while writing the HUMAN ACTION block for the phone session.
+
+1. **`install.sh` could only install debug.** It hard-coded
+   `apk/debug/app-debug.apk` and `:app:assembleDebug`. P7 requires the *release* build
+   through the final install path, so the step as written was impossible. It now takes
+   `--release`, and both the APK path and the Gradle task are derived from one `VARIANT`
+   variable — deliberately, so the script cannot build one variant and install another.
+   That is not a hypothetical: `check_manifest.sh` announced debug and inspected release
+   for the whole project (open issue 30). Debug stays the default; unknown arguments still
+   exit 2; `bash -n` clean.
+2. **"The final install path" was ambiguous, and the answer is that this is it.** Build
+   plan line 351 says to write `scripts/install_bundle.sh` and switch to AAB +
+   `bundletool --local-testing` after N1. Decision 91 closes it on evidence: the G4 logcat
+   that proved Hexagon dispatch reports a **plain-APK** `libDir`, so NPU load from
+   `adb install -r` is already verified and line 351's own escape clause applies.
+   `install_bundle.sh` will not be written. `install.sh`'s header comment, which still
+   predicted the switch, is corrected.
+
+Also corrected while in here: the release APK's size was quoted as an exact
+**114,066,924 B**, and a later rebuild produced **114,066,900 B**. APK packaging is not
+byte-stable, so an exact byte count is a number that looks like a measurement and behaves
+like noise. It now reads ≈114.07 MB with the drift noted.
 
 ### P8 evidence — demo and submission (§13 P8)
 
@@ -1408,6 +1432,23 @@ register, or using "score" in the ASR-measurement sense. None is product languag
     `evidence/P7_checkbannedwords_control.txt` as pass/fail/fail/pass. **When a guard is
     made to fail on purpose, break the thing that makes it look, not just the thing it
     looks for.**
+91. **The final install path for P7 is `scripts/install.sh`. `install_bundle.sh` is not
+    needed and will not be written.** Build plan line 351 says the install path changes
+    after N1 to an AAB built with `bundletool build-apks --local-testing` +
+    `bundletool install-apks`, and to write `scripts/install_bundle.sh` — **but it attaches
+    an escape clause: "Keep `installDebug` only if you verify NPU still loads that way."**
+    That verification has now happened, incidentally rather than on purpose. The G4 logcat
+    that proved Hexagon dispatch — `BackendType : Htp(2)`, 175/175 ops, during the live
+    08:19:11 session — reports
+    `libDir=/data/app/~~Hgu8hyMVpdWEF88bQF8ZZQ==/app.vaakku-PcHaHou-ge8re7ehROFl3A==/lib/arm64`.
+    That is the **plain-APK** native library layout. A `--local-testing` split install
+    would not look like that. So the QNN libraries load and the DSP accepts the whole graph
+    from an ordinary `adb install -r`, the escape clause is satisfied on evidence, and the
+    bundletool path buys nothing but a step that can fail at an event. `install.sh`'s own
+    header comment still predicts the switch and is now stale; it is corrected in the same
+    commit as this decision. **If a future change breaks NPU load from a plain APK, this
+    decision is void and line 351's main clause applies again** — the check is the `libDir`
+    line plus `selected 175 ops` in logcat.
 
 ## Measurements
 
@@ -2063,11 +2104,14 @@ What is left:
 **P7 hardening (§13) — all of these need the phone:**
 
 - [ ] **Install the RELEASE APK through the final install path.**
-      `app/build/outputs/apk/release/app-release.apk` (114 MB) is built, lint-clean and
-      proven offline in both the merged manifest and the APK itself. §13's P7 line wants it
-      installed the way the demo will be. Use `adb install -r` — **never `adb uninstall`**,
-      which wipes the pushed models. **Do not do this mid-scan-run**; it restarts the app.
-      Re-run `scripts/check_manifest.sh` first, as always.
+      `scripts/install.sh --release` — the flag was added 2026-09-13; before that the
+      script could only install debug, so this step was impossible as written (decision
+      91 also settles that this script, not a bundletool path, *is* the final install
+      path). It runs the manifest guard, builds, installs with `adb install -r` and
+      launches. **Never `adb uninstall`** — it wipes the pushed models.
+      **Do not do this mid-scan-run**; it restarts the app. And do it **after** anything
+      needing the Dev menu or the three-finger debug overlay, both of which are
+      debug-only and vanish on release. The scan sheet's mask latency label survives.
 - [ ] **15-minute soak**, then read thermal and battery. §11.5 budgets thermal at
       ≤ MODERATE after 15 min and app memory < 1.5 GB. Record both as a MEASUREMENT line.
       The NPU mask and ML Kit both run hot; this is the first sustained workload.
