@@ -20,13 +20,14 @@ import app.vaakku.ui.theme.VaakkuTheme
  * from a release APK. It is reached from MainActivity by component name behind a
  * BuildConfig.DEBUG guard.
  *
- * Four screens as of P3: the Rung-0 probe (§6.3), Live ASR (§6.3), the ASR
- * bake-off (§11.3), Document scan (§6.4) and Page replay, which re-runs the scan
- * screen's own OCR + extractor path over an image file already on the phone. The
- * NPU benchmark and the config reload (§6.6 item 7) land in the phases that build
- * them; empty placeholders would only make the menu harder to read.
+ * Six screens as of P4: the Rung-0 probe (§6.3), Live ASR (§6.3), the ASR
+ * bake-off (§11.3), Document scan (§6.4), Page replay, which re-runs the scan
+ * screen's own OCR + extractor path over an image file already on the phone, and
+ * the Mask benchmark (§6.5), which times the privacy masker on each accelerator.
+ * The config reload (§6.6 item 7) lands in the phase that builds it; an empty
+ * placeholder would only make the menu harder to read.
  *
- * Navigation is one `var` rather than a nav library. There are six destinations
+ * Navigation is one `var` rather than a nav library. There are seven destinations
  * and no deep links, and a dependency added for the Dev menu would end up in the
  * release APK for nothing.
  */
@@ -64,6 +65,9 @@ class DevMenuActivity : ComponentActivity() {
                             onClose = { screen = DevScreen.MENU },
                         )
                         DevScreen.REPLAY -> PageReplayScreen(
+                            onClose = { screen = DevScreen.MENU },
+                        )
+                        DevScreen.BENCHMARK -> MaskBenchmarkScreen(
                             onClose = { screen = DevScreen.MENU },
                         )
                     }

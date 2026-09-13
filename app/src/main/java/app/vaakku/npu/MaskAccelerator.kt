@@ -7,9 +7,9 @@ package app.vaakku.npu
  * exists to close is that LiteRT's [com.google.ai.edge.litert.CompiledModel.Options]
  * takes a *set* of accelerators and picks one internally — ask for
  * `Options(NPU, GPU)` and you get a working model with no honest way to say
- * which one is under it. So [AcceleratorLadder] asks for exactly one at a time
- * and lets creation fail, and this enum records which request was the one that
- * succeeded.
+ * which one is under it. So [PersonMasker.createOn] asks for exactly one at a
+ * time and lets creation fail, and this enum records which request was the one
+ * that succeeded.
  *
  * That still only proves which accelerator LiteRT *accepted*. The gate on
  * printing "NPU" to the human is a logcat line showing Hexagon dispatch (§6.5

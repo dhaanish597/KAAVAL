@@ -64,6 +64,7 @@ import app.vaakku.ui.copyText
 import app.vaakku.ui.localized
 import app.vaakku.ui.theme.VaakkuTheme
 import app.vaakku.ui.theme.VoiceDocument
+import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -408,6 +409,38 @@ fun ScanSheet(onClose: () -> Unit) {
                 color = colors.inkFaint,
                 modifier = Modifier.padding(top = space.md),
             )
+
+            // §6.6 screen 3: "mask 7.9 ms · NPU". Shown only after a page that
+            // actually ran — never after a withheld one, where the number would
+            // belong to an earlier page while the line above it talks about this
+            // one.
+            //
+            // The accelerator name is which rung LiteRT accepted, which is what
+            // §6.5's honesty rule asks the label to show. It is not a claim of
+            // proof: that is a logcat line and G4's evidence, and nothing here
+            // calls it verified (CLAUDE.md #8).
+            //
+            // Untranslated, and deliberately: this is a measurement, in the
+            // Latin-digit millisecond-and-accelerator form the plan specifies.
+            // A Tamil sentence around it would make a diagnostic read like a
+            // promise to the buyer, and the promise is the line above.
+            //
+            // totalMs, not inferenceMs. Inference alone is the smaller and more
+            // flattering number — it leaves out scaling and painting a
+            // full-resolution page, which happen on the CPU whichever rung ran
+            // the model. What this label is for is the time the person actually
+            // waited, and quoting the part that makes the accelerator look good
+            // is the kind of number CLAUDE.md #8 exists to stop. The split is in
+            // the benchmark CSV, where a reader is equipped for it.
+            val ran = lastMask as? PrivacyMask.MaskSummary.Ran
+            if (ran != null) {
+                Text(
+                    text = String.format(Locale.ROOT, "mask %.1f ms · %s", ran.totalMs, ran.accelerator.label),
+                    style = type.mono,
+                    color = colors.inkFaint,
+                    modifier = Modifier.padding(top = space.xs),
+                )
+            }
 
             if (failure != null) {
                 Spacer(Modifier.height(space.md))

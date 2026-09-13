@@ -28,12 +28,13 @@ enum class DevScreen(val title: String, val subtitle: String) {
     BAKEOFF("ASR bake-off", "Every engine × every clip, RTF + slot accuracy (§11.3)"),
     SCAN("Document scan", "Camera → ML Kit → clauses read from the page, + evidence (§6.4)"),
     REPLAY("Page replay", "Staged image file → the same OCR + extractor path, no camera (§6.4)"),
+    BENCHMARK("Mask benchmark", "The privacy masker on NPU, GPU and CPU — median, p90, CSV (§6.5)"),
 }
 
 /**
  * The debug menu — build plan §6.6.
  *
- * Five instruments, in the order they were needed: the Rung-0 probe answered
+ * Six instruments, in the order they were needed: the Rung-0 probe answered
  * "can the platform do this at all", Live ASR answers "does our pipeline work",
  * the bake-off answers "which engine, and is it fast enough on this phone", and
  * Document scan answers the same two questions for the written half — does the
@@ -45,6 +46,11 @@ enum class DevScreen(val title: String, val subtitle: String) {
  * screen failed to read can be tried again on a clean render and the extractor
  * can be told apart from the photograph. It never touches the camera, and says
  * so.
+ *
+ * Mask benchmark is the same kind of question for §6.5's privacy masker: it
+ * builds the model on each accelerator in turn rather than taking the first that
+ * loads, so "the NPU refused, and here is what it said" is an answer the screen
+ * can give (gate G4).
  *
  * Debug-only, so the copy is plain English: the reader is the developer holding
  * the phone, not the buyer.

@@ -198,68 +198,102 @@ class PersonMasker private constructor(
          *
          * Returns `null` only if all three fail, which would mean LiteRT cannot
          * run this model on this phone at all.
+         */
+        fun create(context: Context): PersonMasker? {
+            logProvider(context)
+
+            val refusals = mutableListOf<AcceleratorReport.Refusal>()
+            for (rung in MaskAccelerator.entries) {
+                createOn(context, rung, refusals.toList())
+                    .onSuccess { return it }
+                    .onFailure { refusals += AcceleratorReport.Refusal(rung, it.describe()) }
+            }
+            Log.w(TAG, "No accelerator would load the mask model: $refusals")
+            return null
+        }
+
+        /**
+         * Builds a masker on exactly [accelerator], or fails with the reason
+         * that rung refused.
+         *
+         * Separate from [create] because the benchmark has to be able to hold an
+         * NPU masker and a CPU masker at the same time to compare them, and
+         * because a rung that refuses is a result worth reading rather than a
+         * step on the way to a fallback.
          *
          * The dispatcher is single-threaded and kept for the masker's whole
          * life: a `CompiledModel` is a native handle with no concurrency
          * guarantee, and the NPU path in particular holds a driver context that
          * must be created and used from one thread.
          */
-        fun create(context: Context): PersonMasker? {
-            val dispatcher = Dispatchers.IO.limitedParallelism(1, "VaakkuMask")
+        fun createOn(
+            context: Context,
+            accelerator: MaskAccelerator,
+            priorRefusals: List<AcceleratorReport.Refusal> = emptyList(),
+        ): Result<PersonMasker> {
             val provider = BuiltinNpuAcceleratorProvider(context)
+            var environment: Environment? = null
+            return try {
+                environment = Environment.create(provider)
+                val available = runCatching {
+                    environment.getAvailableAccelerators().map { it.name }
+                }.getOrDefault(emptyList())
 
-            // Asked before any attempt, because these two answers are what
-            // separate "this chip has no NPU" from "this chip has one and the
-            // runtime libraries are not in the APK" — identical-looking
-            // fallbacks with completely different fixes.
-            val deviceSupportsNpu = runCatching { provider.isDeviceSupported() }.getOrDefault(false)
-            val npuLibraryReady = runCatching { provider.isLibraryReady() }.getOrDefault(false)
-            Log.i(
-                TAG,
-                "NPU provider: deviceSupported=$deviceSupportsNpu libraryReady=$npuLibraryReady " +
-                    "soc=${socDescription()} libDir=${runCatching { provider.getLibraryDir() }.getOrNull()}",
-            )
-
-            val refusals = mutableListOf<AcceleratorReport.Refusal>()
-            for (rung in MaskAccelerator.entries) {
-                var environment: Environment? = null
-                try {
-                    environment = Environment.create(provider)
-                    val available = runCatching {
-                        environment.getAvailableAccelerators().map { it.name }
-                    }.getOrDefault(emptyList())
-
-                    val model = CompiledModel.create(
-                        context.assets,
-                        MODEL_ASSET,
-                        optionsFor(rung),
-                        environment,
-                    )
-                    Log.i(TAG, "Mask model loaded on ${rung.label}; environment reports $available")
-                    return PersonMasker(
+                val model = CompiledModel.create(
+                    context.assets,
+                    MODEL_ASSET,
+                    optionsFor(accelerator),
+                    environment,
+                )
+                Log.i(TAG, "Mask model loaded on ${accelerator.label}; environment reports $available")
+                Result.success(
+                    PersonMasker(
                         model = model,
                         environment = environment,
                         report = AcceleratorReport(
-                            accelerator = rung,
-                            refusals = refusals.toList(),
-                            deviceSupportsNpu = deviceSupportsNpu,
-                            npuLibraryReady = npuLibraryReady,
+                            accelerator = accelerator,
+                            refusals = priorRefusals,
+                            deviceSupportsNpu = runCatching { provider.isDeviceSupported() }
+                                .getOrDefault(false),
+                            npuLibraryReady = runCatching { provider.isLibraryReady() }
+                                .getOrDefault(false),
                             environmentAccelerators = available,
                         ),
-                        dispatcher = dispatcher,
-                    )
-                } catch (e: Exception) {
-                    // Expected, not exceptional: a phone without the Qualcomm
-                    // runtime is supposed to land here and continue to GPU.
-                    val reason = e.message?.takeIf { it.isNotBlank() } ?: e::class.java.simpleName
-                    Log.i(TAG, "${rung.label} refused the mask model: $reason")
-                    refusals += AcceleratorReport.Refusal(rung, reason)
-                    runCatching { environment?.close() }
-                }
+                        dispatcher = Dispatchers.IO.limitedParallelism(1, "VaakkuMask"),
+                    ),
+                )
+            } catch (e: Exception) {
+                // Expected, not exceptional: a phone without the Qualcomm
+                // runtime is supposed to land here and continue to GPU.
+                Log.i(TAG, "${accelerator.label} refused the mask model: ${e.describe()}")
+                runCatching { environment?.close() }
+                Result.failure(e)
             }
-            Log.w(TAG, "No accelerator would load the mask model: $refusals")
-            return null
         }
+
+        /**
+         * Logs what the NPU provider says before anything is attempted.
+         *
+         * These two answers are what separate "this chip has no NPU" from "this
+         * chip has one and the runtime libraries are not in the APK" —
+         * identical-looking fallbacks with completely different fixes.
+         */
+        private fun logProvider(context: Context) {
+            val provider = BuiltinNpuAcceleratorProvider(context)
+            Log.i(
+                TAG,
+                "NPU provider: deviceSupported=" +
+                    runCatching { provider.isDeviceSupported() }.getOrDefault(false) +
+                    " libraryReady=" +
+                    runCatching { provider.isLibraryReady() }.getOrDefault(false) +
+                    " soc=${socDescription()}" +
+                    " libDir=${runCatching { provider.getLibraryDir() }.getOrNull()}",
+            )
+        }
+
+        /** A non-blank one-line reason, even from an exception with no message. */
+        private fun Throwable.describe(): String =
+            message?.takeIf { it.isNotBlank() } ?: this::class.java.simpleName
 
         /**
          * Options for one rung, and one rung only.
