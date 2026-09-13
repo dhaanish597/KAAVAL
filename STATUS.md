@@ -1,19 +1,20 @@
 # STATUS — VAAKKU
 
-Current light: GREEN · Current phase: **P6 (Receipt)** — the app can now end a session
-into a signed receipt and write it out; none of that has run on the phone yet ·
-Hour: H1–H6
+Current light: GREEN · Current phase: **P6 (Receipt) is done on hardware — P4 (NPU) is
+next** · Hour: H1–H6
 
 **What is real as of 2026-09-13:** the microphone genuinely opens on the phone (logcat
 proves `silero_vad.onnx` loads and `AudioRecord` starts), every P5 screen renders in Tamil,
-the session service shuts down cleanly leaving no `ServiceRecord`, and a receipt written by
-`:domain` verifies byte-for-byte in an independent Node implementation — including a real
-ECDSA signature, and including a tamper it correctly refuses. §7.2 Keystore signing, §7.3
-MediaStore export and the §6.6 screen 5 that calls them are now **written and compiling**.
-**What is still unproven:** no page has ever been through the camera into the ledger (G3),
-no NPU work exists (G4), and **no receipt has ever been written by the phone** — every
-byte of §7 evidence so far came from a laptop fixture, so StrongBox, the Keystore and the
-Downloads folder are all still theory.
+the session service shuts down cleanly leaving no `ServiceRecord`, and **a receipt written
+by the phone now verifies in the independent Node implementation** — a real session was
+ended, saved and re-saved on the iQOO 15, and `tools/packet-cli` read back both the folder
+and the zip as `INTEGRITY: PASSED` / `SIGNATURE: verified` / exit 0. StrongBox is real here
+(`"strongBox": true`), the head on screen equals the head in the file, and re-signing
+changes exactly one field while the head stays byte-identical. **G7 is PASS.**
+**What is still unproven:** no page has ever been through the camera into the ledger (G3 —
+the prop pages are printed and the build is installed, so this is a human-time item, not a
+code item), no NPU work exists (G4), and P6's *failure* path — a session that starts with a
+model missing — has never run (open issue 21).
 
 Red Light ruling: **unknown** — no organizer statement recorded yet.
 Name ruling: **unknown** — displayed name is VAAKKU, changed by editing the single
@@ -32,9 +33,9 @@ This assumption has not been confirmed by an organizer.
 | G2 ASR decision | **DECISION TAKEN — 2 of 3 evidence items** | `evidence/asr_prescreen/`, `evidence/G2_asr_bakeoff.csv`; live-mic scorecard still needs a human | H5– |
 | G3 OCR | **CODE READY — no scan yet** | `docs/superpowers/plans/p3-ocr-plan.md`; five clauses proven against the real document in `:domain`. Needs 5 scan sessions on the phone. | H6– |
 | G4 NPU | NOT STARTED | — | — |
-| G5 End-to-end | **UI COMPLETE — one half unproven** | `evidence/P5_*.png`; session runs Setup→mic→card→ended→Setup on the phone. The spoken half reaches the ledger; the camera half has still never run. | H6– |
+| G5 End-to-end | **BOTH HALVES HAVE NOW RUN ON THE PHONE** | `evidence/P5_*.png`, `evidence/P6_*.png`; Setup→mic→scan→end→receipt→save. The camera half reached `page_1.jpg` (2448 × 3264) and ML Kit read it offline. Still unproven: a *clause* extracted from a real prop page (that is G3). | H6– |
 | G6 Go/No-Go | NOT STARTED | — | — |
-| G7 Receipt + Office Kit | **CODE COMPLETE — no receipt from a phone yet** | `evidence/G7_receipt_integrity.txt`, `evidence/receipt_fixture/`; §7.2/§7.3/§6.6-screen-5 written (`9081ee3`) but never executed on a device | H6– |
+| G7 Receipt + Office Kit | **PASS — verified from a real device export** | `evidence/P6_packet_verify.txt` — a session saved on the phone, read back by `tools/packet-cli` as `INTEGRITY: PASSED` / `SIGNATURE: verified` / StrongBox **yes**, from both the folder and the zip; head on screen == head in file | H6– |
 | G8 Freeze | NOT STARTED | — | — |
 
 ### G0 evidence checklist (§13)
@@ -324,25 +325,53 @@ by the phone", not as something verified here.
 
 ### P6 evidence — signing, export and the Receipt screen (§7.2, §7.3, §6.6 screen 5)
 
-Commits `c0568a3` (signing + export) and `9081ee3` (the screen that calls them). Written
-and compiling on the laptop; **every row that needs a device is open.**
+Commits `c0568a3` (signing + export), `9081ee3` (the screen), `262a36d` (the topics
+count), `0d4d842` (the viewfinder) and `8e4c41b` (the zip line + plural). **Proven on
+the phone 2026-09-13 06:20–06:46 IST**: a session was ended, saved, re-saved, and both
+the folder and the zip were read back by `tools/packet-cli`.
 
 | Item | Status | Path / number |
 |---|---|---|
-| §7.2 Keystore signer | **written, never run** | `app/src/main/java/app/vaakku/receipt/ReceiptSigner.kt` — `vaakku_receipt`, EC P-256, StrongBox attempted with TEE fallback, `SHA256withECDSA` over the head's **64 ASCII hex characters** |
-| §7.3 MediaStore export | **written, never run** | `ReceiptExport.kt` → `Download/Vaakku/<sessionId>/` plus `<sessionId>.zip` |
-| §6.6 screen 5 | **written, never rendered on a phone** | `app/src/main/java/app/vaakku/ui/session/ReceiptScreen.kt` |
-| The head on screen is the head in the file | **structural, not conventional** | `ReceiptWriter.build()` returns the `Receipt`; the screen prints *that object's* head and hands the same object to `signAndExport()`. `signedWith()` attaches a block the head is computed **over**, never **from**, so signing cannot move it. |
-| Export allowlist — CLAUDE.md #4's second lock | **PASS (JVM test)** | `ReceiptExportTest` seeds a session folder with `segment.wav`, `session.pcm`, `page_1.png`, `pages_1.jpg`, `transcript.txt` and a `page_dir.jpg` *directory*, and asserts the export yields exactly `["page_1.jpg"]` |
-| "Saved" means the receipt saved | **fixed in review** | decision 68 — `receiptWritten` was `fileCount > 0`, which counts pages and crops, so a failed receipt plus one good page read as a saved record |
-| Page ordering is numeric, not lexical | **PASS (JVM test)** | `page_1, page_2, page_10, page_11` — name order would also reorder the zip |
-| Duration + short-head formatters | **PASS (JVM test)** | `ReceiptScreenFormatTest` — mm:ss, an hours field, a negative duration reading `00:00` rather than `-1:-3`, and `shortHead` grouping 16 chars as `0123 4567 89ab cdef` |
-| App unit tests | **PASS** | 51 across 7 classes, `skipped="0"`, in `app/build/test-results/testDebugUnitTest/` |
-| Gate | **PASS** | `:domain:test`, `fixtureReport` 26 fixtures / 45 assertions / precision 1.00 / recall 1.00, `checkBannedWords` clean (95 files), `check_manifest.sh` **PASS** on both merged manifest and APK |
-| **A real receipt from the phone** | **NOT DONE** | needs a session ended on the device |
-| **StrongBox actually measured** | **NOT DONE** | `KeyInfo.getSecurityLevel()` is read at runtime; no device has reported it yet |
-| **The exported folder read back by `tools/packet-cli`** | **NOT DONE** | this is the end-to-end proof of §7.3 → §7.4 and it is the single most valuable remaining P6 item |
+| §7.2 Keystore signer | **PASS (device)** | `ReceiptSigner.kt` — EC P-256, `SHA256withECDSA` over the head's 64 ASCII hex characters |
+| §7.3 MediaStore export | **PASS (device)** | `Download/Vaakku/session_2026-09-13_062044/` + `session_2026-09-13_062044.zip` |
+| §6.6 screen 5 | **PASS (device, both languages)** | `evidence/P6_11_receipt_0of6.png`, `P6_12_receipt_saved.png`, `P6_13_receipt_resaved.png` |
+| **The exported folder read back by `tools/packet-cli`** | **PASS** | `evidence/P6_packet_verify.txt` — `INTEGRITY: PASSED`, `SIGNATURE: verified`, exit 0 |
+| **The exported zip read back by `tools/packet-cli`** | **PASS** | same file — both shapes verify, identical head |
+| **StrongBox actually measured** | **PASS — this phone has one** | `SIGNATURE: verified (StrongBox reported by the phone: yes)`; `"strongBox": true` in `evidence/P6_receipt_sample.json`, so it is in the record and not only in the CLI's report |
+| The head on screen is the head in the file | **PASS (device)** | screen showed `a7a3 d7c6 6e8c bd2f` **before** Save; file head is `a7a3d7c66e8cbd2f06498336595adaf6a1e3510dea32aa15e7bc1fd5e8038104` |
+| Re-signing cannot move the head — decision 64 | **PASS (measured)** | saved twice; structural diff of the two receipts is **exactly one field**, `/signature/signature` (the ECDSA per-signature nonce). Head and every other field byte-identical. |
+| Re-export replaces rather than accumulating | **PASS (device)** | same two files, timestamps 06:27 → 06:32, no `(1)` copies in `Download/Vaakku/` |
+| Packet PDF renders from a device export | **PASS** | `--out` produced a 61 KB PDF; "0 row(s)" because all six rows were PENDING, which the CLI correctly omits |
+| The receipt carries no banned word | **PASS** | checked against the §2.4 list; `entries` carry `state`/`reason` only, `deviceModel` is a model name, the attestation chain holds the package name and a challenge — no IMEI, no serial |
+| Export allowlist — CLAUDE.md #4's second lock | **PASS (JVM test)** | `ReceiptExportTest` seeds `segment.wav`, `session.pcm`, `page_1.png`, `pages_1.jpg`, `transcript.txt` and a `page_dir.jpg` *directory*; export yields exactly `["page_1.jpg"]` |
+| "Saved" means the receipt saved | **fixed in review** | decision 68 — `receiptWritten` was `fileCount > 0` |
+| Topics count counts topics | **fixed, then confirmed on device** | decision 69 — read `6 / 6` on an empty session, now reads `0 / 6` (`evidence/P6_11_receipt_0of6.png`) |
+| The zip is named on screen | **fixed on device** | decision 71 — `Result.zip` was computed and dropped, so "2 files saved" left a third file unmentioned |
+| "1 file saved", not "1 files saved" | **fixed on device** | decision 72 — `<plurals>`, both forms read back out of the APK with `aapt2 dump resources` |
+| Page ordering is numeric, not lexical | **PASS (JVM test)** | `page_1, page_2, page_10, page_11` |
+| Duration + short-head formatters | **PASS (JVM test)** | `ReceiptScreenFormatTest` |
+| App unit tests | **PASS** | 51 across 7 classes, `skipped="0"` |
+| Gate | **PASS** | `:domain:test`, `fixtureReport` 26 fixtures / 45 assertions / precision 1.00 / recall 1.00, `checkBannedWords`, `check_manifest.sh` **PASS** |
 | **Page images in the export are unmasked** | **KNOWN GAP** | open issue 19 — the privacy masker is P4 |
+| **A failed session's receipt** | **NOT DONE** | the failure path at the top of the screen has not been exercised |
+
+#### The viewfinder now frames what the camera saves (commit `0d4d842`)
+
+Found by measuring `evidence/P6_05_scan_sheet.png`, fixed, re-measured in
+`evidence/P6_10_scan_clipped.png`.
+
+| | before | after |
+|---|---|---|
+| preview box | 1290 × 1125 px | 1069 × 1425 px |
+| camera surface | 1290 × 1720 px, y 150…1870 | 1069 × 1425 px, y 447…1871 |
+| overflow past the box | **~298 px, over the aim text and the CLAUDE.md #8 mask note** | **none** — stops 1 px inside |
+| surface ratio | 0.75 (3:4) | 0.7502 |
+| `page_1.jpg` as saved | 2448 × 3264 px = 0.7500 | unchanged |
+
+The box now carries the stream's own ratio, so the border is an honest viewfinder:
+what it frames is what lands in `page_<n>.jpg`, to 2 parts in 10,000. Preview pixels
+vary 2…4 rather than a flat 0, which is a live surface looking at a dark desk and not
+an unrendered one.
 
 ## Decisions log
 
@@ -871,6 +900,63 @@ and compiling on the laptop; **every row that needs a device is open.**
     derived from a proxy will eventually be a lie, so derive it from the thing it
     claims.
 
+69. **The topics field counts topics that were observed, not rows in the ledger.**
+    The Receipt screen read `பேசப்பட்ட தலைப்புகள் 6 / 6` at the end of a session in
+    which nothing was said and no clause was read. The field was `session.ledger.size`,
+    and `Reconciler.ledger()` is `ClaimType.entries.associateWith { decide(it) }` — one
+    row per type at all times — so that number is the constant 6 for every session there
+    has ever been. `LedgerEntry.observed` (`spoken != null || written.isNotEmpty()`) is
+    now what the screen counts. It is deliberately **not** a question about any
+    `DeltaState`: an entry counts whether it matched, differed or stayed silent, because
+    counting states is what would turn a coverage number into a finding about a person
+    (CLAUDE.md #1). Nine tests in `ReconcilerTest` drive the count through the real
+    reconciler. Same failure mode as decision 68 — a label derived from a proxy — and
+    found the same way, by reading the field rather than by a test. Confirmed fixed on
+    the phone: the same shape of session now reads `0 / 6`
+    (`evidence/P6_11_receipt_0of6.png`).
+
+70. **The scan viewfinder carries the camera stream's own aspect ratio.**
+    The preview was `fillMaxWidth().height(300.dp)` and `PreviewView`'s default
+    `FILL_CENTER` scales a 3:4 portrait stream to match the width, so ~298 px of live
+    camera image painted over the aim text and over the CLAUDE.md #8 note that says the
+    saved page is not masked yet. Compose layout bounds do not clip a child View's
+    drawing, so `height` never contained it. Cropping the preview to fit would have been
+    the worse fix: `FILL_CENTER` shows the middle ~75% of the frame while `ImageCapture`
+    saves all of it and `PrivacyMask` is a pass-through until P4, so the buyer would be
+    exporting a quarter of an unmasked photograph they were never shown. The box now
+    carries the stream's ratio and the border is an honest viewfinder — measured against
+    a saved `page_1.jpg` at 2448 × 3264 px, the two agree to 2 parts in 10,000.
+    `clipToBounds` stays as the structural guard for a device that reports some other
+    ratio. **If the `RATIO_4_3` in `DocumentCamera.bind` ever changes, `PREVIEW_ASPECT`
+    in `ScanSheet.kt` is wrong and the frame stops being honest — change both together.**
+
+71. **The zip is named on the Receipt screen, because it exists.**
+    `ReceiptExport` writes `<sessionId>.zip` beside the folder and returns its path;
+    the screen dropped it, so a buyer told "2 files saved" had three files in Downloads
+    and no way to learn it there. The direction that matters: somebody who deletes the
+    folder believing the record is gone would leave a complete copy of their own
+    document behind (CLAUDE.md #8). It is also the copy that gets attached to an email,
+    and a path nobody was told is a path nobody uses.
+
+72. **User-facing counts use `<plurals>`.** "1 files saved." was on screen for a
+    one-file session. The duration phrases already use plurals for exactly this reason
+    (see the comment above `v_years`); `receipt_saved` was the one string left with a
+    count and no plural form. `localizedPlural` is the plural sibling of `localized`.
+    Anything new that prints a number followed by a noun goes through it.
+
+73. **`adb pull` and `adb push` on this laptop truncate a derived destination name by
+    one character.** Measured with platform-tools 36.0.1 on Windows/Git Bash:
+    `adb pull <remote>/session_2026-09-13_062044.zip ./dir/` lands as
+    `session_2026-09-13_062044.zi`, a directory pull lands as `…_06204`, and
+    `adb push probe.txt /sdcard/x/` arrives as `probe.tx`. **File contents are
+    byte-exact — only the name adb derives is wrong.** An explicit destination path is
+    always correct. This is the real cause of the `prop-05.pn` / `prop-06.pn` names on
+    the phone that were "fixed" with `adb shell mv`; the fix was on the wrong side of
+    the cable. `scripts/push_models.sh` is unaffected because line 109 pushes to an
+    explicit `${remote_path}` — which is why the model tree on the phone is intact and
+    ASR works. **Rule: never let adb derive a name. Always give `pull`/`push` a full
+    destination path.** Open issue 20.
+
 ## Measurements
 
 ### M1 — Rung-0 probe, run on the phone 2026-09-12 12:06 IST
@@ -934,6 +1020,30 @@ screen), `evidence/language_setting_persisted_after_restart.png` (after
 
 `:app:assembleDebug`, `checkBannedWords` (21 files, 0 findings), and
 `scripts/check_manifest.sh` (INTERNET still absent) all re-ran green before install.
+
+### M3 — P6 receipt saved and verified, run on the phone 2026-09-13 06:20–06:46 IST
+
+Source: `evidence/P6_packet_verify.txt`, `evidence/P6_receipt_sample.json`,
+`evidence/P6_10…P6_14*.png`. Session `session_2026-09-13_062044`, driven over adb.
+
+| Question | Answer |
+|---|---|
+| Does a session end produce a receipt on the phone? | **yes** — `receipt.json`, 5 919 B |
+| Does `tools/packet-cli` verify the exported **folder**? | **`INTEGRITY: PASSED` · `SIGNATURE: verified` · exit 0** |
+| Does it verify the exported **zip**? | **yes, identical head** |
+| Does this phone have StrongBox? | **yes** — `"strongBox": true` in the receipt itself |
+| Is the head on screen the head in the file? | **yes** — `a7a3 d7c6 6e8c bd2f` shown before Save; file head `a7a3d7c6…8104` |
+| Does re-signing move the head? | **no.** Saved twice; structural diff is exactly one field, `/signature/signature` (ECDSA nonce). Decision 64 measured, not argued. |
+| Does a re-export accumulate `(1)` copies? | **no** — same two files, timestamps 06:27 → 06:32 |
+| Does the packet PDF render from a device export? | **yes** — 61 KB; "0 row(s)" because all six rows were PENDING, which the CLI omits by design |
+| Topics field on an empty session | **`0 / 6`** (was `6 / 6` — decision 69) |
+| Camera preview vs saved image | box 0.7502, `page_1.jpg` 2448 × 3264 = 0.7500 — decision 70 |
+| Does the Setup screen block a session while the radio is on? | **yes**, in both languages — `evidence/P6_14_setup_radio_guard.png` |
+| Does ML Kit OCR run offline? | **yes** — bundled models, no network permission in the APK |
+
+Not measured here and still open: a **failed** session's receipt, and the first-Save
+latency (the tap was timed over adb, which adds round trips — the number would be a
+measurement of the cable, so it is not recorded).
 
 ## Open issues
 
@@ -1104,6 +1214,23 @@ screen), `evidence/language_setting_persisted_after_restart.png` (after
     anyone**, including as demo evidence, without a human looking at every page first. The
     prop pages 5+6 are synthetic, so demo exports are fine; a real document scanned in a
     test is not.
+20. **`adb` on this laptop truncates a *derived* destination name by one character.**
+    platform-tools 36.0.1, Windows, Git Bash. `adb pull <remote>/x.zip ./dir/` writes
+    `x.zi`; a directory pull loses the last character of the directory name; `adb push
+    probe.txt /sdcard/d/` arrives as `probe.tx`. Contents are byte-exact — it is only
+    the name adb derives from the source. **Always give `pull` and `push` an explicit
+    full destination path.** This is what really produced `prop-05.pn` / `prop-06.pn`
+    on the phone, which were renamed with `adb shell mv` on the assumption the fault
+    was device-side; it was not. `scripts/push_models.sh` is immune because it pushes
+    to an explicit `${remote_path}` (line 109), which is why the model tree is intact.
+    Anything in `evidence/` that was pulled with a derived name should be re-checked.
+    Recorded as decision 73.
+21. **The Receipt screen's failure path has never been exercised.** Decision 66 puts a
+    failed session's reason at the top of the screen, and `SessionService.listen()`
+    ends from a `finally` so a failed session does arrive in ENDED — but no run has
+    actually failed on the device. The cheap way to force one is to rename a model
+    directory under `/sdcard/Android/data/app.vaakku/files/models/` and start a
+    session; **rename it back afterwards** (CLAUDE.md forbids deleting `models/`).
 
 ## On-device verification status (P0)
 
@@ -1137,9 +1264,9 @@ or a file in `evidence/`:
 
 ## Next Red Light test list
 
-The current debug build **is installed on the phone** and the models are pushed. The
-first three items of the previous queue are done and their evidence is in `evidence/`.
-What is left:
+The current debug build **is installed on the phone** (`adb install -r`, includes the
+viewfinder, topics-count, plural and zip-line fixes — decisions 69–72) and the models are
+pushed. What is left:
 
 - [ ] **Live mic, a teammate speaking T01–T04 from 1 m**, in the room's real noise, with
       `SHERPA_WHISPER_TA`. Score by ear against `labels.json` and write the result here
@@ -1165,23 +1292,21 @@ What is left:
       in `DocumentCamera.kt` and re-scan before concluding anything about the regexes.
 - [ ] Watch the phone's temperature during a bake-off re-run if one is needed.
       §11.5 budgets thermal at ≤ MODERATE after 15 minutes.
-- [ ] **P6 / G7: end one session and save the receipt.** This is the first time §7.2 and
-      §7.3 execute anywhere. Four things to record, and the first two are the gate:
-      (a) does `Download/Vaakku/<sessionId>/` exist with `receipt.json` and the zip;
-      (b) does `node tools/packet-cli <that folder>` print `INTEGRITY: PASSED` and
-      `SIGNATURE: verified` — a phone that signs the head's 32 **bytes** instead of its
-      64 hex **characters** will fail here and that is exactly what this test is for;
-      (c) what `strongBox` says in the JSON — this is the first real
-      `KeyInfo.getSecurityLevel()` reading and whatever it says is the truth (CLAUDE.md
-      #8), including `false`; (d) how long the Save button takes on first tap, because a
-      StrongBox key can take a good fraction of a second to generate.
+- [x] **P6 / G7: end one session and save the receipt.** Done on the phone — see M3 and
+      the P6 evidence table. `INTEGRITY: PASSED`, `SIGNATURE: verified`, exit 0, from both
+      the folder and the zip; `strongBox: true`; the hex-vs-bytes signing trap this test
+      existed to catch did not fire. **G7 is PASS.**
+- [x] **P6: save twice.** Done — same folder, byte-identical head, one field different
+      (`/signature/signature`). See decision 64 and M3.
 - [ ] **P6: end a session with the models deliberately missing.** Rename one model dir,
       start a session, and confirm the app lands on the Receipt screen with the mic
       failure at the top — not on a blank Session screen. This is decision 66's whole
-      point and it is one adb command to set up.
-- [ ] **P6: save twice.** The second save must overwrite the same folder and produce the
-      same head, not a second folder. A buyer who taps Save again because they are not
-      sure it worked must not end up with two records of one conversation.
+      point and it is one adb command to set up. **Then rename it back** — CLAUDE.md
+      forbids deleting `models/`, and a half-finished test leaves the app broken for the
+      next one. Open issue 21; the only P6 path that has never executed.
+- [ ] **The Receipt screen and the packet PDF need a Tamil read.** `evidence/P6_12_receipt_saved.png`
+      and the PDF from `Download/Vaakku/<sessionId>/` are both on the phone. Nobody who
+      reads Tamil has seen either. Open issue 17.
 - [ ] The P0 "Not yet verified" list above is still the standing queue underneath this.
 
 **Superseded queue (done — kept for the record):**
@@ -1277,25 +1402,55 @@ What is left:
 - **`checkBannedWords` scans comments too.** Two of its first findings were prose in a
   doc comment ("risk ramp", "never a verdict"), not product strings. The guard was
   right both times. Reword the comment; never touch the list.
-- **The receipt chain is proven; the phone half of §7 is written but has never run.**
-  What exists and is proven: `domain/.../receipt/` (canonical JSON + chain),
-  `tools/packet-cli/` (an independent verifier and the §7.4 packet),
-  `:domain:receiptFixture` and `scripts/receipt_fixture_signed.sh` to regenerate the
-  fixtures. What exists and is **not** proven: `app/.../receipt/ReceiptSigner.kt`
-  (§7.2), `ReceiptExport.kt` (§7.3) and `ui/session/ReceiptScreen.kt` (§6.6 screen 5) —
-  written in P6, compiling, unit-tested where a JVM can reach them, and never executed
-  on a device. Do not start by reading them again; start by ending a session on the
-  phone and reading the exported folder back with the CLI (first item in the Red Light
-  list). The convention most likely to bite is that the signature covers **the head's 64
-  ASCII hex characters, not the 32 bytes they spell** — `ReceiptFixtureRunner.sign`,
-  `verify.js` and `ReceiptWriter.signAndExport` all do it that way, and a phone that
-  signs the bytes instead produces a signature Node reports as broken, which now also
-  means exit 2 (decision 63).
+- ~~**The receipt chain is proven; the phone half of §7 is written but has never run.**~~
+  **Stale — the phone half has now run, and G7 is PASS.** See M3 and the P6 evidence
+  table. A session was ended, saved, and re-saved on the iQOO 15; `tools/packet-cli`
+  read both the folder and the zip back as `INTEGRITY: PASSED` / `SIGNATURE: verified` /
+  exit 0. Three things that were theory until then and are now measurements:
+  **StrongBox is real on this phone** (`"strongBox": true` in the receipt itself, not
+  only in the CLI's report); the hex-vs-bytes signing trap **did not fire** — the
+  signature covers the head's 64 ASCII hex characters, the same convention as
+  `ReceiptFixtureRunner.sign` and `verify.js`, so all three agree; and re-signing the
+  same session changes **exactly one field**, `/signature/signature` (the ECDSA nonce),
+  while the head stays byte-identical — decision 64 measured instead of argued. The head
+  shown on screen before Save equals the head in the file. Re-export replaces in place,
+  with no `(1)` copies. What remains untested in P6 is the *failure* path only — open
+  issue 21.
+- **Never let adb derive a filename.** Decision 73 / open issue 20: on this laptop
+  (platform-tools 36.0.1, Windows), any `pull` or `push` where adb works out the
+  destination name itself drops the **last character** — `x.zip` arrives as `x.zi`, a
+  directory pull became `…_06204`, `probe.txt` pushed to a directory became `probe.tx`.
+  Contents are byte-exact; only the name is wrong. Always write the full destination
+  path on both sides: `adb pull /sdcard/a/b.zip ./evidence/b.zip`, never `./evidence/`.
+  This is also the real cause of the `prop-05.pn` / `prop-06.pn` names that were once
+  "fixed" with `adb shell mv` — that fix was on the wrong side of the cable.
+  `scripts/push_models.sh` is immune (it passes an explicit `${remote_path}`), which is
+  why the model tree is intact and ASR works.
+- **`PREVIEW_ASPECT` in `ScanSheet.kt` and the ratio in `DocumentCamera.bind` must move
+  together.** The viewfinder used to be a 4:3 surface inside a taller box, so the
+  preview overflowed its frame by ~298 px and the buyer aimed at a crop of what was
+  actually saved (decision 70; before/after pixels in the P6 evidence table). The fix
+  pins the Compose box to the same ratio the capture uses. If one changes and the other
+  does not, the frame silently stops telling the truth about what the photo will contain
+  — and nothing will fail to compile.
+- **Three bugs of one shape were found in P6 by reading, not by test: a label derived
+  from a proxy for the thing it claims.** "N / 6 topics" was `ledger().size / 6`, which
+  is `6 / 6` for every session ever recorded, including an empty one — `ledger()` is
+  `ClaimType.entries.associateWith { … }`, so its size is a constant and can never
+  measure anything (now `count { it.observed }`, with 9 tests pinning it). "Saved" was
+  `fileCount > 0`. And the zip was computed and then never named on screen, so "2 files
+  saved" left a third file in Downloads unmentioned — a buyer who deleted the folder
+  would leave a full copy of their document behind. When a number or a label on the
+  Receipt screen looks right on a happy-path session, check what it is actually reading;
+  that is the screen where a plausible proxy survives longest.
 - **The Receipt screen is where CLAUDE.md #1 is easiest to break by accident.** It is
   the one screen that sees the whole ledger at once, so every instinct to summarise
   lands here — a count, a "nothing differed", a badge. Decision 67 records what was
   written and then removed, and why "N of 6" is topics rather than findings. If a future
-  task asks for "a summary at the end", that decision is the answer.
+  task asks for "a summary at the end", that decision is the answer. The `observed`
+  tests in `ReconcilerTest.kt` guard the other half of it: they assert the count is
+  blind to `DeltaState`, because a count that knew which states it was counting would be
+  a finding about a person.
 - **Regenerate the receipt fixtures with the Gradle task; never hand-edit them.**
   `./gradlew :domain:receiptFixture` rewrites `receipt.json` and
   `receipt_tampered.json` deterministically — every value is a literal, so a re-run on
