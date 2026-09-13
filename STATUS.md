@@ -1,7 +1,7 @@
 # STATUS — VAAKKU
 
-Current light: GREEN · Current phase: **P6 (Receipt) is done on hardware — P4 (NPU) is
-next** · Hour: H1–H6
+Current light: GREEN · Current phase: **P4 (NPU) code is written and compiles — nothing
+has run on the phone** · Hour: H1–H6
 
 **What is real as of 2026-09-13:** the microphone genuinely opens on the phone (logcat
 proves `silero_vad.onnx` loads and `AudioRecord` starts), every P5 screen renders in Tamil,
@@ -13,8 +13,10 @@ and the zip as `INTEGRITY: PASSED` / `SIGNATURE: verified` / exit 0. StrongBox i
 changes exactly one field while the head stays byte-identical. **G7 is PASS.**
 **What is still unproven:** no page has ever been through the camera into the ledger (G3 —
 the prop pages are printed and the build is installed, so this is a human-time item, not a
-code item), no NPU work exists (G4), and P6's *failure* path — a session that starts with a
-model missing — has never run (open issue 21).
+code item); **the NPU has never been asked to run anything** — P4's masker, benchmark screen
+and latency label are written, compile and are in the APK, but no rung has ever been
+attempted on real silicon, so every G4 number is still unmeasured (G4); and P6's *failure*
+path — a session that starts with a model missing — has never run (open issue 21).
 
 Red Light ruling: **unknown** — no organizer statement recorded yet.
 Name ruling: **unknown** — displayed name is VAAKKU, changed by editing the single
@@ -32,7 +34,7 @@ This assumption has not been confirmed by an organizer.
 | G1 Domain | **PASS** | see below | H1–H5 |
 | G2 ASR decision | **DECISION TAKEN — 2 of 3 evidence items** | `evidence/asr_prescreen/`, `evidence/G2_asr_bakeoff.csv`; live-mic scorecard still needs a human | H5– |
 | G3 OCR | **CODE READY — no scan yet** | `docs/superpowers/plans/p3-ocr-plan.md`; five clauses proven against the real document in `:domain`. Needs 5 scan sessions on the phone. | H6– |
-| G4 NPU | NOT STARTED | — | — |
+| G4 NPU | **CODE READY — never run on the phone** | `evidence/` has nothing yet; the benchmark screen, the masker and the latency label are built and compile. Needs one Dev-menu run + a logcat pull. | H6– |
 | G5 End-to-end | **BOTH HALVES HAVE NOW RUN ON THE PHONE** | `evidence/P5_*.png`, `evidence/P6_*.png`; Setup→mic→scan→end→receipt→save. The camera half reached `page_1.jpg` (2448 × 3264) and ML Kit read it offline. Still unproven: a *clause* extracted from a real prop page (that is G3). | H6– |
 | G6 Go/No-Go | NOT STARTED | — | — |
 | G7 Receipt + Office Kit | **PASS — verified from a real device export** | `evidence/P6_packet_verify.txt` — a session saved on the phone, read back by `tools/packet-cli` as `INTEGRITY: PASSED` / `SIGNATURE: verified` / StrongBox **yes**, from both the folder and the zip; head on screen == head in file | H6– |
@@ -254,7 +256,7 @@ every guard, but produces no measurement until the human scans.
 | Clause list after each scan | **done** | `DocumentScanScreen.kt` — a reading of the document, carrying no state language |
 | `DocumentScanCompleted` on "Done scanning" | **done** | multi-page sessions accumulate first |
 | Evidence images + crops | **done** | `files/sessions/<sessionId>/`, crops q80 ≤ 800 px, `cropFile` filled app-side |
-| P4 privacy-mask hook | **done, and inactive** | `PrivacyMask.applyOrPassThrough` returns its input; the screen says so on every run |
+| P4 privacy-mask hook | **superseded by P4** | was `PrivacyMask.applyOrPassThrough`, a pass-through; now a real masker — see the G4 section above |
 | `:domain:test` | **PASS** | 303 tests |
 | `:domain:fixtureReport` | **PASS** | 26 fixtures, precision=1.00, recall=1.00, 0 mismatches |
 | `checkBannedWords` | **PASS** | 66 files, 0 findings |
@@ -268,7 +270,56 @@ every guard, but produces no measurement until the human scans.
 above measures that. The domain half is proven against the document's *text*; the camera half
 has never converted a photograph into that text.
 
+### G4 evidence — P4 privacy masker + NPU (§6.5, §11.5)
+
+Commits `e180d9a` (P4.1 masker), `646916e` (P4.2 benchmark + latency label).
+**Nothing in this section has touched the NPU.** Everything below is code that compiles,
+packages and passes every laptop guard. Not one accelerator rung has been attempted on
+real silicon, so the whole of G4's actual criterion is still outstanding.
+
+| Item | Status | Path / number |
+|---|---|---|
+| Model + Qualcomm v81 runtime packaged | **done** | `assets/npu/selfie_multiclass_256x256.tflite` (16,371,837 B) and 12 `.so` files in `lib/arm64-v8a/` — measured from the built APK |
+| `extractNativeLibs="true"` in the merged manifest | **verified** | the QNN libraries are `dlopen`ed by path, so they must be on the filesystem, not mapped inside the APK |
+| Mask arithmetic, pure Kotlin | **done** | `npu/MaskMath.kt` — argmax over 6 channels, separable dilation, nearest-neighbour index mapping |
+| Mask arithmetic tests | **PASS** | `MaskMathTest` — 24 tests asserting *exact* masked-pixel sets, because a transposed or channel-planar mask gets every count and coverage figure right |
+| Ladder NPU → GPU → CPU, one rung per request | **done** | `npu/PersonMasker.kt` — `Options` takes a *set* and resolves internally, so asking for two at once would produce a working model and no honest label |
+| Three-outcome mask result | **done** | `ocr/PrivacyMask.kt` — `Masked` / `Unmasked` / `Withheld`; see decision 74 |
+| Benchmark screen, 50× per rung | **done** | `dev/MaskBenchmarkScreen.kt` — 5 discarded warm-up runs, nearest-rank median and p90, CSV to `Download/` |
+| Latency label on the scan sheet | **done** | `ScanSheet.kt` — `mask 7.9 ms · NPU` form, `totalMs`, shown only after a page that ran |
+| `:domain:test` | **PASS** | 346 tests |
+| `:domain:fixtureReport` | **PASS** | 26 fixtures, precision=1.00, recall=1.00, 0 mismatches |
+| `checkBannedWords` | **PASS** | 100 files, 0 findings |
+| `:app:testDebugUnitTest` | **PASS** | 75 tests |
+| `:app:assembleDebug` | **PASS** | APK 133,032,153 B |
+| `scripts/check_manifest.sh` | **PASS** | still no INTERNET and no ACCESS_NETWORK_STATE with the Qualcomm runtime packaged |
+| **Benchmark CSV (NPU/GPU/CPU)** | **NOT DONE** | needs a human — Dev menu → Mask benchmark |
+| **Logcat excerpt proving NPU dispatch** | **NOT DONE** | needs a human — and this is the only thing that licenses the word "NPU" |
+| **Screenshot of the latency label** | **NOT DONE** | needs a human |
+
+**What G4 still requires:** all three of its evidence items. Until the logcat pull exists,
+**no claim that this app uses the NPU may be made anywhere** — not in the demo, not in
+STATUS.md, not in the pitch (CLAUDE.md #8). The label on the scan sheet shows which rung
+LiteRT *accepted*, which is honest and is a different statement.
+
+**The size this costs.** The Qualcomm runtime is 119,595,560 B uncompressed across 12
+`.so` files, of which `libQnnHtpPrepare.so` alone is 86,301,344 B — that is the on-device
+JIT compiler, and the §6.5 sample's `android_jit` path needs it. The debug APK is
+133,032,153 B. This is a real cost and the alternative (AOT-compiled context binaries)
+was not available in the timebox. If the APK size becomes a problem at submission, the
+NPU rung is the thing to drop, and the app keeps working on GPU with an honest label.
+
+**A deviation from §6.5, stated rather than glossed.** §6.5 describes the model running
+"on every camera analysis frame" with the person "masked in the live preview overlay".
+This implementation masks at **capture** time only; there is no live preview overlay. What
+the receipt guarantee needs is that no unmasked file is written, and §6.4's ordering (OCR
+on the in-memory capture, mask before the write) is what delivers that — a preview overlay
+would be a second, cosmetic implementation of the same idea. It also means the ImageAnalysis
+stub in `DocumentCamera` is still a stub. The screenshot G4 asks for will show the latency
+label under the viewfinder, not a hatched overlay.
+
 ### P5 evidence — session runtime + session UI (§6.6, §6.7)
+
 
 Commits `a8f669d` (P5.2 runtime + microphone service) and `866da5b` (P5.3 session UI).
 Verified on the phone 2026-09-13 02:30–02:57 IST.
@@ -352,7 +403,7 @@ the folder and the zip were read back by `tools/packet-cli`.
 | Duration + short-head formatters | **PASS (JVM test)** | `ReceiptScreenFormatTest` |
 | App unit tests | **PASS** | 51 across 7 classes, `skipped="0"` |
 | Gate | **PASS** | `:domain:test`, `fixtureReport` 26 fixtures / 45 assertions / precision 1.00 / recall 1.00, `checkBannedWords`, `check_manifest.sh` **PASS** |
-| **Page images in the export are unmasked** | **KNOWN GAP** | open issue 19 — the privacy masker is P4 |
+| **Page images in the export are masked only if a rung loads, and none has been tried** | **KNOWN GAP** | open issue 19 — the masker is built (P4) but has never run on the phone |
 | **A failed session's receipt** | **NOT DONE** | the failure path at the top of the screen has not been exercised |
 
 #### The viewfinder now frames what the camera saves (commit `0d4d842`)
@@ -957,6 +1008,52 @@ an unrendered one.
     ASR works. **Rule: never let adb derive a name. Always give `pull`/`push` a full
     destination path.** Open issue 20.
 
+74. **A failed mask withholds the page image; it never writes an unmasked one.**
+    `PrivacyMask` has three outcomes, not two. `Masked` writes the masked bitmap.
+    `Unmasked` writes the raw capture and happens only when *no* accelerator would load
+    the model at all — the screen says plainly that no mask is running, which is exactly
+    the behaviour that shipped before P4 and is therefore not a regression. `Withheld`
+    happens when a masker exists but this page failed it: nothing is written, because the
+    screen has been telling the human that masking is on. **The invariant is that the file
+    on disk always matches what the screen said** — which is stricter than "always mask",
+    since masking can be honestly unavailable. This is only affordable because §6.4 runs
+    OCR on the in-memory capture *before* masking: a withheld page costs corroboration and
+    never costs a clause (CLAUDE.md #2).
+
+75. **Each accelerator rung is requested alone.** `CompiledModel.Options` accepts a *set*
+    of accelerators and resolves it internally, so `Options(NPU, GPU)` returns a working
+    model with no way to ask which one is underneath — precisely the case where a label
+    reading "NPU" would be a guess. `PersonMasker.createOn` requests exactly one, so a rung
+    either loads or throws, and the rung that loaded is the honest label. `create()` walks
+    NPU → GPU → CPU over it and keeps every refusal with its LiteRT message, because "why
+    is it on GPU" is the first question anyone will ask on demo day.
+
+76. **The scan sheet's latency label shows `totalMs`, not `inferenceMs`.** Inference alone
+    is the smaller, more flattering number: it omits scaling the capture to 256×256 and
+    painting the mask back over a full-resolution page, which happen on the CPU whichever
+    rung ran the model. The label is there to state what the person actually waited for.
+    The split is in the benchmark CSV, where a reader is equipped for it. Quoting the
+    component that makes the accelerator look good is the kind of number CLAUDE.md #8
+    exists to prevent.
+
+77. **The latency label is not shown after a withheld page.** It renders only when the last
+    page's summary is `Ran`. Otherwise the number would describe an earlier page while the
+    state line directly above it describes this one — two true statements arranged into a
+    false impression.
+
+78. **The benchmark's percentiles are nearest-rank, and every run is exported.** An
+    interpolated p90 is a figure no run actually produced, and this number goes into a
+    gate. The CSV carries one row per run with the summary as leading `#` lines, so the
+    median can be recomputed by anyone who doubts it. Refused rungs get a `# refused` line
+    with LiteRT's own words rather than being omitted.
+
+79. **All benchmark and CSV number formatting is pinned to `Locale.ROOT`.** The default
+    locale chooses the decimal separator: on a phone set to a comma-decimal locale,
+    `String.format("%.2f")` writes `7,91` into a comma-separated file and silently splits
+    one column into two — in the export that is supposed to *be* the evidence. The
+    on-screen figures use the same formatter, so a screenshot and the CSV show the same
+    characters.
+
 ## Measurements
 
 ### M1 — Rung-0 probe, run on the phone 2026-09-12 12:06 IST
@@ -1205,15 +1302,18 @@ measurement of the cable, so it is not recorded).
     fails if they diverge.** The Tamil is safe because there is only one copy of it. Fix
     when P7 touches either file: have `strings.js` read `free_look_note_en` by name too,
     and delete `PACKET.freeLookEn`.
-19. **Page images in the export are unmasked, and the privacy masker is P4.** §7.3 copies
-    `page_*.jpg` straight out of the session folder into `Download/Vaakku/<sessionId>/`,
-    and those are full photographs of a document that may carry the buyer's name, address,
-    policy number or signature. Everything else in the export is text the app itself
-    wrote. This is a known ordering consequence, not an oversight — P4's masker is what
-    redacts them — but it means **an export taken before P4 lands must not be shared with
-    anyone**, including as demo evidence, without a human looking at every page first. The
-    prop pages 5+6 are synthetic, so demo exports are fine; a real document scanned in a
-    test is not.
+19. **Page images in the export are masked only if an accelerator loaded, and no run has
+    ever proven one does.** P4 landed, so `PageScanner` now runs every capture through
+    `PrivacyMask` before `SessionEvidence` writes it, and a page that fails while masking
+    is running is not written at all (decision 74). **But the masker has never been built
+    on the phone.** If no rung loads, the outcome is `Unmasked`: the raw photograph is
+    written and the scan screen says plainly that no mask is running — the same behaviour
+    as before P4. So the old warning still stands in its weaker form: **an export must not
+    be shared with anyone until the scan screen has been seen saying the mask is active**,
+    because until then it is unknown which of the two cases the files are. The prop pages
+    5+6 are synthetic, so demo exports are fine either way; a real document scanned in a
+    test is not. `ReceiptExport`'s KDoc says the same thing and deliberately never calls
+    the exported pages masked, because that code cannot inspect a JPEG and tell.
 20. **`adb` on this laptop truncates a *derived* destination name by one character.**
     platform-tools 36.0.1, Windows, Git Bash. `adb pull <remote>/x.zip ./dir/` writes
     `x.zi`; a directory pull loses the last character of the directory name; `adb push
@@ -1231,6 +1331,27 @@ measurement of the cable, so it is not recorded).
     actually failed on the device. The cheap way to force one is to rename a model
     directory under `/sdcard/Android/data/app.vaakku/files/models/` and start a
     session; **rename it back afterwards** (CLAUDE.md forbids deleting `models/`).
+22. **The masker has never been constructed on the phone, so three things are unknown at
+    once.** Whether the NPU rung loads; whether the mask is *correct* (the model could
+    load, run, and paint the wrong pixels — `MaskMathTest` proves the arithmetic against
+    hand-built tensors, but nothing has checked the arithmetic against a real photograph
+    of a person); and whether `totalMs` at the capture size is tolerable. The benchmark
+    screen answers the first and third. **The second needs a human to look at a masked
+    page of a person and say whether the person is gone.** A mask that is subtly wrong —
+    off by a transpose, say — would still report a plausible coverage figure and still
+    paint something. Until that look happens, the `Active` line on the scan screen is a
+    promise the app has not earned.
+23. **The APK is 133 MB, and 86 MB of that is one file.** `libQnnHtpPrepare.so` is the
+    on-device JIT compiler the §6.5 sample's `android_jit` path requires. If a submission
+    rule or a transfer constraint makes this a problem, the fix is to drop the Qualcomm
+    runtime: the app then falls to GPU, the label says GPU, and nothing else changes.
+    Decide before the freeze, not during it.
+24. **§6.5's live preview overlay was not built.** The plan describes the model running on
+    every analysis frame with the person masked in the preview; this implementation masks
+    at capture time only. The privacy guarantee is unaffected — §6.4 masks before the
+    write, which is what keeps a face out of the receipt — but a demo audience will not
+    *see* the mask working unless someone opens a saved page image. If the demo needs a
+    visible mask, budget for the overlay or plan to show a saved page.
 
 ## On-device verification status (P0)
 
@@ -1264,9 +1385,14 @@ or a file in `evidence/`:
 
 ## Next Red Light test list
 
-The current debug build **is installed on the phone** (`adb install -r`, includes the
-viewfinder, topics-count, plural and zip-line fixes — decisions 69–72) and the models are
-pushed. What is left:
+**The installed build predates P4.** The phone currently has the build with the
+viewfinder, topics-count, plural and zip-line fixes (decisions 69–72) and the models are
+pushed, but it has no masker, no benchmark screen and no latency label. **Every P4 item
+below needs `adb install -r` of the current APK first** — and that install must not land
+in the middle of a G3 scan run, because it restarts the app. `adb install -r` is safe for
+`models/`; `adb uninstall` is what wipes them, and CLAUDE.md forbids it.
+
+What is left:
 
 - [ ] **Live mic, a teammate speaking T01–T04 from 1 m**, in the room's real noise, with
       `SHERPA_WHISPER_TA`. Score by ear against `labels.json` and write the result here
@@ -1292,6 +1418,29 @@ pushed. What is left:
       in `DocumentCamera.kt` and re-scan before concluding anything about the regexes.
 - [ ] Watch the phone's temperature during a bake-off re-run if one is needed.
       §11.5 budgets thermal at ≤ MODERATE after 15 minutes.
+- [ ] **P4 / G4: Dev menu → Mask benchmark → Run.** One tap. It builds the model on NPU,
+      then GPU, then CPU, times each 50×, and writes a CSV to `Download/`. **The single
+      most informative line is whichever rung refuses and why** — that message is LiteRT's
+      own, and it is the difference between "this chip has no NPU", "the runtime libraries
+      are not in the APK" and "this model cannot be compiled for the Hexagon". Pull the CSV
+      to `evidence/G4_mask_bench.csv` **with an explicit destination path** (open issue 20).
+- [ ] **P4 / G4: the logcat pull, immediately after the benchmark run.**
+      `adb logcat -d | grep -iE "litert|qnn|dispatch|htp" > evidence/G4_npu_logcat.txt`.
+      **Nothing anywhere may say this app uses the NPU until this file shows Hexagon
+      dispatch** (CLAUDE.md #8). Also grep for `VaakkuNpu` — the app logs the provider's
+      `deviceSupported` / `libraryReady` answers before it tries anything, which is what
+      separates the three failure modes above.
+- [ ] **P4: scan one page with a person in frame, then open the saved `page_*.jpg`.**
+      This is the only test that checks the mask is *correct* rather than merely present
+      (open issue 22). A mask that is off by a transpose still reports a plausible coverage
+      figure and still paints something. Look at the file, not at the coverage number.
+      Screenshot the latency label under the viewfinder to `evidence/G4_latency_label.png` —
+      that is G4's third evidence item.
+- [ ] **P4: check the scan screen's mask line says the right one of three things.** Before
+      any scan it should be silent (warm-up unfinished) or say masking is running; if no
+      rung loaded it must say the saved image is the raw capture. If it says masking is
+      running while the benchmark showed every rung refusing, that is a bug and not a
+      wording problem.
 - [x] **P6 / G7: end one session and save the receipt.** Done on the phone — see M3 and
       the P6 evidence table. `INTEGRITY: PASSED`, `SIGNATURE: verified`, exit 0, from both
       the folder and the zip; `strongBox: true`; the hex-vs-bytes signing trap this test
@@ -1467,3 +1616,24 @@ pushed. What is left:
   verifier's own failure text, unrelated to the ledger's `ReasonCode`, and genuinely
   needed on paper. The fix was to copy that sub-object field by field under a different
   name, **not** to add an exception to the guard. Do the same.
+- **P4's code is written, compiles and is in the APK — and it has never met the NPU.**
+  `app/src/main/java/app/vaakku/npu/` holds the masker (`MaskMath`, `MaskAccelerator`,
+  `PersonMasker`), `ocr/PrivacyMask.kt` holds the three-outcome policy, and
+  `dev/MaskBenchmarkScreen.kt` produces G4's CSV. **Start with one Dev-menu run and one
+  logcat pull, not by reading the code again** — the code cannot tell you what the NPU
+  rung will say, and that message is the whole of what P4 does not yet know (open issue
+  22). The build plan's §6.5 snippet does not compile as written: it omits the
+  `Environment`, and the real call is
+  `Environment.create(BuiltinNpuAcceleratorProvider(context))` then
+  `CompiledModel.create(assets, path, options, env)`.
+- **Never request more than one accelerator in `CompiledModel.Options`.** It takes a set
+  and resolves it internally, so `Options(NPU, GPU)` gives you a working model and
+  destroys the ability to say honestly which one ran (decision 75). If you find yourself
+  adding a rung to that call to "make it work", you are deleting the label.
+- **The masker's model shapes were measured, not assumed.** Input `[1,256,256,3]`
+  FLOAT32, output `[1,256,256,6]` FLOAT32, read out of the `.tflite` by walking the
+  flatbuffer by hand (`tools/npu/tflite_shapes.py`) because TensorFlow is not on this
+  laptop. Re-run it with
+  `python tools/npu/tflite_shapes.py handoff/npu/selfie_multiclass.tflite`.
+  `MaskMath`'s constants carry a test asserting they still match. If the model
+  file is ever swapped, that test is the thing that will tell you.
