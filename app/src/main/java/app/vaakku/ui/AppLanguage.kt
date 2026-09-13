@@ -1,12 +1,14 @@
 package app.vaakku.ui
 
 import android.content.Context
+import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 
 /**
@@ -104,4 +106,24 @@ fun localized(@StringRes taRes: Int, @StringRes enRes: Int): String {
 fun localized(@StringRes taRes: Int, @StringRes enRes: Int, vararg args: Any): String {
     val language = LocalAppLanguage.current.value
     return stringResource(if (language == AppLanguage.ENGLISH_ONLY) enRes else taRes, *args)
+}
+
+/**
+ * [localized] for a `<plurals>`, where [count] both selects the quantity form and
+ * fills the string's one placeholder.
+ *
+ * The Receipt screen showed "1 files saved." on a session with a single page —
+ * the same failure the duration phrases already use plurals to avoid (see the
+ * comment above `v_years` in strings.xml). `%1$d` is passed as the format
+ * argument as well as the quantity because every plurals resource here reads
+ * "<count> <noun>"; a form that does not use its argument simply ignores it.
+ */
+@Composable
+fun localizedPlural(@PluralsRes taRes: Int, @PluralsRes enRes: Int, count: Int): String {
+    val language = LocalAppLanguage.current.value
+    return pluralStringResource(
+        if (language == AppLanguage.ENGLISH_ONLY) enRes else taRes,
+        count,
+        count,
+    )
 }

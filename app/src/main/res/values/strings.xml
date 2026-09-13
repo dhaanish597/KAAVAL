@@ -544,8 +544,31 @@
     <string name="receipt_export_again_en">Save again</string>
     <string name="receipt_exporting">சேமிக்கிறது…</string>
     <string name="receipt_exporting_en">Saving…</string>
-    <string name="receipt_saved">%1$d கோப்புகள் சேமிக்கப்பட்டன.</string>
-    <string name="receipt_saved_en">%1$d files saved.</string>
+    <!--
+      A plural for the same reason the duration phrases are (see v_years): a
+      one-page session saves one page and one receipt, and "1 files saved." was
+      on screen. The count is both the quantity selector and the argument.
+    -->
+    <plurals name="receipt_saved">
+        <item quantity="one">%1$d கோப்பு சேமிக்கப்பட்டது.</item>
+        <item quantity="other">%1$d கோப்புகள் சேமிக்கப்பட்டன.</item>
+    </plurals>
+    <plurals name="receipt_saved_en">
+        <item quantity="one">%1$d file saved.</item>
+        <item quantity="other">%1$d files saved.</item>
+    </plurals>
+    <!--
+      The zip, named because it exists. receipt_saved counts what went into the
+      FOLDER; the export also writes <sessionId>.zip beside it, so "2 files
+      saved" was true of the folder and left a third file on the phone that the
+      screen never mentioned. A buyer who deletes the folder thinking the record
+      is gone would otherwise leave a whole copy of their own document behind.
+      The label is a heading and the path goes on its own line under it, the
+      same shape as receipt_location, because a path that wraps mid-word inside
+      a sentence is a path that gets typed wrong.
+    -->
+    <string name="receipt_zip">ஒரே கோப்பாக (அனுப்ப எளிது)</string>
+    <string name="receipt_zip_en">Also as one file (easier to send)</string>
     <!--
       §6.6: "a line telling the user where the folder is". Shown before the save
       as well as after, because it is where the files WILL go, and a person who

@@ -39,6 +39,7 @@ import app.vaakku.receipt.ReceiptExport
 import app.vaakku.receipt.ReceiptWriter
 import app.vaakku.session.SessionRuntime
 import app.vaakku.ui.localized
+import app.vaakku.ui.localizedPlural
 import app.vaakku.ui.theme.VaakkuTheme
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -410,13 +411,38 @@ private fun ExportReport(outcome: ReceiptWriter.Outcome) {
 
         Text(
             text = if (outcome.export.receiptWritten) {
-                localized(R.string.receipt_saved, R.string.receipt_saved_en, outcome.export.fileCount)
+                localizedPlural(R.plurals.receipt_saved, R.plurals.receipt_saved_en, outcome.export.fileCount)
             } else {
                 localized(R.string.receipt_export_failed, R.string.receipt_export_failed_en)
             },
             style = type.body,
             color = colors.ink,
         )
+
+        // The zip is a SECOND COPY, and it is named because it exists.
+        //
+        // `fileCount` counts what went into the folder; ReceiptExport also
+        // writes `<sessionId>.zip` beside it, so a buyer told "2 files saved"
+        // had three files in Downloads and no way to learn it from this screen.
+        // That matters in one direction in particular: somebody who deletes the
+        // folder believing they have removed the record would still be leaving
+        // a complete copy of their own document behind (CLAUDE.md #8). Naming
+        // it is also the practical half — the zip is the thing that gets
+        // attached to an email, and a path nobody was told is a path nobody
+        // uses.
+        outcome.export.zip?.let { zipPath ->
+            Text(
+                text = localized(R.string.receipt_zip, R.string.receipt_zip_en),
+                style = type.body,
+                color = colors.inkSoft,
+                modifier = Modifier.padding(top = space.sm),
+            )
+            Text(
+                text = zipPath,
+                style = type.mono,
+                color = colors.ink,
+            )
+        }
 
         if (outcome.export.failures.isNotEmpty()) {
             Text(

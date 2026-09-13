@@ -1,0 +1,20 @@
+INTEGRITY: PASSED
+SIGNATURE: verified (StrongBox reported by the phone: yes)
+Session:   session_2026-09-13_062044  ·  1 events  ·  head a7a3d7c66e8cbd2f06498336595adaf6a1e3510dea32aa15e7bc1fd5e8038104
+INTEGRITY: PASSED
+SIGNATURE: verified (StrongBox reported by the phone: yes)
+Session:   session_2026-09-13_062044  ·  1 events  ·  head a7a3d7c66e8cbd2f06498336595adaf6a1e3510dea32aa15e7bc1fd5e8038104
+
+--- second save of the same session (Save again) ---
+INTEGRITY: PASSED
+SIGNATURE: verified (StrongBox reported by the phone: yes)
+Session:   session_2026-09-13_062044  ·  1 events  ·  head a7a3d7c66e8cbd2f06498336595adaf6a1e3510dea32aa15e7bc1fd5e8038104
+
+Structural diff, first save vs second save of the SAME session:
+  DIFFERS /signature/signature   (ECDSA per-signature nonce)
+  head    a7a3d7c66e8cbd2f06498336595adaf6a1e3510dea32aa15e7bc1fd5e8038104  (both)
+  Every other field byte-identical. Decision 64 confirmed on hardware:
+  the signature is computed OVER the head, so re-signing cannot move it,
+  and the head shown on screen before Save is the head in the file.
+
+Re-save replaced in place: two files, timestamps 06:27 -> 06:32, no "(1)" copies.
