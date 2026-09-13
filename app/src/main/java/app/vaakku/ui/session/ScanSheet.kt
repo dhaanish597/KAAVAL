@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -289,11 +291,41 @@ fun ScanSheet(onClose: () -> Unit) {
                 .padding(horizontal = space.gutter),
         ) {
             if (granted) {
+                // The box is the STREAM'S OWN ASPECT RATIO, and that is the whole
+                // point of it.
+                //
+                // This was `fillMaxWidth().height(300.dp)`. PreviewView's default
+                // FILL_CENTER scales a 3:4 portrait stream to match the width, so
+                // on the phone (1290 px wide, 1125 px tall box) the surface came
+                // out 1290/0.75 = 1720 px tall, centred: 150…1870 against a box
+                // ending at 1571. Measured on a screencap, the overflow was ~298
+                // px of live camera image painting over the aim text and the
+                // CLAUDE.md #8 note about pages not being masked yet — the one
+                // sentence on this screen that must be readable. Compose layout
+                // bounds do not clip a child View's drawing, so `height` alone
+                // never contained it.
+                //
+                // Fixing that by cropping the preview instead would be worse than
+                // the overlap. FILL_CENTER shows the middle ~75% of the frame,
+                // while ImageCapture saves all of it (4:3, set in DocumentCamera)
+                // and PrivacyMask is still a pass-through until P4 — so the buyer
+                // would be exporting a quarter of an unmasked photograph they were
+                // never shown. Matching the box to the stream means the border is
+                // an honest viewfinder: what it frames is what gets written to
+                // page_<n>.jpg. Both use cases are 4:3, so there is one ratio to
+                // match, not two.
+                //
+                // clipToBounds is belt and braces for the day a device hands back
+                // a stream at some other ratio: it bounds the damage to the box
+                // rather than to the note below it. It comes before `border` so
+                // the hairline itself is not clipped.
                 AndroidView(
                     factory = { previewView },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp)
+                        .align(Alignment.CenterHorizontally)
+                        .height(PREVIEW_HEIGHT)
+                        .aspectRatio(PREVIEW_ASPECT)
+                        .clipToBounds()
                         .border(space.hairline, colors.rule),
                 )
                 Text(
@@ -499,3 +531,25 @@ private fun writtenByType(
     ClaimType.entries.mapNotNull { claimType ->
         ledger[claimType]?.written?.maxByOrNull { it.confidence }?.let { claimType to it }
     }
+
+/**
+ * How tall the viewfinder is. Its width follows from [PREVIEW_ASPECT].
+ *
+ * Driven by height rather than width because the width is what has to give:
+ * this phone's content column is 384 dp wide, and a full-width portrait
+ * preview would be 512 dp tall and push the aim text and the mask note off
+ * the first screen of a sheet people are meant to read before they tap Scan.
+ * 380 dp is still tall enough to see a page's outline and its margins, which
+ * is what aiming needs.
+ */
+private val PREVIEW_HEIGHT = 380.dp
+
+/**
+ * 3:4 — the portrait form of the 4:3 that `DocumentCamera.bind` asks for on both
+ * the preview and the capture stream (`RATIO_4_3_FALLBACK_AUTO_STRATEGY`).
+ *
+ * `aspectRatio` takes width/height, so this is 0.75 and not 1.333. If the camera
+ * config ever stops being 4:3, this number is wrong and the border stops being an
+ * honest frame — change both together.
+ */
+private const val PREVIEW_ASPECT = 3f / 4f
