@@ -11,12 +11,17 @@ ended, saved and re-saved on the iQOO 15, and `tools/packet-cli` read back both 
 and the zip as `INTEGRITY: PASSED` / `SIGNATURE: verified` / exit 0. StrongBox is real here
 (`"strongBox": true`), the head on screen equals the head in the file, and re-signing
 changes exactly one field while the head stays byte-identical. **G7 is PASS.**
-**What is still unproven:** no page has ever been through the camera into the ledger (G3 —
-the prop pages are printed and the build is installed, so this is a human-time item, not a
-code item); **the NPU has never been asked to run anything** — P4's masker, benchmark screen
-and latency label are written, compile and are in the APK, but no rung has ever been
-attempted on real silicon, so every G4 number is still unmeasured (G4); and P6's *failure*
-path — a session that starts with a model missing — has never run (open issue 21).
+**What is still unproven:** **G3 is part-answered and was never recorded** — a session on
+the phone at 06:07 IST did put camera-read clauses into the ledger (RETURN_RATE {4,8}
+ILLUSTRATIVE at 0.861, GUARANTEE false at 0.909, both over the 0.70 `writtenMin`), from
+four completed scans; `evidence/G3_partial_session_060746_receipt.json`. That is one
+session, not five, and it read two of the five G3 clause types, so **the gate is still
+open** — but the camera→OCR→ledger path is no longer unproven. LOCK_IN, LIQUIDITY and
+CHARGES have still never been read from a photograph. **The NPU has never been asked to
+run anything** — P4's masker, benchmark screen and latency label are written, compile and
+are in the APK, but no rung has ever been attempted on real silicon, so every G4 number is
+unmeasured (G4). P6's *failure* path — a session that starts with a model missing — has
+never run (open issue 21).
 
 Red Light ruling: **unknown** — no organizer statement recorded yet.
 Name ruling: **unknown** — displayed name is VAAKKU, changed by editing the single
@@ -33,7 +38,7 @@ This assumption has not been confirmed by an organizer.
 | G0 Bootstrap | **PASS** | see below | H0–H1 |
 | G1 Domain | **PASS** | see below | H1–H5 |
 | G2 ASR decision | **DECISION TAKEN — 2 of 3 evidence items** | `evidence/asr_prescreen/`, `evidence/G2_asr_bakeoff.csv`; live-mic scorecard still needs a human | H5– |
-| G3 OCR | **CODE READY — no scan yet** | `docs/superpowers/plans/p3-ocr-plan.md`; five clauses proven against the real document in `:domain`. Needs 5 scan sessions on the phone. | H6– |
+| G3 OCR | **PART-MEASURED — 1 session, 2 of 5 clause types** | `evidence/G3_partial_session_060746_receipt.json` — camera→OCR→ledger proven; RETURN_RATE 0.861, GUARANTEE 0.909. Needs 4 more sessions and the other three clause types. | H6– |
 | G4 NPU | **CODE READY — never run on the phone** | `evidence/` has nothing yet; the benchmark screen, the masker and the latency label are built and compile. Needs one Dev-menu run + a logcat pull. | H6– |
 | G5 End-to-end | **BOTH HALVES HAVE NOW RUN ON THE PHONE** | `evidence/P5_*.png`, `evidence/P6_*.png`; Setup→mic→scan→end→receipt→save. The camera half reached `page_1.jpg` (2448 × 3264) and ML Kit read it offline. Still unproven: a *clause* extracted from a real prop page (that is G3). | H6– |
 | G6 Go/No-Go | NOT STARTED | — | — |
@@ -242,8 +247,9 @@ The budget is not the constraint here — accuracy is.
 
 Commits `70f8ba5`, `e113d78`, `c8e2ff7`, `ee8e3af`, `a706688`, `1026250`, `b7b7c85`, `d4513de`.
 Built with three subagents under review; every task was reviewed and four fix rounds were
-run. **Nothing in this section has seen a camera yet** — the phone half compiles and passes
-every guard, but produces no measurement until the human scans.
+run. **One session has now reached the ledger from the camera** — found on the phone
+2026-09-13 08:05 IST while checking whether an install would disturb anything, not
+recorded at the time it happened. See the measurement block below the table.
 
 | Item | Status | Path / number |
 |---|---|---|
@@ -263,12 +269,36 @@ every guard, but produces no measurement until the human scans.
 | `:app:testDebugUnitTest` | **PASS** | 23 tests incl. 8 new `SessionEvidenceTest` crop-clamp cases |
 | `:app:assembleDebug` | **PASS** | — |
 | `scripts/check_manifest.sh` | **PASS** | no INTERNET, no ACCESS_NETWORK_STATE, in merged manifest and APK; `SessionService` still absent |
-| **5 scan sessions on the phone** | **NOT DONE** | needs a human — the whole of G3's actual criterion |
-| `evidence/G3_clauses.png` | **NOT DONE** | needs a human |
+| **5 scan sessions on the phone** | **1 of 5, unplanned** | `session_2026-09-13_060746` — 4 completed scans in one session, 2 of the 5 clause types read |
+| `evidence/G3_clauses.png` | **NOT DONE** | needs a human — no screenshot was taken of the session that worked |
 
-**What G3 still requires:** the gate is "expected clauses extracted in ≥4 of 5 scans". Nothing
-above measures that. The domain half is proven against the document's *text*; the camera half
-has never converted a photograph into that text.
+**What G3 still requires:** the gate is "expected clauses extracted in ≥4 of 5 scans".
+One session has now done it for **two** clause types, which settles the question the domain
+tests could not — a photograph really does become a clause in the ledger, offline, on this
+phone. What is still missing is four more sessions and **LOCK_IN, LIQUIDITY and CHARGES,
+none of which has ever been read from a photograph**. Those three are the ones on page 6
+and in the charges table, so they are also the ones most exposed to the capture cap
+(decision 49) — if they fail while RETURN_RATE and GUARANTEE keep succeeding, read the
+Red Light note about `MAX_LONG_EDGE` before touching any regex.
+
+**MEASUREMENT — G3 partial, found on the phone 2026-09-13 08:05 IST**
+Session `session_2026-09-13_060746`, started 2026-09-13 00:37 UTC, 4 `document_scan_completed`
+events, 7 `written_observed` observations. Receipt saved to
+`evidence/G3_partial_session_060746_receipt.json` (14,352 B, head `f2bb614c5d039acd`).
+
+| Clause type | Best confidence | The line as OCR read it |
+|---|---|---|
+| RETURN_RATE | 0.861 | `Returns are NOT guaranteed. The 4% and 8% rates are illustrative only.` |
+| GUARANTEE | 0.909 | `Non-Guaranteed Benefits` |
+| LOCK_IN | — | never read |
+| LIQUIDITY | — | never read |
+| CHARGES | — | never read |
+
+Both values are `{4,8} ILLUSTRATIVE` and `guaranteed=false` — the same values
+`RealPropDocumentTest` asserts from the document's text, now arrived at from a photograph
+instead. All six ledger rows were still PENDING at the end, because nothing was spoken
+in that session; PENDING is silent by design (CLAUDE.md #1), so this is correct and not
+a missing result.
 
 ### G4 evidence — P4 privacy masker + NPU (§6.5, §11.5)
 
@@ -1352,6 +1382,16 @@ measurement of the cable, so it is not recorded).
     write, which is what keeps a face out of the receipt — but a demo audience will not
     *see* the mask working unless someone opens a saved page image. If the demo needs a
     visible mask, budget for the overlay or plan to show a saved page.
+25. **A real G3 result sat on the phone for two hours and nobody knew.** The 06:07 session
+    read two clause types from photographs — the single most important open question in the
+    project at that moment — and STATUS.md went on saying "no page has ever been through
+    the camera into the ledger" until 08:05, when the phone was inspected for an unrelated
+    reason. Nothing was broken; the evidence was simply never collected from the device.
+    **The receipts are the record, and they are already on the phone in
+    `Download/Vaakku/<sessionId>/receipt.json`.** Before writing "not done" against any
+    gate, check the device: `adb shell ls -lt /sdcard/Download/Vaakku/` costs one command
+    and would have caught this. The same risk applies to G4 — after the benchmark run, pull
+    the CSV before concluding anything.
 
 ## On-device verification status (P0)
 
@@ -1392,6 +1432,12 @@ below needs `adb install -r` of the current APK first** — and that install mus
 in the middle of a G3 scan run, because it restarts the app. `adb install -r` is safe for
 `models/`; `adb uninstall` is what wipes them, and CLAUDE.md forbids it.
 
+**Checked 2026-09-13 08:05 IST: nothing is in flight.** The newest session directory on
+the phone is from 06:26, ~100 minutes earlier, and no session has been written since. The
+app process is alive but idle. An install now loses nothing. (Re-check before installing
+if time has passed: `adb shell run-as app.vaakku ls -lt files/sessions/` and compare the
+newest timestamp with `adb shell date`.)
+
 What is left:
 
 - [ ] **Live mic, a teammate speaking T01–T04 from 1 m**, in the room's real noise, with
@@ -1408,6 +1454,10 @@ What is left:
       NOT_IN_DOCUMENT can appear, and BUNDLING = NOT_IN_DOCUMENT is one of the six expected
       demo outcomes. Record for each session which of the five clauses appeared. The gate is
       ≥4 of 5. Screenshot one good session to `evidence/G3_clauses.png`.
+      **One session already counts** (`session_2026-09-13_060746`, 06:07 IST) — it read
+      RETURN_RATE and GUARANTEE. **The thing to watch in the next four is LOCK_IN,
+      LIQUIDITY and CHARGES**, which have never been read from a photograph and are the
+      three most exposed to the capture cap.
 - [ ] **P3 / first scan only: does the shutter click?** `takePicture` can trigger the platform
       shutter sound on some devices and locales, and the app cannot always suppress it.
       CLAUDE.md #9 is "no sound, ever". If it clicks, we handle it at the device (media volume
