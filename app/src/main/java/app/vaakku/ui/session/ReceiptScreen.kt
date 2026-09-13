@@ -217,7 +217,12 @@ fun ReceiptScreen() {
                 value = localized(
                     R.string.receipt_topics_value,
                     R.string.receipt_topics_value,
-                    session.ledger.size,
+                    // `session.ledger.size` was here and it is always 6: the
+                    // reconciler keeps one row per ClaimType whether or not
+                    // anything was ever observed for it. On the phone that made
+                    // this field read "6 / 6" at the end of a session in which
+                    // nothing had been said and no page had been read.
+                    session.ledger.values.count { it.observed },
                     ClaimType.entries.size,
                 ),
             )

@@ -91,4 +91,17 @@ data class LedgerEntry(
     val reason: ReasonCode,
     val mentionCount: Int,
     val dismissed: Boolean,
-)
+) {
+    /**
+     * Whether this topic came up at all — something was said about it, or
+     * something about it was read off the document.
+     *
+     * The ledger always has one row per [ClaimType], so its *size* is the
+     * constant 6 and says nothing about a session. This is the question
+     * "how much of the conversation did the app actually take in", and it is
+     * deliberately not a question about any [DeltaState]: an entry counts here
+     * whether it matched, differed or stayed silent. Counting states is what
+     * would turn this into a finding about a person.
+     */
+    val observed: Boolean get() = spoken != null || written.isNotEmpty()
+}

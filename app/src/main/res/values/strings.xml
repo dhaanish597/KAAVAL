@@ -511,10 +511,13 @@
 
       receipt_topics is a coverage count and says "N of 6" for exactly that
       reason — a bare "3" at the end of a session would be read as three things
-      wrong, which is not what a ledger entry is. An entry exists as soon as a
-      topic is spoken about or found in the document, whatever the two turned out
-      to say. There is deliberately no count of any state anywhere on this
-      screen (CLAUDE.md #1); the Details ledger is where the six are read.
+      wrong, which is not what a ledger entry is. It counts the topics something
+      was actually observed for: said, or read off the document, whatever the two
+      turned out to say. Note it is NOT the ledger's size — the reconciler keeps
+      one row per claim type at all times, so that number is always 6 and would
+      make this field a constant (it did, on the phone, until it was fixed).
+      There is deliberately no count of any state anywhere on this screen
+      (CLAUDE.md #1); the Details ledger is where the six are read.
     -->
     <string name="receipt_title">அமர்வுப் பதிவு</string>
     <string name="receipt_title_en">Session record</string>

@@ -390,4 +390,127 @@ class ReconcilerTest {
         }
         assertEquals(run(), run())
     }
+
+    // ------------------------------------------------------------------
+    // Coverage — LedgerEntry.observed
+    //
+    // How much of the conversation the app took in. The receipt screen shows
+    // this as "N / 6"; it used to show `ledger().size / 6`, which is `6 / 6`
+    // for every session ever recorded, including one where nothing was said
+    // and no page was read. These tests exist so that cannot come back.
+    //
+    // Note what is deliberately NOT tested here, because it is deliberately
+    // not implemented: there is no count of any DeltaState. Counting states
+    // is what would turn a coverage number into a finding about a person
+    // (CLAUDE.md #1).
+    // ------------------------------------------------------------------
+
+    private fun observedCount(r: Reconciler): Int = r.ledger().values.count { it.observed }
+
+    @Test
+    fun `a fresh reconciler has six rows and none of them observed`() {
+        val r = Reconciler()
+        // Both halves matter. The six is real — the ledger always holds one row
+        // per ClaimType — which is exactly why the six cannot be the count.
+        assertEquals(6, r.ledger().size)
+        assertEquals(0, observedCount(r))
+        assertTrue(r.ledger().values.none { it.observed })
+    }
+
+    @Test
+    fun `a scan with nothing read off it observes nothing`() {
+        // The failing session on the phone: the camera opened, a page was
+        // captured, no clause was extracted from it, nobody spoke. An event
+        // was applied, so "has anything happened" is true — and the answer to
+        // "what did we take in" is still nothing.
+        val r = scannedReconciler()
+        assertEquals(0, observedCount(r))
+    }
+
+    @Test
+    fun `a topic that was only spoken about is observed`() {
+        val r = Reconciler()
+        r.apply(ReconcilerEvent.SpokenObserved(spoken(ClaimType.LOCK_IN, ClaimValue.LockIn(60))))
+        val entry = r.ledger()[ClaimType.LOCK_IN]!!
+        assertTrue(entry.observed)
+        assertEquals(1, observedCount(r))
+    }
+
+    @Test
+    fun `a topic that was only read off the document is observed while still PENDING`() {
+        val r = scannedReconciler()
+        r.apply(ReconcilerEvent.WrittenObserved(writtenObs(ClaimType.CHARGES, ClaimValue.Charges(true, BigDecimal("2"), "surrender"))))
+        val entry = r.ledger()[ClaimType.CHARGES]!!
+        // Nothing was said about it, so there is nothing to reconcile and the
+        // row is silent (rule 1). The clause was still read, and the buyer
+        // should be told the document was taken in.
+        assertEquals(DeltaState.PENDING, entry.state)
+        assertTrue(entry.observed)
+        assertEquals(1, observedCount(r))
+    }
+
+    @Test
+    fun `observed does not depend on state - a MATCHES and a DIFFERS each count once`() {
+        val r = scannedReconciler()
+        r.apply(ReconcilerEvent.WrittenObserved(writtenObs(ClaimType.LOCK_IN, ClaimValue.LockIn(60))))
+        r.apply(ReconcilerEvent.SpokenObserved(spoken(ClaimType.LOCK_IN, ClaimValue.LockIn(60), confidence = 0.95)))
+        r.apply(ReconcilerEvent.WrittenObserved(writtenObs(ClaimType.GUARANTEE, ClaimValue.Guarantee(false))))
+        r.apply(ReconcilerEvent.SpokenObserved(spoken(ClaimType.GUARANTEE, ClaimValue.Guarantee(true), confidence = 0.95)))
+
+        assertEquals(DeltaState.MATCHES, r.ledger()[ClaimType.LOCK_IN]!!.state)
+        assertEquals(DeltaState.DIFFERS, r.ledger()[ClaimType.GUARANTEE]!!.state)
+        // A topic that agreed and a topic that did not both count as "came up".
+        assertEquals(2, observedCount(r))
+    }
+
+    @Test
+    fun `an UNCERTAIN topic is observed - silence in the UI is not absence from the count`() {
+        val r = scannedReconciler()
+        r.apply(ReconcilerEvent.SpokenObserved(spoken(ClaimType.GUARANTEE, ClaimValue.Guarantee(true), conditional = true)))
+        val entry = r.ledger()[ClaimType.GUARANTEE]!!
+        // CLAUDE.md #2 keeps this row off the screen. It was still heard, and
+        // the coverage count is not a count of what was shown.
+        assertEquals(DeltaState.UNCERTAIN, entry.state)
+        assertTrue(entry.observed)
+        assertEquals(1, observedCount(r))
+    }
+
+    @Test
+    fun `a session that touched all six topics counts six`() {
+        val r = scannedReconciler()
+        r.apply(ReconcilerEvent.SpokenObserved(spoken(ClaimType.RETURN_RATE, ClaimValue.Rate(setOf(BigDecimal("8")), app.vaakku.domain.model.RateQualifier.ASSERTED))))
+        r.apply(ReconcilerEvent.SpokenObserved(spoken(ClaimType.GUARANTEE, ClaimValue.Guarantee(true))))
+        r.apply(ReconcilerEvent.SpokenObserved(spoken(ClaimType.LOCK_IN, ClaimValue.LockIn(60))))
+        r.apply(ReconcilerEvent.SpokenObserved(spoken(ClaimType.LIQUIDITY, ClaimValue.Liquidity(withdrawableAfterMonths = 12, surrenderNilBeforeMonths = null))))
+        r.apply(ReconcilerEvent.SpokenObserved(spoken(ClaimType.BUNDLING, ClaimValue.Bundling(true))))
+        r.apply(ReconcilerEvent.SpokenObserved(spoken(ClaimType.CHARGES, ClaimValue.Charges(false, null, null))))
+        // Six is reachable, so the field's ceiling is honest — it is just not
+        // where an empty session starts.
+        assertEquals(6, observedCount(r))
+    }
+
+    @Test
+    fun `Reset clears the observed count and keeps the six rows`() {
+        val r = scannedReconciler()
+        r.apply(ReconcilerEvent.SpokenObserved(spoken(ClaimType.LOCK_IN, ClaimValue.LockIn(60))))
+        r.apply(ReconcilerEvent.WrittenObserved(writtenObs(ClaimType.LOCK_IN, ClaimValue.LockIn(60))))
+        assertEquals(1, observedCount(r))
+
+        r.apply(ReconcilerEvent.Reset)
+        assertEquals(6, r.ledger().size)
+        assertEquals(0, observedCount(r))
+    }
+
+    @Test
+    fun `a re-checked entry is still observed - dismissing hides a card, it does not un-hear a claim`() {
+        val r = scannedReconciler()
+        r.apply(ReconcilerEvent.WrittenObserved(writtenObs(ClaimType.GUARANTEE, ClaimValue.Guarantee(false))))
+        r.apply(ReconcilerEvent.SpokenObserved(spoken(ClaimType.GUARANTEE, ClaimValue.Guarantee(true), confidence = 0.95)))
+        r.apply(ReconcilerEvent.UserRecheck(ClaimType.GUARANTEE))
+
+        val entry = r.ledger()[ClaimType.GUARANTEE]!!
+        assertTrue(entry.dismissed)
+        assertTrue(entry.observed)
+        assertEquals(1, observedCount(r))
+    }
 }
