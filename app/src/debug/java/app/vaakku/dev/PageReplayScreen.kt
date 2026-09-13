@@ -37,6 +37,7 @@ import app.vaakku.ocr.DocumentCamera
 import app.vaakku.ocr.MlKitTextRecognizer
 import app.vaakku.ocr.PageConfidence
 import app.vaakku.ocr.PageScanner
+import app.vaakku.ocr.PrivacyMask
 import app.vaakku.ocr.ScannedPage
 import app.vaakku.session.SessionEvidence
 import app.vaakku.ui.theme.VaakkuTheme
@@ -94,6 +95,13 @@ fun PageReplayScreen(onClose: () -> Unit) {
     val replayScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     val recognizer = remember { MlKitTextRecognizer() }
 
+    // A real masker, not a stub. This screen exists to exercise the same path
+    // the scan screen takes, and the mask is part of that path: if it withholds
+    // a page here, the report says so, which is exactly the signal worth having
+    // before the same thing happens in front of a buyer. Replaying an already
+    // masked page simply masks nothing, because there is no person left in it.
+    val privacyMask = remember { PrivacyMask(context) }
+
     val replayDir = remember { File(context.getExternalFilesDir(null), REPLAY_DIR_NAME) }
 
     val reportLines = remember { mutableStateListOf<String>() }
@@ -110,10 +118,12 @@ fun PageReplayScreen(onClose: () -> Unit) {
             val inFlight = job
             if (inFlight == null || inFlight.isCompleted) {
                 recognizer.close()
+                privacyMask.close()
                 replayScope.cancel()
             } else {
                 inFlight.invokeOnCompletion {
                     recognizer.close()
+                    privacyMask.close()
                     replayScope.cancel()
                 }
             }
@@ -138,7 +148,7 @@ fun PageReplayScreen(onClose: () -> Unit) {
             // One evidence folder for the whole replay run, named so it never
             // reads as a real scan session in the evidence tree.
             val evidence = SessionEvidence.forSession(context, "replay_${Iso8601.stamp()}")
-            val scanner = PageScanner(recognizer, evidence)
+            val scanner = PageScanner(recognizer, evidence, privacyMask)
 
             val results = mutableListOf<ReplayResult>()
             files.forEachIndexed { index, file ->

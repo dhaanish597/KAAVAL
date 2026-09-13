@@ -33,9 +33,20 @@ data class ScannedPage(
      * while the page is still in front of the camera. See [PageConfidence].
      */
     val confidence: PageConfidence,
-    /** Null when the page JPEG did not land — see `SessionEvidence`. */
+    /**
+     * Null when the page JPEG did not land — either a write failed (see
+     * `SessionEvidence`) or [maskSummary] is
+     * [PrivacyMask.MaskSummary.Withheld], meaning the masker could not vouch
+     * for this page and nothing was written rather than something unmasked.
+     */
     val pageImage: File?,
     val cropCount: Int,
+    /**
+     * What the privacy masker did to this page (§6.4, §6.5) — what the scan
+     * screen prints beside the OCR timing, and the reason [pageImage] is null
+     * when it is null for a privacy reason rather than a disk one.
+     */
+    val maskSummary: PrivacyMask.MaskSummary,
 )
 
 /**
@@ -53,6 +64,7 @@ data class ScannedPage(
 class PageScanner(
     private val recognizer: MlKitTextRecognizer,
     private val evidence: SessionEvidence,
+    private val privacyMask: PrivacyMask,
 ) {
 
     /** Stateless across pages; one instance because constructing it per page would be waste. */
@@ -71,6 +83,11 @@ class PageScanner(
         // release is in a finally: a failed recognition, a disk error or a
         // cancelled scan must not strand one, or two bad taps turn a
         // recoverable error into an OutOfMemoryError.
+        //
+        // The identity check matters in both directions. When the masker ran,
+        // `masked` is a second bitmap of the same size and both must go; when no
+        // masker exists, PrivacyMask hands back `page` itself, and recycling it
+        // here as well as below would be recycling a bitmap twice.
         var masked: Bitmap? = null
         try {
             return scanInternal(page, pageNumber) { masked = it }
@@ -84,7 +101,7 @@ class PageScanner(
     private suspend fun scanInternal(
         page: Bitmap,
         pageNumber: Int,
-        onMasked: (Bitmap) -> Unit,
+        onMasked: (Bitmap?) -> Unit,
     ): ScannedPage {
         val frameId = "page_$pageNumber"
         val scan = recognizer.recognize(InputImage.fromBitmap(page, 0), frameId)
@@ -111,20 +128,29 @@ class PageScanner(
         // clauses are deliberately spread over printed pages 5 and 6.
         val extracted = extractor.extract(scan.lines)
 
-        // §6.4: the saved page image is masked BEFORE it is written. Today
-        // PrivacyMask passes the bitmap straight through and says so on screen;
-        // P4 replaces its body and this call site does not change. Crops are
-        // cut from the same masked bitmap, because a crop goes into the
-        // grievance packet exactly like the page does.
-        val masked = PrivacyMask.applyOrPassThrough(page)
-        onMasked(masked)
+        // §6.4: the saved page image is masked BEFORE it is written, and if it
+        // cannot be masked while the screen says masking is on, it is not
+        // written at all — see PrivacyMask, which owns that decision. Crops are
+        // cut from the same bitmap, because a crop goes into the grievance
+        // packet exactly like the page does.
+        val outcome = privacyMask.apply(page)
+        val writable = outcome.safeToWrite
+        onMasked(writable)
 
         // JPEG encoding and the writes themselves are blocking disk work, so
         // they run on the IO dispatcher; recognition and extraction above do
         // not. One block rather than one per crop: the encode travels with the
         // write it feeds, and ping-ponging dispatchers per crop would cost more
         // than it saves.
-        val evidenceWritten = withContext(Dispatchers.IO) { writeEvidence(masked, extracted, pageNumber) }
+        //
+        // A withheld page skips this entirely: there is no bitmap anyone is
+        // allowed to write, so the observations keep cropFile = null exactly as
+        // they would after a disk failure.
+        val evidenceWritten = if (writable == null) {
+            WrittenEvidence(extracted, pageImage = null, cropCount = 0)
+        } else {
+            withContext(Dispatchers.IO) { writeEvidence(writable, extracted, pageNumber) }
+        }
 
         return ScannedPage(
             pageNumber = pageNumber,
@@ -137,6 +163,7 @@ class PageScanner(
             confidence = PageConfidence.of(scan.lines),
             pageImage = evidenceWritten.pageImage,
             cropCount = evidenceWritten.cropCount,
+            maskSummary = outcome.summary,
         )
     }
 

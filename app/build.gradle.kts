@@ -106,6 +106,11 @@ android {
     sourceSets {
         getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/rehearsalAudio"))
         getByName("debug").assets.srcDir(layout.buildDirectory.dir("generated/bakeoffAudio"))
+        // The §6.5 segmentation model and the Qualcomm NPU runtime, both copied
+        // in from handoff/ at build time for the same reason as the audio above:
+        // 126 MB of binaries that are already on disk once.
+        getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/npuModel"))
+        getByName("main").jniLibs.srcDir(layout.buildDirectory.dir("generated/npuRuntime"))
     }
 }
 
@@ -141,10 +146,105 @@ val syncBakeoffAudio by tasks.registering(Sync::class) {
     into(layout.buildDirectory.dir("generated/bakeoffAudio/testaudio"))
 }
 
-// preBuild is the one task every variant runs first, so both syncs land before
-// asset merging regardless of which variant is being assembled.
+/**
+ * The §6.5 person-segmentation model.
+ *
+ * Copied out of `handoff/` (gitignored, 16 MB) rather than committed, like the
+ * sherpa AAR and the ASR models. Renamed on the way in: the file downloaded
+ * from HuggingFace is `selfie_multiclass.tflite`, and `PersonMasker.MODEL_ASSET`
+ * names it `selfie_multiclass_256x256.tflite` after the build plan, because the
+ * input size is the one property of it a reader needs and the model's own
+ * naming has drifted between Google's sources.
+ */
+val syncNpuModel by tasks.registering(Sync::class) {
+    description = "Copies the §6.5 segmentation model into :app main assets."
+    from(rootProject.layout.projectDirectory.file("handoff/npu/selfie_multiclass.tflite")) {
+        rename { "selfie_multiclass_256x256.tflite" }
+    }
+    into(layout.buildDirectory.dir("generated/npuModel/npu"))
+}
+
+/**
+ * The Qualcomm NPU runtime for the iQOO 15, as plain `jniLibs`.
+ *
+ * **Why not dynamic features.** Google's sample ships five vendor runtimes as
+ * `com.android.dynamic-feature` modules behind an AAB and device-group
+ * targeting, because on Play it would otherwise send 110 MB of Qualcomm
+ * libraries to a Samsung phone. We install one APK on one known phone over adb,
+ * so that machinery buys nothing and costs the `installDebug` path, bundletool,
+ * and a silent failure mode where a device group does not match and the module
+ * is simply absent.
+ *
+ * What makes the simple route work is where LiteRT looks:
+ * `BuiltinNpuAcceleratorProvider.getLibraryDir()` returns
+ * `context.applicationInfo.nativeLibraryDir` — the app's own native library
+ * directory, which is exactly where `jniLibs` land. A dynamic feature's
+ * libraries end up in the same directory; the module boundary only decides
+ * *when* they are delivered. `useLegacyPackaging = true` (set above) is the
+ * part that is not optional: these are `dlopen`ed by path, so they have to be
+ * extracted to disk at install time rather than mapped out of the APK.
+ *
+ * v81 only: `libQnnHtpV81Skel.so` is the Hexagon v81 skeleton, which is the
+ * SM8850's. Shipping v69/v73/v75/v79 as well would add roughly 400 MB for
+ * hardware that is not in the room.
+ */
+val syncNpuRuntime by tasks.registering(Sync::class) {
+    description = "Copies the Qualcomm v81 (SM8850) NPU runtime .so files into :app jniLibs."
+    from(
+        rootProject.layout.projectDirectory.dir(
+            "handoff/litert-samples/litert-samples-main/samples/litert/image_segmentation/" +
+                "kotlin_npu/android_jit/litert_npu_runtime_libraries/qualcomm_runtime_v81/" +
+                "src/main/jni/arm64-v8a",
+        ),
+    ) {
+        include("*.so")
+    }
+    into(layout.buildDirectory.dir("generated/npuRuntime/arm64-v8a"))
+}
+
+/**
+ * Fails the build if the NPU inputs are missing, instead of shipping an APK
+ * that silently cannot reach the NPU.
+ *
+ * `handoff/` is gitignored, so a fresh clone has none of this. The failure that
+ * matters is not the missing file — it is an APK that builds, installs, runs,
+ * falls back to GPU and looks completely normal, with the reason three
+ * directories away on a laptop nobody is looking at. CLAUDE.md #8 is about not
+ * claiming an NPU we do not have; this is the build-time half of it.
+ */
+val checkNpuInputs by tasks.registering {
+    description = "Verifies the §6.5 model and the Qualcomm v81 runtime are present in handoff/."
+    val model = rootProject.layout.projectDirectory
+        .file("handoff/npu/selfie_multiclass.tflite").asFile
+    val runtime = rootProject.layout.projectDirectory.dir(
+        "handoff/litert-samples/litert-samples-main/samples/litert/image_segmentation/" +
+            "kotlin_npu/android_jit/litert_npu_runtime_libraries/qualcomm_runtime_v81/" +
+            "src/main/jni/arm64-v8a",
+    ).asFile
+    // Deliberately declares no inputs or outputs, so it runs on every build.
+    // It is two existence checks; making it skippable would mean it could be
+    // skipped on the one build where something had moved.
+    doLast {
+        val problems = buildList {
+            if (!model.isFile) add("missing model: $model")
+            val skeleton = runtime.resolve("libQnnHtpV81Skel.so")
+            if (!skeleton.isFile) add("missing Hexagon v81 skeleton: $skeleton")
+        }
+        if (problems.isNotEmpty()) {
+            throw GradleException(
+                "P4 NPU inputs are not in place:\n  " + problems.joinToString("\n  ") +
+                    "\n\nSee handoff/notes_for_claude.txt. Without these the app builds and runs, " +
+                    "but the privacy masker can never reach the NPU — it would fall back to GPU " +
+                    "with nothing on screen to say why.",
+            )
+        }
+    }
+}
+
+// preBuild is the one task every variant runs first, so the syncs land before
+// asset and jniLibs merging regardless of which variant is being assembled.
 tasks.named("preBuild") {
-    dependsOn(syncRehearsalAudio, syncBakeoffAudio)
+    dependsOn(syncRehearsalAudio, syncBakeoffAudio, checkNpuInputs, syncNpuModel, syncNpuRuntime)
 }
 
 dependencies {

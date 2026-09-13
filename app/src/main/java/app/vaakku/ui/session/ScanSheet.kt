@@ -56,6 +56,7 @@ import app.vaakku.domain.model.Observation
 import app.vaakku.ocr.DocumentCamera
 import app.vaakku.ocr.MlKitTextRecognizer
 import app.vaakku.ocr.PageScanner
+import app.vaakku.ocr.PrivacyMask
 import app.vaakku.session.SessionEvidence
 import app.vaakku.session.SessionRuntime
 import app.vaakku.ui.claimTypeLabel
@@ -145,7 +146,27 @@ fun ScanSheet(onClose: () -> Unit) {
             session.sessionId.ifEmpty { SessionEvidence.newSessionId(context) },
         )
     }
-    val scanner = remember(evidence) { PageScanner(recognizer, evidence) }
+    // One privacy masker for the lifetime of the sheet, for the same reason as
+    // the recognizer above and more so: building it compiles the segmentation
+    // model for the accelerator it lands on, which on the NPU rung is seconds.
+    // Cheap to construct, expensive to warm; warmUp() below does the expensive
+    // half off the composition thread while the human is still aiming.
+    val privacyMask = remember { PrivacyMask(context) }
+    val scanner = remember(evidence, privacyMask) { PageScanner(recognizer, evidence, privacyMask) }
+
+    // PrivacyMask.availability is a plain @Volatile field, not Compose state —
+    // it is read by PageScanner from a coroutine and must not drag the
+    // composition into the model compile. So the screen mirrors it once, here,
+    // after warmUp() has settled the answer.
+    var maskAvailability by remember {
+        mutableStateOf<PrivacyMask.Availability>(PrivacyMask.Availability.Unknown)
+    }
+    var lastMask by remember { mutableStateOf<PrivacyMask.MaskSummary?>(null) }
+
+    LaunchedEffect(privacyMask) {
+        privacyMask.warmUp()
+        maskAvailability = privacyMask.availability
+    }
 
     val previewView = remember {
         PreviewView(context).apply {
@@ -193,13 +214,19 @@ fun ScanSheet(onClose: () -> Unit) {
             // in-flight-recognition case. So an in-flight scan is left to finish
             // and the close rides on its completion. ML Kit's task always
             // completes, with a result or an error.
+            //
+            // The privacy masker closes on the same signal and for the same
+            // reason: it is a native model handle plus a driver context, and an
+            // in-flight scan may be inside model.run() right now.
             val running = job
             if (running == null || running.isCompleted) {
                 recognizer.close()
+                privacyMask.close()
                 scanScope.cancel()
             } else {
                 running.invokeOnCompletion {
                     recognizer.close()
+                    privacyMask.close()
                     scanScope.cancel()
                 }
             }
@@ -229,6 +256,7 @@ fun ScanSheet(onClose: () -> Unit) {
                 }
                 SessionRuntime.documentPage(page.observations, page.ocrElapsedMs)
                 lastPageClauses = page.observations.size
+                lastMask = page.maskSummary
             } catch (c: CancellationException) {
                 // Rethrown: swallowing it would leave the parent scope believing
                 // this child is still alive.
@@ -308,12 +336,15 @@ fun ScanSheet(onClose: () -> Unit) {
                 // Fixing that by cropping the preview instead would be worse than
                 // the overlap. FILL_CENTER shows the middle ~75% of the frame,
                 // while ImageCapture saves all of it (4:3, set in DocumentCamera)
-                // and PrivacyMask is still a pass-through until P4 — so the buyer
-                // would be exporting a quarter of an unmasked photograph they were
-                // never shown. Matching the box to the stream means the border is
-                // an honest viewfinder: what it frames is what gets written to
-                // page_<n>.jpg. Both use cases are 4:3, so there is one ratio to
-                // match, not two.
+                // — so the buyer would be exporting a quarter of a photograph
+                // they were never shown. Matching the box to the stream means the
+                // border is an honest viewfinder: what it frames is what gets
+                // written to page_<n>.jpg. Both use cases are 4:3, so there is
+                // one ratio to match, not two.
+                //
+                // The privacy mask does not soften this. It paints out people,
+                // not documents, so everything outside the preview is still
+                // saved — it is simply saved with any person in it covered.
                 //
                 // clipToBounds is belt and braces for the day a device hands back
                 // a stream at some other ratio: it bounds the damage to the box
@@ -357,10 +388,22 @@ fun ScanSheet(onClose: () -> Unit) {
                 }
             }
 
-            // CLAUDE.md #8, said to the person holding the phone: there is no mask
-            // yet, so the saved image is exactly what the camera saw.
+            // CLAUDE.md #8, said to the person holding the phone: exactly which
+            // of the three masking states is true right now, and nothing else.
+            // The withheld line wins while it applies, because "this page was
+            // not saved" is news and "the mask is running" is not.
             Text(
-                text = localized(R.string.scan_mask_note, R.string.scan_mask_note_en),
+                text = when {
+                    lastMask is PrivacyMask.MaskSummary.Withheld ->
+                        localized(R.string.scan_mask_withheld, R.string.scan_mask_withheld_en)
+                    maskAvailability is PrivacyMask.Availability.Active ->
+                        localized(R.string.scan_mask_active, R.string.scan_mask_active_en)
+                    maskAvailability is PrivacyMask.Availability.Unavailable ->
+                        localized(R.string.scan_mask_note, R.string.scan_mask_note_en)
+                    // Unknown: warmUp() has not finished. Saying nothing is the
+                    // only honest option — the mask has neither run nor failed.
+                    else -> ""
+                },
                 style = type.caption,
                 color = colors.inkFaint,
                 modifier = Modifier.padding(top = space.md),

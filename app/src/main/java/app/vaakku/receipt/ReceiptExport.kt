@@ -38,15 +38,22 @@ import java.util.zip.ZipOutputStream
  *
  * ### What the page images are, and are not
  *
- * §7.3 calls the exported pages "masked". **They are not masked yet.**
- * `PrivacyMask.applyOrPassThrough` returns its input unchanged until P4 lands,
- * so a `page_*.jpg` is the photograph as taken, which can include an agent's
- * hands or face at the edge of frame. Nothing here or on the export screen
- * calls them masked (CLAUDE.md #8), and the reason they are still exported is
- * that they are the buyer's own photographs of their own document, going to the
- * buyer's own Downloads folder — withholding them would remove evidence from
- * the person it belongs to, not protect anyone. The packet itself never renders
- * a page image; it shows the row crops. Recorded as an open issue against P4.
+ * §7.3 calls the exported pages "masked". Since P4 they usually are: `PageScanner`
+ * runs every capture through `PrivacyMask` before `SessionEvidence` writes it,
+ * and a page that could not be masked while masking was running is not written
+ * at all — so a `page_*.jpg` that exists is either masked or was taken on a
+ * phone where no accelerator would load the segmentation model, which the scan
+ * screen states plainly at the time.
+ *
+ * That second case is why nothing here and nothing on the export screen calls
+ * these files masked (CLAUDE.md #8). This code cannot inspect a JPEG and tell
+ * which of the two it is holding, so it claims neither.
+ *
+ * They are exported either way because they are the buyer's own photographs of
+ * the buyer's own document, going to the buyer's own Downloads folder —
+ * withholding them would remove evidence from the person it belongs to, not
+ * protect anyone. The packet itself never renders a page image; it shows the row
+ * crops, which come from the same bitmap and therefore have the same property.
  */
 object ReceiptExport {
 

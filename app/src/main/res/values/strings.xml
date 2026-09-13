@@ -264,12 +264,28 @@
 
     <!--
       TAMIL-REVIEW
-      CLAUDE.md #8, stated to the person holding the phone. P4 replaces the body
-      of PrivacyMask together with BOTH of these strings and PrivacyMask.STATUS_LINE
-      — they must always say the same thing.
+      CLAUDE.md #8, stated to the person holding the phone. These three describe
+      the three states PrivacyMask can be in, and the screen shows exactly the
+      one that is true right now. They must always agree with what was actually
+      written to disk — that is the whole invariant PrivacyMask holds.
+
+      scan_mask_note      — no masker could be built on this phone. The saved
+                            image is the raw capture, and the line says so.
+      scan_mask_active    — a masker ran. People in frame are painted out of the
+                            saved image. Deliberately does NOT name the
+                            accelerator: that belongs beside the latency figure,
+                            not in the promise, and no buyer needs the word NPU
+                            to understand what was saved.
+      scan_mask_withheld  — a masker exists but this page failed it, so no image
+                            was written. The clauses were still read: the reading
+                            happens on the capture in memory, before any of this.
     -->
     <string name="scan_mask_note">தனியுரிமை மறைப்பு இன்னும் இயங்கவில்லை. சேமிக்கப்படும் படம் கேமரா பார்த்தது அப்படியே — ஃபிரேமில் நபர்கள் வராமல் பார்த்துக் கொள்ளுங்கள்.</string>
     <string name="scan_mask_note_en">Privacy mask is not active yet. The saved image is exactly what the camera saw — keep people out of frame.</string>
+    <string name="scan_mask_active">தனியுரிமை மறைப்பு இயங்குகிறது. ஃபிரேமில் நபர்கள் இருந்தால், சேமிக்கப்படும் படத்தில் அவர்கள் மறைக்கப்படுவார்கள்.</string>
+    <string name="scan_mask_active_en">Privacy mask is running. If people are in frame, they are painted out of the saved image.</string>
+    <string name="scan_mask_withheld">இந்தப் பக்கத்தின் படம் சேமிக்கப்படவில்லை — மறைப்பு இயங்கவில்லை. ஆவணத்தில் எழுதியிருப்பது படிக்கப்பட்டது.</string>
+    <string name="scan_mask_withheld_en">This page image was not saved — the mask did not run on it. What the document says was still read.</string>
 
     <string name="action_close">மூடு</string>
     <string name="action_close_en">Close</string>

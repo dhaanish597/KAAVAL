@@ -115,7 +115,23 @@ fun DocumentScanScreen(onClose: () -> Unit) {
 
     var sessionId by remember { mutableStateOf(SessionEvidence.newSessionId(context)) }
     val evidence = remember(sessionId) { SessionEvidence.forSession(context, sessionId) }
-    val scanner = remember(sessionId) { PageScanner(recognizer, evidence) }
+
+    // One masker for the lifetime of the screen, like the recognizer above.
+    // Constructing it is cheap; warmUp() compiles the model for whichever
+    // accelerator accepts it, which is why it runs in a LaunchedEffect and not
+    // in remember { }.
+    val privacyMask = remember { PrivacyMask(context) }
+    val scanner = remember(sessionId, privacyMask) { PageScanner(recognizer, evidence, privacyMask) }
+
+    var maskAvailability by remember {
+        mutableStateOf<PrivacyMask.Availability>(PrivacyMask.Availability.Unknown)
+    }
+    var lastMask by remember { mutableStateOf<PrivacyMask.MaskSummary?>(null) }
+
+    LaunchedEffect(privacyMask) {
+        privacyMask.warmUp()
+        maskAvailability = privacyMask.availability
+    }
 
     val previewView = remember {
         PreviewView(context).apply {
@@ -170,14 +186,18 @@ fun DocumentScanScreen(onClose: () -> Unit) {
             // the detector — closing it there is precisely the
             // close-under-an-in-flight-recognition case. So the in-flight scan
             // is left to finish and the close rides on its completion.
-            // ML Kit's task always completes, with a result or an error.
+            // ML Kit's task always completes, with a result or an error. The
+            // privacy masker rides the same signal: it is a native model handle
+            // and an in-flight scan may be inside model.run() right now.
             val running = job
             if (running == null || running.isCompleted) {
                 recognizer.close()
+                privacyMask.close()
                 scanScope.cancel()
             } else {
                 running.invokeOnCompletion {
                     recognizer.close()
+                    privacyMask.close()
                     scanScope.cancel()
                 }
             }
@@ -205,8 +225,9 @@ fun DocumentScanScreen(onClose: () -> Unit) {
                     throw t
                 }
                 pages += page
-                page.observations.forEach { reconciler.apply(ReconcilerEvent.WrittenObserved(it)) }
+                page.observations.forEach { observation -> reconciler.apply(ReconcilerEvent.WrittenObserved(observation)) }
                 clausesRead += page.observations.size
+                lastMask = page.maskSummary
                 status = "Page ${page.pageNumber}: ${page.observations.size} clause(s) " +
                     "from ${page.lineCount} OCR line(s) in ${page.ocrElapsedMs} ms, " +
                     "min line confidence ${PageConfidence.format3(page.confidence.min)}."
@@ -288,7 +309,27 @@ fun DocumentScanScreen(onClose: () -> Unit) {
         }
 
         Spacer(Modifier.height(10.dp))
-        DevMono(PrivacyMask.STATUS_LINE)
+        // The dev screen gets the diagnostic form, not the buyer's sentence: on
+        // this screen the interesting questions are which rung LiteRT accepted
+        // and what the last page cost. The refusals in particular are the whole
+        // answer to "why is it not on NPU", and they are gone the moment the
+        // screen is rebuilt.
+        DevMono(
+            when (val availability = maskAvailability) {
+                is PrivacyMask.Availability.Unknown -> "Privacy mask: building …"
+                is PrivacyMask.Availability.Unavailable ->
+                    "Privacy mask: NOT RUNNING (${availability.reason}). Saved pages are the raw capture."
+                is PrivacyMask.Availability.Active ->
+                    "Privacy mask: running on ${availability.accelerator.label}" +
+                        when (val last = lastMask) {
+                            is PrivacyMask.MaskSummary.Ran -> " · last page %.1f ms infer, %.1f ms total, %.1f%% covered"
+                                .format(last.inferenceMs, last.totalMs, last.coverage * 100)
+                            is PrivacyMask.MaskSummary.Withheld ->
+                                " · LAST PAGE WITHHELD (${last.reason}) — no image written"
+                            else -> ""
+                        }
+            },
+        )
 
         Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth()) {
