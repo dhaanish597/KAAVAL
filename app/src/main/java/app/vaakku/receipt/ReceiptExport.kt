@@ -84,15 +84,21 @@ object ReceiptExport {
      * than a boolean because a receipt that exported without three of its crops
      * is still worth having, and the screen should be able to say exactly what
      * is missing instead of failing the whole export or claiming a clean one.
+     *
+     * [receiptWritten] is a field and not `fileCount > 0`, which is what it used
+     * to be. `fileCount` counts pages and crops as well, so a run where
+     * `receipt.json` failed and one page copy succeeded would have reported a
+     * saved receipt — while the folder held images and no record, which is not
+     * something `tools/packet-cli` can read at all. The one file whose presence
+     * the screen makes a claim about is tracked on its own.
      */
     data class Result(
         val folder: String,
         val zip: String?,
         val fileCount: Int,
         val failures: List<String>,
-    ) {
-        val receiptWritten: Boolean get() = fileCount > 0
-    }
+        val receiptWritten: Boolean,
+    )
 
     /**
      * Writes [receiptJson] and the session's images to `Download/Vaakku/<id>/`,
@@ -123,7 +129,8 @@ object ReceiptExport {
         val zipEntries = LinkedHashMap<String, ByteArray>()
 
         val receiptBytes = receiptJson.toByteArray(Charsets.UTF_8)
-        if (writeFile(context, relative, RECEIPT_NAME, MIME_JSON, receiptBytes, failures)) {
+        val receiptWritten = writeFile(context, relative, RECEIPT_NAME, MIME_JSON, receiptBytes, failures)
+        if (receiptWritten) {
             zipEntries[RECEIPT_NAME] = receiptBytes
             count++
         }
@@ -146,7 +153,12 @@ object ReceiptExport {
             }
         }
 
-        val zip = if (zipEntries.isEmpty()) {
+        // No receipt, no zip. The zip exists to be the thing somebody attaches to
+        // an email or hands over on a stick, unopened — and a zip of page images
+        // with no `receipt.json` is not a record of anything, which is the same
+        // reasoning that puts the receipt write first. The images are already in
+        // the folder either way, so withholding the zip loses the buyer nothing.
+        val zip = if (!receiptWritten || zipEntries.isEmpty()) {
             null
         } else {
             writeZip(context, sessionId, zipEntries, failures)
@@ -157,6 +169,7 @@ object ReceiptExport {
             zip = zip,
             fileCount = count,
             failures = failures,
+            receiptWritten = receiptWritten,
         )
     }
 

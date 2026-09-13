@@ -1,16 +1,19 @@
 # STATUS — VAAKKU
 
-Current light: GREEN · Current phase: **P6 (Receipt)** — the session runs end to end on
-the phone, and a receipt's hash chain now verifies in a second implementation ·
+Current light: GREEN · Current phase: **P6 (Receipt)** — the app can now end a session
+into a signed receipt and write it out; none of that has run on the phone yet ·
 Hour: H1–H6
 
 **What is real as of 2026-09-13:** the microphone genuinely opens on the phone (logcat
 proves `silero_vad.onnx` loads and `AudioRecord` starts), every P5 screen renders in Tamil,
 the session service shuts down cleanly leaving no `ServiceRecord`, and a receipt written by
 `:domain` verifies byte-for-byte in an independent Node implementation — including a real
-ECDSA signature, and including a tamper it correctly refuses. **What is still unproven:** no
-page has ever been through the camera into the ledger (G3), no NPU work exists (G4), and no
-receipt has ever been written by the phone (§7.2 Keystore and §7.3 export are not written).
+ECDSA signature, and including a tamper it correctly refuses. §7.2 Keystore signing, §7.3
+MediaStore export and the §6.6 screen 5 that calls them are now **written and compiling**.
+**What is still unproven:** no page has ever been through the camera into the ledger (G3),
+no NPU work exists (G4), and **no receipt has ever been written by the phone** — every
+byte of §7 evidence so far came from a laptop fixture, so StrongBox, the Keystore and the
+Downloads folder are all still theory.
 
 Red Light ruling: **unknown** — no organizer statement recorded yet.
 Name ruling: **unknown** — displayed name is VAAKKU, changed by editing the single
@@ -31,7 +34,7 @@ This assumption has not been confirmed by an organizer.
 | G4 NPU | NOT STARTED | — | — |
 | G5 End-to-end | **UI COMPLETE — one half unproven** | `evidence/P5_*.png`; session runs Setup→mic→card→ended→Setup on the phone. The spoken half reaches the ledger; the camera half has still never run. | H6– |
 | G6 Go/No-Go | NOT STARTED | — | — |
-| G7 Receipt + Office Kit | **CHAIN PROVEN — no receipt from a phone yet** | `evidence/G7_receipt_integrity.txt`, `evidence/receipt_fixture/` | H6– |
+| G7 Receipt + Office Kit | **CODE COMPLETE — no receipt from a phone yet** | `evidence/G7_receipt_integrity.txt`, `evidence/receipt_fixture/`; §7.2/§7.3/§6.6-screen-5 written (`9081ee3`) but never executed on a device | H6– |
 | G8 Freeze | NOT STARTED | — | — |
 
 ### G0 evidence checklist (§13)
@@ -309,7 +312,7 @@ here proves the phone. Full output in `evidence/G7_receipt_integrity.txt`.
 | Packet rendered, read by eye | **done** | `evidence/receipt_fixture/packet.pdf` — Tamil correctly shaped, violet on the DIFFERS row only, 3 rows with LOCK_IN/LIQUIDITY/CHARGES **silent** |
 | No internal field can reach paper | **enforced, and it fired** | `assertNothingInternal` walks the built model; it caught `signature.reason` during this work (§7.4's verification reason, colliding with the ledger's `ReasonCode`) |
 | `:domain:test` + `fixtureReport` + `checkBannedWords` | **PASS** | 26 fixtures, 45 assertions, precision 1.00, recall 1.00, 0 mismatches |
-| **A receipt written by the phone** | **NOT DONE** | §7.2 Keystore + §7.3 MediaStore export are not written. Everything above used a laptop fixture. |
+| **A receipt written by the phone** | **NOT DONE** | §7.2 Keystore, §7.3 export and the §6.6 screen that calls them are now written (`9081ee3`) and compile, but nothing below the laptop fixture has executed. See the P6 table. |
 | **StrongBox / attestation on real hardware** | **NOT DONE** | the fixture reports `strongBox: false` because a JDK key is not in secure hardware. Honest by construction (CLAUDE.md #8). |
 | **Office Kit half of this gate** | **NOT DONE** | the human has never moved a packet with it |
 
@@ -318,6 +321,28 @@ proves the key in the attached certificate signed the head. It does **not** prov
 is in the phone's secure hardware — that needs the chain walked to Google's attestation
 root, and this tool is offline and does not carry it. So `strongBox` is printed as "reported
 by the phone", not as something verified here.
+
+### P6 evidence — signing, export and the Receipt screen (§7.2, §7.3, §6.6 screen 5)
+
+Commits `c0568a3` (signing + export) and `9081ee3` (the screen that calls them). Written
+and compiling on the laptop; **every row that needs a device is open.**
+
+| Item | Status | Path / number |
+|---|---|---|
+| §7.2 Keystore signer | **written, never run** | `app/src/main/java/app/vaakku/receipt/ReceiptSigner.kt` — `vaakku_receipt`, EC P-256, StrongBox attempted with TEE fallback, `SHA256withECDSA` over the head's **64 ASCII hex characters** |
+| §7.3 MediaStore export | **written, never run** | `ReceiptExport.kt` → `Download/Vaakku/<sessionId>/` plus `<sessionId>.zip` |
+| §6.6 screen 5 | **written, never rendered on a phone** | `app/src/main/java/app/vaakku/ui/session/ReceiptScreen.kt` |
+| The head on screen is the head in the file | **structural, not conventional** | `ReceiptWriter.build()` returns the `Receipt`; the screen prints *that object's* head and hands the same object to `signAndExport()`. `signedWith()` attaches a block the head is computed **over**, never **from**, so signing cannot move it. |
+| Export allowlist — CLAUDE.md #4's second lock | **PASS (JVM test)** | `ReceiptExportTest` seeds a session folder with `segment.wav`, `session.pcm`, `page_1.png`, `pages_1.jpg`, `transcript.txt` and a `page_dir.jpg` *directory*, and asserts the export yields exactly `["page_1.jpg"]` |
+| "Saved" means the receipt saved | **fixed in review** | decision 68 — `receiptWritten` was `fileCount > 0`, which counts pages and crops, so a failed receipt plus one good page read as a saved record |
+| Page ordering is numeric, not lexical | **PASS (JVM test)** | `page_1, page_2, page_10, page_11` — name order would also reorder the zip |
+| Duration + short-head formatters | **PASS (JVM test)** | `ReceiptScreenFormatTest` — mm:ss, an hours field, a negative duration reading `00:00` rather than `-1:-3`, and `shortHead` grouping 16 chars as `0123 4567 89ab cdef` |
+| App unit tests | **PASS** | 51 across 7 classes, `skipped="0"`, in `app/build/test-results/testDebugUnitTest/` |
+| Gate | **PASS** | `:domain:test`, `fixtureReport` 26 fixtures / 45 assertions / precision 1.00 / recall 1.00, `checkBannedWords` clean (95 files), `check_manifest.sh` **PASS** on both merged manifest and APK |
+| **A real receipt from the phone** | **NOT DONE** | needs a session ended on the device |
+| **StrongBox actually measured** | **NOT DONE** | `KeyInfo.getSecurityLevel()` is read at runtime; no device has reported it yet |
+| **The exported folder read back by `tools/packet-cli`** | **NOT DONE** | this is the end-to-end proof of §7.3 → §7.4 and it is the single most valuable remaining P6 item |
+| **Page images in the export are unmasked** | **KNOWN GAP** | open issue 19 — the privacy masker is P4 |
 
 ## Decisions log
 
@@ -781,6 +806,71 @@ by the phone", not as something verified here.
     the offset arithmetically rather than through `Intl`: India has no daylight saving,
     and a fixed number cannot depend on which ICU data a laptop ships.
 
+64. **The hash head shown on screen is the same object that gets exported, by
+    construction rather than by care.** The Receipt screen prints a head before the buyer
+    has saved anything, and the obvious way to build that — format a head for display,
+    then build the receipt again at save time — gives two code paths that can drift, on
+    the one value whose entire purpose is that it cannot. So `ReceiptWriter` splits into
+    `build()`, which is pure and returns the `Receipt`, and `signAndExport()`, which takes
+    *that object*. The screen prints its head and hands the same instance on; there is no
+    way to reach the second step without having done the first. The property that makes
+    this safe is in the chain itself (decision 61): `head` is computed **over** the closing
+    record and the signature block is attached afterwards, so `signedWith()` cannot move
+    the head. Showing it before signing is therefore not an optimistic preview — it is the
+    final value.
+
+65. **மறுபரிசீலனை disappears once the session has ended, for two independent reasons and
+    either would be enough.** The product reason: re-check means "set this aside and bring
+    it back the moment it is said again" (§5.7 rule 9), and nothing will be said again
+    after the microphone closes — on an ended session the button is a promise the app
+    cannot keep. The mechanical reason: `UserRecheck` is a reconciler event, and an event
+    appended after the Receipt screen has built its receipt would change the hash head the
+    buyer is looking at. This was the last remaining way decision 64's guarantee could have
+    been broken, and it is closed in `DetailsSheet` by a phase check rather than by a
+    disabled button, so there is nothing to tap.
+
+66. **A session that *failed* still gets a receipt, and the failure is shown on the
+    Receipt screen rather than routed around it.** `SessionService.listen()` ends the
+    session from a `finally`, so a missing model file goes STARTING → `failed(...)` →
+    ENDED exactly like a normal session does. Routing ENDED to the new screen therefore
+    made the Session screen's failure display unreachable, and the first fix that came to
+    mind — keep failed sessions on the Session screen — is wrong: a microphone that died
+    in the fourth minute must not cost the buyer the record of the first three. The
+    failure block is instead the first thing on the Receipt screen, above the session
+    fields, with the exception verbatim in mono. Three now-unreachable ENDED branches in
+    `SessionScreen` were deleted along with their four strings, verified unreferenced by
+    grep across `app/src`, `domain/src` and `tools/` first.
+
+67. **The Receipt screen shows no count of differences and no "nothing differed" line.**
+    Both were written and both were removed. A total — "3 differences in this session" —
+    is a finding about the person on the other side of the table, which CLAUDE.md #1
+    forbids outright; and a sentence saying nothing differed is the app volunteering a
+    summary of a conversation it only partly heard, which is the same mistake with the
+    sign flipped (§5.7 rule 4 already says absence of a difference is not a finding). What
+    the screen does show is `receipt_topics`, "N of 6" — **topics covered**, not findings —
+    phrased with the denominator precisely because a bare "3" at the end of a session
+    would be read as three things wrong. StrongBox is likewise absent from the screen: it
+    is in the receipt JSON where the packet can qualify it as "reported by the phone", and
+    on screen there is no room for that qualification, which would leave an unqualified
+    hardware claim — the one thing CLAUDE.md #8 rules out.
+
+68. **"Saved" is now a fact about `receipt.json`, not about the file count.**
+    `ReceiptExport.Result.receiptWritten` was `fileCount > 0`, and `fileCount` counts
+    pages and crops too — so a run where the receipt write threw and one page copy
+    succeeded would have printed `%d கோப்புகள் சேமிக்கப்பட்டன` over a folder holding
+    images and no record. That folder is not something `tools/packet-cli` can read at
+    all: `findReceipt` looks for `receipt.json` and there would be none. Found by
+    reading the field while writing the Red Light test list for it, not by a test — the
+    JVM tests cannot reach `export()` because MediaStore needs a device, which is
+    precisely why the honest-label logic had to be simple enough to check by eye.
+    `receiptWritten` is now a constructor field set from the one write it names, and the
+    zip follows the same rule: no receipt, no zip, because the zip is the artefact
+    somebody hands over unopened and a zip of loose page images is not a record of
+    anything. The images stay in the folder regardless, so nothing of the buyer's is
+    withheld. The general lesson is the one CLAUDE.md #8 keeps restating: a label
+    derived from a proxy will eventually be a lie, so derive it from the thing it
+    claims.
+
 ## Measurements
 
 ### M1 — Rung-0 probe, run on the phone 2026-09-12 12:06 IST
@@ -995,6 +1085,25 @@ screen), `evidence/language_setting_persisted_after_restart.png` (after
     were written in this window and no native speaker has read them. The banner one
     matters most: `இந்தப் பதிவு எழுதப்பட்டபடி இல்லை.` is the sentence a person reads when
     their evidence does not verify.
+18. **The free-look note now exists in two places that cannot check each other.**
+    `tools/packet-cli/lib/strings.js` reads `free_look_note` **by name** out of
+    `app/src/main/res/values/strings.xml` and throws if it is absent — so the resource
+    name is part of an interface, and renaming it breaks the packet renderer with no
+    compiler to catch it (a comment now says so in both files). The English half is worse:
+    `free_look_note_en` was added to `strings.xml` for the app, while the packet carries
+    its own English in `PACKET.freeLookEn`. **Two copies of one legal sentence, and nothing
+    fails if they diverge.** The Tamil is safe because there is only one copy of it. Fix
+    when P7 touches either file: have `strings.js` read `free_look_note_en` by name too,
+    and delete `PACKET.freeLookEn`.
+19. **Page images in the export are unmasked, and the privacy masker is P4.** §7.3 copies
+    `page_*.jpg` straight out of the session folder into `Download/Vaakku/<sessionId>/`,
+    and those are full photographs of a document that may carry the buyer's name, address,
+    policy number or signature. Everything else in the export is text the app itself
+    wrote. This is a known ordering consequence, not an oversight — P4's masker is what
+    redacts them — but it means **an export taken before P4 lands must not be shared with
+    anyone**, including as demo evidence, without a human looking at every page first. The
+    prop pages 5+6 are synthetic, so demo exports are fine; a real document scanned in a
+    test is not.
 
 ## On-device verification status (P0)
 
@@ -1056,6 +1165,23 @@ What is left:
       in `DocumentCamera.kt` and re-scan before concluding anything about the regexes.
 - [ ] Watch the phone's temperature during a bake-off re-run if one is needed.
       §11.5 budgets thermal at ≤ MODERATE after 15 minutes.
+- [ ] **P6 / G7: end one session and save the receipt.** This is the first time §7.2 and
+      §7.3 execute anywhere. Four things to record, and the first two are the gate:
+      (a) does `Download/Vaakku/<sessionId>/` exist with `receipt.json` and the zip;
+      (b) does `node tools/packet-cli <that folder>` print `INTEGRITY: PASSED` and
+      `SIGNATURE: verified` — a phone that signs the head's 32 **bytes** instead of its
+      64 hex **characters** will fail here and that is exactly what this test is for;
+      (c) what `strongBox` says in the JSON — this is the first real
+      `KeyInfo.getSecurityLevel()` reading and whatever it says is the truth (CLAUDE.md
+      #8), including `false`; (d) how long the Save button takes on first tap, because a
+      StrongBox key can take a good fraction of a second to generate.
+- [ ] **P6: end a session with the models deliberately missing.** Rename one model dir,
+      start a session, and confirm the app lands on the Receipt screen with the mic
+      failure at the top — not on a blank Session screen. This is decision 66's whole
+      point and it is one adb command to set up.
+- [ ] **P6: save twice.** The second save must overwrite the same folder and produce the
+      same head, not a second folder. A buyer who taps Save again because they are not
+      sure it worked must not end up with two records of one conversation.
 - [ ] The P0 "Not yet verified" list above is still the standing queue underneath this.
 
 **Superseded queue (done — kept for the record):**
@@ -1151,17 +1277,25 @@ What is left:
 - **`checkBannedWords` scans comments too.** Two of its first findings were prose in a
   doc comment ("risk ramp", "never a verdict"), not product strings. The guard was
   right both times. Reword the comment; never touch the list.
-- **The receipt chain is proven; the phone half of §7 is not written.** What exists:
-  `domain/.../receipt/` (canonical JSON + chain), `tools/packet-cli/` (an independent
-  verifier and the §7.4 packet), `:domain:receiptFixture` and
-  `scripts/receipt_fixture_signed.sh` to regenerate the fixtures. What does not:
-  **§7.2's Keystore signing and §7.3's MediaStore export**. The next task there is
-  `vaakku_receipt`, EC P-256, StrongBox attempted with TEE fallback,
-  `setAttestationChallenge(h0 bytes)`, `SHA256withECDSA` over `head` — and the
-  convention to match is **the head's 64 ASCII hex characters, not the 32 bytes they
-  spell**. `ReceiptFixtureRunner.sign` and `verify.js` both already do it that way; a
-  phone that signs the bytes instead will produce a signature Node reports as broken,
-  which now also means exit 2 (decision 63).
+- **The receipt chain is proven; the phone half of §7 is written but has never run.**
+  What exists and is proven: `domain/.../receipt/` (canonical JSON + chain),
+  `tools/packet-cli/` (an independent verifier and the §7.4 packet),
+  `:domain:receiptFixture` and `scripts/receipt_fixture_signed.sh` to regenerate the
+  fixtures. What exists and is **not** proven: `app/.../receipt/ReceiptSigner.kt`
+  (§7.2), `ReceiptExport.kt` (§7.3) and `ui/session/ReceiptScreen.kt` (§6.6 screen 5) —
+  written in P6, compiling, unit-tested where a JVM can reach them, and never executed
+  on a device. Do not start by reading them again; start by ending a session on the
+  phone and reading the exported folder back with the CLI (first item in the Red Light
+  list). The convention most likely to bite is that the signature covers **the head's 64
+  ASCII hex characters, not the 32 bytes they spell** — `ReceiptFixtureRunner.sign`,
+  `verify.js` and `ReceiptWriter.signAndExport` all do it that way, and a phone that
+  signs the bytes instead produces a signature Node reports as broken, which now also
+  means exit 2 (decision 63).
+- **The Receipt screen is where CLAUDE.md #1 is easiest to break by accident.** It is
+  the one screen that sees the whole ledger at once, so every instinct to summarise
+  lands here — a count, a "nothing differed", a badge. Decision 67 records what was
+  written and then removed, and why "N of 6" is topics rather than findings. If a future
+  task asks for "a summary at the end", that decision is the answer.
 - **Regenerate the receipt fixtures with the Gradle task; never hand-edit them.**
   `./gradlew :domain:receiptFixture` rewrites `receipt.json` and
   `receipt_tampered.json` deterministically — every value is a literal, so a re-run on
