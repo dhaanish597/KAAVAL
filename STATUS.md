@@ -636,6 +636,7 @@ from the laptop.
 | **Release build (minify off)** | **PASS** | `:app:assembleRelease`, `app-release.apk` **114,066,924 B**. `lintVitalRelease` ran and passed. R8 stays off by decision — see `app/build.gradle.kts`. |
 | **Release APK proven offline** | **PASS — first time ever checked** | `evidence/P7_check_manifest_both_variants.txt`. The release variant had never been through `check_manifest.sh` before today; the script only ever built the debug merged manifest. Open issue 30, decision 89. |
 | **`check_manifest.sh` proven able to fail** | **PASS** | negative control in the same evidence file: `tools:node="remove"` stripped from the INTERNET line → three FAILs and exit 1, including the APK-level one. Manifest restored, `git diff --stat` empty. Decision 88. |
+| **`checkBannedWords` proven able to fail in both directions** | **PASS** | `evidence/P7_checkbannedwords_control.txt`. Fires on a planted banned word (`CopyRes.kt`, tested separately) **and** on a collapsed scan, checked per root: pass / fail / fail / pass over four runs. The first attempt at the second half — a floor of 40 on the total file count — **passed a scan that had lost 46 of 100 files**; see decision 90. |
 | **Crash review from logcat** | **clean, and the buffer is trustworthy** | `adb logcat -b crash` is **16 MiB with 0 B consumed** — no crash has been written to it. No `FATAL EXCEPTION`, no `ANR in`, no `am_crash` for `app.vaakku` in the main buffer, and `/data/tombstones/` is empty. This covers the P4 benchmark runs, the three G3 sessions and the P5/P6 screens. |
 | Release APK installed through the final install path | **NOT DONE** | needs the phone; must not land mid-scan-run |
 | 15-minute soak | **NOT DONE** | human |
@@ -1352,12 +1353,30 @@ the G4 pull rather than cleared. The app has not crashed on this phone.
     output is in `evidence/`. `checkBannedWords` and the schema-guard test have both fired
     for real; `check_manifest.sh` now has a recorded negative control. **When adding a new
     guard, write the failing run into `evidence/` in the same commit as the guard.**
+    *(Refined the same day by decision 90: "has fired for real" turned out to be a weaker
+    statement than it sounds, and `checkBannedWords` needed a second control.)*
 89. **`check_manifest.sh` checks debug AND release, because P7 installs release.** §13's
     P7 line requires the release build to go through the final install path. Until now the
     script only ever produced the debug merged manifest — so the artifact that actually
     ships had never been checked for INTERNET at all. Both variants now run, each with its
     own explicitly derived manifest path rather than `find | sort | tail -1`, which had
     started silently resolving to release the moment a release build existed.
+90. **A guard has two directions, and firing on a planted fault only proves one.**
+    Decision 88 called `checkBannedWords` "known-live" because planting `risk` in
+    `CopyRes.kt` made it fail. That was true and insufficient: it proved the guard fails on
+    a banned word **it looks at**, not that it looks at the app. Its scan is a fixed list of
+    source roots, and `0 findings` is the same output for "nothing is wrong" and "nothing
+    was read" — so a moved root, a renamed source set or a new file extension would leave
+    it green while it scanned less and less. It now also fails when the scan itself
+    collapses, checked **per root**: every declared root must exist, and every root must
+    yield at least one file. The per-root form is not fussiness — the **first attempt was a
+    floor on the total file count (40 of 100) and it did not work**: simulating a moved
+    `app/src/main/java` removed 46 files, every Kotlin UI string in the app, and the
+    surviving 54 sailed past the floor with `BUILD SUCCESSFUL`. Any total high enough to
+    catch that would fire on an ordinary refactor. Both failure branches are recorded in
+    `evidence/P7_checkbannedwords_control.txt` as pass/fail/fail/pass. **When a guard is
+    made to fail on purpose, break the thing that makes it look, not just the thing it
+    looks for.**
 
 ## Measurements
 
@@ -1826,10 +1845,21 @@ measurement of the cable, so it is not recorded).
     rebuilt clean.
 
     **The general lesson, and the reason this is written down rather than just fixed:**
-    every guard in this project needs one run where it fails on purpose. `checkBannedWords`
-    and the schema-guard test have both fired for real, so they are known-live.
+    every guard in this project needs one run where it fails on purpose.
     `check_manifest.sh` had never once gone red, and a check that has only ever been green
     is indistinguishable from a check that cannot go red.
+
+    **Following that lesson to the other guards immediately turned up a second hole.**
+    `checkBannedWords` and the schema-guard test had both fired for real, which looked like
+    enough — but "it fails on a planted banned word" only proves a guard reacts to what it
+    reads. `checkBannedWords` walks a fixed list of source roots, so a moved root would
+    have left it reporting `0 findings` forever. It now has a per-root positive control
+    and a recorded four-run negative control
+    (`evidence/P7_checkbannedwords_control.txt`, decision 90). The first version of that
+    control — a floor on the total file count — **passed a scan that had silently lost 46
+    of 100 files**, which is the same bug shape as (a) above, committed while fixing (a)
+    above. The schema-guard test was checked too and already has both halves: a
+    `classes.size >= 20` floor and a parameterized test-of-the-test on the banned pattern.
 
 Verified on the iQOO 15 by driving the real app over adb, each backed by a screenshot
 or a file in `evidence/`:
@@ -2010,6 +2040,9 @@ What is left:
 - [x] **Release build (minify off).** `:app:assembleRelease` PASS, `lintVitalRelease` PASS.
 - [x] **Release APK proven offline.** First time it has ever been checked — see open
       issue 30.
+- [x] **Both build guards proven able to fail.** `check_manifest.sh` and
+      `checkBannedWords` each have a recorded negative control in `evidence/`
+      (decisions 88, 90). Nothing on the phone is needed for either.
 
 **Superseded queue (done — kept for the record):**
 
@@ -2031,6 +2064,20 @@ What is left:
 ## Handoff notes for the next session
 
 - Read `CLAUDE.md` → `STATUS.md` → `docs/VAAKKU_BUILD_PLAN.md`, in that order.
+- **FIRST: `:domain:test` may still be red, and it is not this session's work.** As of
+  2026-09-13 the working tree carried two untracked files from the parallel ASR session —
+  `domain/src/main/kotlin/app/vaakku/domain/normalize/TamilByteRepair.kt` and its test —
+  and **4 of 358 tests were failing**, all in `TamilByteRepairTest`. Check whether they
+  are still there and still red before assuming a gate failure is yours. Proven not to be
+  the committed tree's fault: the same three gates were run in a throwaway worktree at
+  `1921593` plus this session's `build.gradle.kts` change, and came out
+  `BUILD SUCCESSFUL`, `checkBannedWords: clean (100 files scanned, 0 findings)`, all
+  `:domain:test` green. The failing files were never touched, never staged, never fixed
+  from here — they belong to the other session and were reported to it. **The one that
+  matters is `'வரும்' must not match a year unit after repair ==> expected: <null> but
+  was: <0.7>`:** the other three are the repair failing to recover something, which costs
+  a card and ends in silence (CLAUDE.md #2), but this one is the repair *inventing* a
+  match, which is how a spoken value nobody said reaches the reconciler.
 - **`:domain` is done (P1, G1 PASS)** — model/lexicon/normalize/extract/reconcile/copy,
   277 tests, 26 fixtures, DIFFERS precision & recall both 1.00, schema guard clean. See
   "G1 evidence" above for the ten spec-ambiguity resolutions and the one real bug the

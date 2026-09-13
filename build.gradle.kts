@@ -62,7 +62,13 @@ val bannedColorTokens = listOf(
 // explicitly allowed (§2.4), so this is only checked as a display string.
 val bannedDisplayStrings = listOf("confidence %", "confidence%")
 
-fun scanRoots(): List<File> = listOf(
+// The roots checkBannedWords scans, before the existence filter.
+//
+// Kept separate from scanRoots() so the guard can tell "this root is
+// deliberately absent" from "this root moved and nobody noticed" — see the
+// positive control in the task below. A path here that stops existing is a
+// build failure, not a silently shorter scan.
+fun declaredScanRoots(): List<File> = listOf(
     file("app/src/main/res"),
     file("app/src/main/java"),
     // The debug source set ships in debug builds, which is what runs on the phone
@@ -71,7 +77,9 @@ fun scanRoots(): List<File> = listOf(
     file("app/src/main/AndroidManifest.xml"),
     file("domain/src/main"),
     file("tools/packet-cli"),
-).filter { it.exists() }
+)
+
+fun scanRoots(): List<File> = declaredScanRoots().filter { it.exists() }
 
 fun isAllowed(file: File): Boolean {
     val p = file.invariantSeparatorsPath
@@ -132,15 +140,18 @@ tasks.register("checkBannedWords") {
 
     doLast {
         val offenders = mutableListOf<String>()
-        var scanned = 0
+        // Counted per root, not just in total: a single total cannot tell a
+        // missing root from a smaller one. See the positive control below.
+        val perRoot = linkedMapOf<File, Int>()
 
         scanRoots().forEach { root ->
+            var rootCount = 0
             root.walkTopDown()
                 .filter { it.isFile }
                 .filter { it.extension.lowercase() in setOf("kt", "java", "xml", "json", "js", "ts", "html", "txt", "css") }
                 .filter { !isAllowed(it) }
                 .forEach { file ->
-                    scanned++
+                    rootCount++
                     val lines = file.readLines()
                     lines.forEachIndexed { i, line ->
                         val lower = line.lowercase()
@@ -169,13 +180,58 @@ tasks.register("checkBannedWords") {
                         }
                     }
                 }
+            perRoot[root] = rootCount
         }
+
+        val scanned = perRoot.values.sum()
 
         if (offenders.isNotEmpty()) {
             logger.error("checkBannedWords FAILED — ${offenders.size} finding(s) across $scanned scanned file(s):")
             offenders.forEach { logger.error("  $it") }
             throw GradleException("checkBannedWords: ${offenders.size} banned word(s) found. VAAKKU never renders a verdict (CLAUDE.md #1).")
         }
+
+        // POSITIVE CONTROL (decision 88). "0 findings" is the same output for
+        // "nothing is wrong" and "nothing was looked at", and the second one is
+        // what a guard looks like after someone moves a source root, renames a
+        // source set, or adds a file extension this filter does not list.
+        //
+        // This is not hypothetical: check_manifest.sh printed "ok: INTERNET
+        // absent from APK" on every run from P0 until it was rewritten, because
+        // it ASCII-grepped a UTF-16LE binary manifest and matched nothing. The
+        // guard was green for months and could not go red (open issue 30).
+        //
+        // Checked PER ROOT rather than against a total, because a total is far
+        // too blunt: deleting app/src/main/java — 46 files, every Kotlin UI
+        // string in the app — still leaves 54, which sails past any total floor
+        // low enough to be safe from ordinary churn. That exact experiment was
+        // run, and a total-only floor of 40 passed it. Each root must contribute
+        // at least one file, and every declared root must still exist.
+        //
+        // If this fires, do NOT delete the root from the list to make it green —
+        // find out where the files went.
+        val vanished = declaredScanRoots().filterNot { it.exists() }
+        val empty = perRoot.filterValues { it == 0 }.keys
+
+        if (vanished.isNotEmpty() || empty.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    append("checkBannedWords is broken, not clean — it reported 0 findings ")
+                    append("because part of the source tree was never read.\n")
+                    if (vanished.isNotEmpty()) {
+                        append("  declared roots that no longer exist:\n")
+                        vanished.forEach { append("    ${it.invariantSeparatorsPath}\n") }
+                    }
+                    if (empty.isNotEmpty()) {
+                        append("  roots that exist but contributed no scannable files:\n")
+                        empty.forEach { append("    ${it.invariantSeparatorsPath}\n") }
+                    }
+                    append("  files scanned per root:\n")
+                    perRoot.forEach { (root, n) -> append("    ${root.invariantSeparatorsPath}: $n\n") }
+                },
+            )
+        }
+
         logger.lifecycle("checkBannedWords: clean ($scanned files scanned, 0 findings).")
     }
 }

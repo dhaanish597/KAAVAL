@@ -1,0 +1,182 @@
+P7 — checkBannedWords positive control: proof it can fail
+=========================================================
+
+Decision 88 says every guard in this project needs one run where it fails on
+purpose, because a check that has only ever been green is indistinguishable
+from a check that cannot go red. This file is that run for checkBannedWords.
+
+checkBannedWords was already known-live in one direction: planting
+`// negative control: risk` in app/src/main/java/app/vaakku/ui/CopyRes.kt made
+it report 1 finding and exit 1 (file restored, git diff empty). So it does
+fire on a banned word that is in front of it.
+
+What it had no defence against was a banned word it never looked at. The task
+walks a fixed list of source roots; "0 findings" is the same output for
+"nothing is wrong" and "nothing was read". Move a source root, rename a source
+set, or add a source file extension the filter does not list, and the guard
+stays green while scanning less and less of the app.
+
+WHY PER ROOT AND NOT A TOTAL FILE COUNT
+---------------------------------------
+The first attempt at this control was a floor on the total number of files
+scanned: minimumFiles = 40, against 100 in a healthy tree. IT DID NOT WORK,
+and the way it failed is the whole reason the per-root form exists.
+
+Simulating a moved app/src/main/java — 46 files, every Kotlin UI string in
+the app, i.e. precisely the files most likely to carry a verdict-flavoured
+string — left 54 files behind. 54 > 40, so the guard printed:
+
+    checkBannedWords: clean (54 files scanned, 0 findings).
+    BUILD SUCCESSFUL
+    EXIT: 0
+
+A total floor high enough to catch that would have to sit above 54, which is
+within ordinary churn of 100 and would fire on any normal refactor. So the
+control is now per root: every declared root must still exist, and every root
+must contribute at least one scannable file. That 54 is visible in RUN 2
+below — the five surviving roots sum to exactly it.
+
+The check is also deliberately split into declaredScanRoots() (the literal
+list) and scanRoots() (existence-filtered), so the guard can tell "this root
+is deliberately absent" from "this root moved and nobody noticed". Before the
+split there was only the filtered list, and a vanished root was silently
+dropped.
+
+FOUR RUNS: PASS, FAIL, FAIL, PASS
+---------------------------------
+Run 1 and run 4 are the same unmodified tree, so the two failures in between
+are attributable to the simulated breakage and to nothing else — and run 4
+proves the simulations left nothing behind. Both failure branches are
+exercised: a root that vanished (A) and a root that exists but yields nothing
+(B). Verbatim output follows; only Gradle's incubating/deprecation banners and
+blank lines were filtered out.
+
+Command, all four times:
+    ./gradlew checkBannedWords --rerun-tasks --console=plain
+
+############################################################
+# RUN 1 of 4 — unmodified tree. MUST PASS.
+############################################################
+checkBannedWords: clean (100 files scanned, 0 findings).
+BUILD SUCCESSFUL in 1s
+EXIT CODE: 0
+
+############################################################
+# RUN 2 of 4 — NEGATIVE CONTROL A: a declared root moved away
+#              (app/src/main/java -> java_MOVED). MUST FAIL.
+############################################################
+> Task :checkBannedWords FAILED
+FAILURE: Build failed with an exception.
+* What went wrong:
+Execution failed for task ':checkBannedWords'.
+> checkBannedWords is broken, not clean — it reported 0 findings because part of the source tree was never read.
+    declared roots that no longer exist:
+      C:/Users/clash/Videos/KAAVAL/app/src/main/java_MOVED
+    files scanned per root:
+      C:/Users/clash/Videos/KAAVAL/app/src/main/res: 8
+      C:/Users/clash/Videos/KAAVAL/app/src/debug: 9
+      C:/Users/clash/Videos/KAAVAL/app/src/main/AndroidManifest.xml: 1
+      C:/Users/clash/Videos/KAAVAL/domain/src/main: 29
+      C:/Users/clash/Videos/KAAVAL/tools/packet-cli: 7
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+BUILD FAILED in 1s
+EXIT CODE: 1
+
+  ^ 8 + 9 + 1 + 29 + 7 = 54. That is the number the total-only floor of 40
+    passed. The moved root is absent from the per-root listing entirely
+    (it never entered the map), which is what the "no longer exist" block
+    above it is for.
+
+############################################################
+# RUN 3 of 4 — NEGATIVE CONTROL B: a root that exists but yields no
+#              scannable files (gradle/ holds only .jar/.properties/.toml).
+#              MUST FAIL.
+############################################################
+> Task :checkBannedWords FAILED
+FAILURE: Build failed with an exception.
+* What went wrong:
+Execution failed for task ':checkBannedWords'.
+> checkBannedWords is broken, not clean — it reported 0 findings because part of the source tree was never read.
+    roots that exist but contributed no scannable files:
+      C:/Users/clash/Videos/KAAVAL/gradle
+    files scanned per root:
+      C:/Users/clash/Videos/KAAVAL/app/src/main/res: 8
+      C:/Users/clash/Videos/KAAVAL/app/src/main/java: 46
+      C:/Users/clash/Videos/KAAVAL/gradle: 0
+      C:/Users/clash/Videos/KAAVAL/app/src/debug: 9
+      C:/Users/clash/Videos/KAAVAL/app/src/main/AndroidManifest.xml: 1
+      C:/Users/clash/Videos/KAAVAL/domain/src/main: 29
+      C:/Users/clash/Videos/KAAVAL/tools/packet-cli: 7
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+BUILD FAILED in 1s
+EXIT CODE: 1
+
+  ^ This branch is the one that catches extension-filter drift. gradle/ was
+    used as a convenient stand-in for a real source root that has stopped
+    matching the filter, because it exists in every checkout and contains no
+    .kt/.java/.xml/.json/.js/.ts/.html/.txt/.css file. The real-world version
+    of this is someone adding UI strings in a file type the filter does not
+    list, or a source set being emptied by a move.
+
+############################################################
+# RUN 4 of 4 — tree restored. MUST PASS again, proving the controls left
+#              nothing behind.
+############################################################
+checkBannedWords: clean (100 files scanned, 0 findings).
+BUILD SUCCESSFUL in 1s
+EXIT CODE: 0
+
+HEALTHY PER-ROOT COUNTS, FOR FUTURE REFERENCE
+---------------------------------------------
+Measured at commit 1921593, with no uncommitted source files present.
+
+    app/src/main/res                   8
+    app/src/main/java                 46
+    app/src/debug                      9
+    app/src/main/AndroidManifest.xml   1
+    domain/src/main                   29
+    tools/packet-cli                   7
+                                     ---
+                                     100
+
+These numbers WILL drift as the project grows, and drifting upward is not a
+problem — the check has no upper bound and no total floor, precisely so that
+ordinary growth never has to touch it. Each number is a per-root floor of 1 in
+practice; the table is here to make a *collapse* recognisable, not to be
+matched exactly. (Already drifting: a new `domain/.../TamilByteRepair.kt` was
+in the tree as untracked work while this was written, and the scan read 101
+files, clean. domain/src/main becomes 30 when that lands.)
+
+If a future run reports a materially smaller number for a root that still
+exists, the fix is to find out where the files went — NOT to remove the root
+from the list to make the build green. That instruction is also in the
+comment above the check in build.gradle.kts, where someone tempted to do it
+will actually be looking.
+
+AFTER THE CONTROL
+-----------------
+build.gradle.kts restored from backup; `git diff` shows only the intended
+positive-control addition (60 insertions, 4 deletions) and no trace of either
+simulation; the java_MOVED path and the extra gradle/ root are both gone from
+declaredScanRoots(); `git status --short` lists no stray files.
+
+WHAT THIS DOES AND DOES NOT PROVE
+---------------------------------
+Proves: checkBannedWords fails when a banned word is present (tested
+separately, CopyRes.kt), AND fails when part of the source tree silently stops
+being read (both branches, above). It is live in both directions.
+
+Does not prove: that the banned-word list itself is complete, or that the
+extension filter covers every file type the app will ever use. The per-root
+check makes a root going quiet loud; it cannot make a word that was never
+banned illegal. The schema-guard test (§5.9) covers the field/class side and
+has its own positive control (it asserts it found >= 20 classes) plus a
+parameterized test-of-the-test on the banned pattern.
