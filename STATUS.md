@@ -1,7 +1,7 @@
 # STATUS — VAAKKU
 
-Current light: GREEN · Current phase: **P7 (hardening) started — release build is green
-and provably offline** · Hour: H1–H6
+Current light: GREEN · Current phase: **P7 laptop half done (release build green, provably
+offline, both build guards proven able to fail); P8 README written** · Hour: H1–H6
 
 **What is real as of 2026-09-13:** the microphone genuinely opens on the phone (logcat
 proves `silero_vad.onnx` loads and `AudioRecord` starts), every P5 screen renders in Tamil,
@@ -60,7 +60,7 @@ This assumption has not been confirmed by an organizer.
 | G5 End-to-end | **BOTH HALVES HAVE NOW RUN ON THE PHONE** | `evidence/P5_*.png`, `evidence/P6_*.png`; Setup→mic→scan→end→receipt→save. The camera half reached `page_1.jpg` (2448 × 3264) and ML Kit read it offline. Still unproven: a *clause* extracted from a real prop page (that is G3). | H6– |
 | G6 Go/No-Go | NOT STARTED | — | — |
 | G7 Receipt + Office Kit | **PASS — verified from a real device export** | `evidence/P6_packet_verify.txt` — a session saved on the phone, read back by `tools/packet-cli` as `INTEGRITY: PASSED` / `SIGNATURE: verified` / StrongBox **yes**, from both the folder and the zip; head on screen == head in file | H6– |
-| G8 Freeze | **P7 STARTED — laptop half done** | `evidence/P7_check_manifest_both_variants.txt`; release APK builds (114 MB, lintVital pass) and is proven offline for the first time; crash review clean (crash buffer 0 B consumed, no tombstones). Remaining P7 items all need the phone and a human. | H21– |
+| G8 Freeze | **P7 STARTED — laptop half done** | `evidence/P7_check_manifest_both_variants.txt`, `evidence/P7_checkbannedwords_control.txt`; release APK builds (114 MB, lintVital pass) and is proven offline for the first time; crash review clean (crash buffer 0 B consumed, no tombstones); **both build guards now proven able to fail** (decisions 88, 90). Remaining P7 items all need the phone and a human. | H21– |
 
 ### G0 evidence checklist (§13)
 
@@ -650,6 +650,37 @@ distrusting.** The crash buffer reading `0 B consumed` could mean "nothing crash
 empty (native crashes land there and survive a logcat clear), the main buffer still holds
 the 08:19 NPU session and shows no `am_crash`, and the buffer was resized to 16 MiB after
 the G4 pull rather than cleared. The app has not crashed on this phone.
+
+### P8 evidence — demo and submission (§13 P8)
+
+| Item | Status | Path / number |
+|---|---|---|
+| **README** | **DONE** | `README.md`. §13's P8 line asks for "a clean README describing how it works and what runs where"; there was none. Covers the six claim types, the three user-facing states and why PENDING/UNCERTAIN render as nothing, module/package layout and why the domain↔app seam is load-bearing, how offline is *proven*, the measured numbers, an explicit "what is not proven yet" section, and real build/run commands. Every number pulled from `evidence/` or computed from it. |
+| Real numbers for the deck | **available, not yet assembled** | the README's "Measured numbers" section is the source — fixture matrix, mask benchmark medians, ASR slot accuracy, NPU dispatch proof |
+| Screen recordings (`adb shell screenrecord`) | **NOT DONE** | needs the phone; do it after the P7 install so the recording shows the release build |
+
+**Writing the README caught three of my own errors, which is the argument for writing it
+before the deck rather than after.** (1) "358 tests" was the working tree *including*
+another session's untracked `TamilByteRepairTest`; that class holds 12 tests, so
+subtracting only its 4 failures gave 354, also wrong — the real figure at HEAD is **346
+tests, 0 failures, 16 classes**, verified in a throwaway worktree. (2)
+`./gradlew :tools:packet-cli:run` was fiction: `packet-cli` is a **Node** script and
+`settings.gradle.kts` includes only `:domain` and `:app`. (3) The mask benchmark's
+headline is **13.4× NPU-over-CPU on inference**, which is true and misleading — end to
+end the page goes **193 ms → 159 ms (~18%)**, because scaling and painting a 12 MP bitmap
+dominate and none of that is on the DSP. The README gives both, in that order.
+
+**The README states the ASR number plainly rather than burying it:** the best engine
+scores **54%** slot accuracy and the risk register set **70%** as the line for "poor in
+the hall" (build plan lines 574 and 615), so it is below a bar written down *before* the
+measurement. Rule 7 forbids claiming accuracy that was not measured; the same rule
+forbids hiding accuracy that was.
+
+**The README is deliberately NOT in `checkBannedWords`' scan roots.** It names banned
+words while describing the ban — the same allow-listed case as `build.gradle.kts` and
+test sources. A document that explains the rule has to be able to state it. All seven
+occurrences were checked by hand: each is describing the prohibition, quoting the risk
+register, or using "score" in the ASR-measurement sense. None is product language.
 
 ## Decisions log
 
@@ -2043,6 +2074,15 @@ What is left:
 - [x] **Both build guards proven able to fail.** `check_manifest.sh` and
       `checkBannedWords` each have a recorded negative control in `evidence/`
       (decisions 88, 90). Nothing on the phone is needed for either.
+
+**P8 demo prep (§13) — after the P7 install, so the recording shows the release build:**
+
+- [ ] **Screen recording of one full session**, `adb shell screenrecord`. Do this *after*
+      the release APK is installed, or the recording shows a build that is not the one
+      being submitted. A run that produces a DIFFERS card is the one worth recording — see
+      the G3/live-mic items above, which have to land first.
+- [x] **README** (`README.md`) — what it does, what runs where, measured numbers, and an
+      explicit list of what is not proven. No phone needed. See "P8 evidence" above.
 
 **Superseded queue (done — kept for the record):**
 
