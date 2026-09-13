@@ -1685,6 +1685,20 @@ measurement of the cable, so it is not recorded).
     actually failed on the device. The cheap way to force one is to rename a model
     directory under `/sdcard/Android/data/app.vaakku/files/models/` and start a
     session; **rename it back afterwards** (CLAUDE.md forbids deleting `models/`).
+
+    **Code-read 2026-09-13 while waiting for the phone: the path is sound, and it had a
+    stale comment that was a live trap.** `SessionRuntime.failed()` sets
+    `phase = STARTING` and its KDoc said the session stays there so "the user can still
+    scan the document". Its **only** caller is `SessionService.listen()`'s `catch`, whose
+    `finally` then calls `endSession()` unconditionally — so the documented behaviour
+    cannot occur, and it contradicted `ReceiptScreen`'s own docs, which correctly say a
+    failed session arrives in ENDED with `failure` set. Left alone, the next reader to
+    notice the mismatch could have "tidied" `endSession()` into preserving STARTING,
+    which would route failed sessions away from the Receipt screen and break decision 66
+    silently. Comment rewritten to say the phase is transient and deliberately
+    overridden, with an explicit "do not tidy `endSession`" note. Verified separately
+    that `endSession()` preserves `failure` (it copies only `phase` and `endedAtMs`) and
+    that exactly one caller exists. **Comment-only change; the phone test is still owed.**
 22. **NARROWED — the mask has never been checked against a photograph of a person.**
     This issue used to hold three unknowns. Two are now closed: the NPU rung loads
     (`evidence/G4_npu_logcat.txt`, 08:19:11) and `totalMs` at capture size is 117–159 ms

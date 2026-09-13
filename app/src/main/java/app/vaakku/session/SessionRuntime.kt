@@ -97,9 +97,20 @@ object SessionRuntime {
     /**
      * The session could not listen, and this is why in plain words.
      *
-     * The phase goes back to STARTING rather than ENDED: the ledger is still
-     * whatever it was, the user can still scan the document, and a missing model
-     * file is a thing to fix rather than the end of the session.
+     * **The phase set here is transient and the caller is expected to override
+     * it.** `SessionService.listen()` calls this from its `catch` and then
+     * `endSession()` from its `finally`, so the state a failed session is
+     * actually observed in is ENDED with [SessionState.failure] set — which is
+     * what puts the fault at the top of the Receipt screen (decision 66), and
+     * what `ReceiptScreen`'s own docs describe. STARTING rather than ENDED here
+     * only means this function does not itself declare the session over: the
+     * ledger is untouched, and if a future caller wants to report a recoverable
+     * fault and keep listening, this does not stand in the way.
+     *
+     * So do not "tidy" [endSession] into preserving this phase. A failed
+     * session that never reaches ENDED never reaches the Receipt screen, and a
+     * microphone that died in the fourth minute would cost the buyer the record
+     * of the first three.
      */
     fun failed(message: String) = synchronized(lock) {
         publish { it.copy(phase = SessionPhase.STARTING, failure = message) }
