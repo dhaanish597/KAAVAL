@@ -1,7 +1,7 @@
 # STATUS — VAAKKU
 
-Current light: GREEN · Current phase: **P4 (NPU) code is written and compiles — nothing
-has run on the phone** · Hour: H1–H6
+Current light: GREEN · Current phase: **P4 (NPU) has run on the phone and is proven** ·
+Hour: H1–H6
 
 **What is real as of 2026-09-13:** the microphone genuinely opens on the phone (logcat
 proves `silero_vad.onnx` loads and `AudioRecord` starts), every P5 screen renders in Tamil,
@@ -11,17 +11,23 @@ ended, saved and re-saved on the iQOO 15, and `tools/packet-cli` read back both 
 and the zip as `INTEGRITY: PASSED` / `SIGNATURE: verified` / exit 0. StrongBox is real here
 (`"strongBox": true`), the head on screen equals the head in the file, and re-signing
 changes exactly one field while the head stays byte-identical. **G7 is PASS.**
-**What is still unproven:** **G3 is part-answered and was never recorded** — a session on
-the phone at 06:07 IST did put camera-read clauses into the ledger (RETURN_RATE {4,8}
-ILLUSTRATIVE at 0.861, GUARANTEE false at 0.909, both over the 0.70 `writtenMin`), from
-four completed scans; `evidence/G3_partial_session_060746_receipt.json`. That is one
-session, not five, and it read two of the five G3 clause types, so **the gate is still
-open** — but the camera→OCR→ledger path is no longer unproven. LOCK_IN, LIQUIDITY and
-CHARGES have still never been read from a photograph. **The NPU has never been asked to
-run anything** — P4's masker, benchmark screen and latency label are written, compile and
-are in the APK, but no rung has ever been attempted on real silicon, so every G4 number is
-unmeasured (G4). P6's *failure* path — a session that starts with a model missing — has
-never run (open issue 21).
+**The Hexagon NPU is now proven too** — `libQnnHtp.so` loaded, `BackendType : Htp(2)`,
+VTCM acquired, **175 of 175 ops** placed on the DSP with no CPU fallback, on the
+**ordinary scan path of a live session** at 08:19:11, not on a debug screen
+(`evidence/G4_npu_logcat.txt`, full capture in `evidence/G4_npu_logcat_full.txt`). Two
+benchmark runs are in `evidence/G4_mask_bench*.csv`: NPU **2.60 ms** vs CPU 35.3 ms at
+inference — but only ~1.4× end to end, because ~114 ms of CPU-side scale/normalise/paint
+runs whichever rung is chosen. **Never quote the 12× without the 1.4×.**
+**What is still unproven:** **G3 is part-measured** — two recorded sessions have put
+camera-read clauses into the ledger (06:07 IST: RETURN_RATE {4,8} ILLUSTRATIVE at 0.861,
+GUARANTEE false at 0.909; 08:17 IST: six ledger rows, `evidence/G3_session_081722_receipt.json`),
+so the camera→OCR→ledger path is not in doubt. The gate wants ≥4 of 5 sessions and five
+clause types; LOCK_IN, LIQUIDITY and CHARGES have still never been read from a photograph —
+and the 08:17 pages show why: **those clauses were never in front of the camera**, which
+is a different problem from the capture-resolution cap we assumed (see G3 below). **Whether
+the mask lands on a person is still untested** — it paints, and on page 5 it painted a
+cable and a dark desk with no person in frame (open issue 22). P6's *failure* path — a
+session that starts with a model missing — has never run (open issue 21).
 
 Red Light ruling: **unknown** — no organizer statement recorded yet.
 Name ruling: **unknown** — displayed name is VAAKKU, changed by editing the single
@@ -38,8 +44,8 @@ This assumption has not been confirmed by an organizer.
 | G0 Bootstrap | **PASS** | see below | H0–H1 |
 | G1 Domain | **PASS** | see below | H1–H5 |
 | G2 ASR decision | **DECISION TAKEN — 2 of 3 evidence items** | `evidence/asr_prescreen/`, `evidence/G2_asr_bakeoff.csv`; live-mic scorecard still needs a human | H5– |
-| G3 OCR | **PART-MEASURED — 1 session, 2 of 5 clause types** | `evidence/G3_partial_session_060746_receipt.json` — camera→OCR→ledger proven; RETURN_RATE 0.861, GUARANTEE 0.909. Needs 4 more sessions and the other three clause types. | H6– |
-| G4 NPU | **CODE READY — never run on the phone** | `evidence/` has nothing yet; the benchmark screen, the masker and the latency label are built and compile. Needs one Dev-menu run + a logcat pull. | H6– |
+| G3 OCR | **PART-MEASURED — 2 sessions, 2 of 5 clause types** | `evidence/G3_partial_session_060746_receipt.json`, `evidence/G3_session_081722_receipt.json` + `_pages/` — camera→OCR→ledger proven twice. Needs 2 more sessions and the other three clause types, which have not yet been photographed. | H6– |
+| G4 NPU | **PROVEN ON THE PHONE — 2 of 3 evidence items** | `evidence/G4_npu_logcat.txt` (Htp(2), VTCM, 175/175 ops, live session 08:19:11) + `evidence/G4_npu_logcat_full.txt`; `evidence/G4_mask_bench.csv` + `_firstrun.csv` (NPU 2.60 ms vs CPU 35.3 ms inference). Missing: screenshot of the latency label. | H6– |
 | G5 End-to-end | **BOTH HALVES HAVE NOW RUN ON THE PHONE** | `evidence/P5_*.png`, `evidence/P6_*.png`; Setup→mic→scan→end→receipt→save. The camera half reached `page_1.jpg` (2448 × 3264) and ML Kit read it offline. Still unproven: a *clause* extracted from a real prop page (that is G3). | H6– |
 | G6 Go/No-Go | NOT STARTED | — | — |
 | G7 Receipt + Office Kit | **PASS — verified from a real device export** | `evidence/P6_packet_verify.txt` — a session saved on the phone, read back by `tools/packet-cli` as `INTEGRITY: PASSED` / `SIGNATURE: verified` / StrongBox **yes**, from both the folder and the zip; head on screen == head in file | H6– |
@@ -269,17 +275,59 @@ recorded at the time it happened. See the measurement block below the table.
 | `:app:testDebugUnitTest` | **PASS** | 23 tests incl. 8 new `SessionEvidenceTest` crop-clamp cases |
 | `:app:assembleDebug` | **PASS** | — |
 | `scripts/check_manifest.sh` | **PASS** | no INTERNET, no ACCESS_NETWORK_STATE, in merged manifest and APK; `SessionService` still absent |
-| **5 scan sessions on the phone** | **1 of 5, unplanned** | `session_2026-09-13_060746` — 4 completed scans in one session, 2 of the 5 clause types read |
-| `evidence/G3_clauses.png` | **NOT DONE** | needs a human — no screenshot was taken of the session that worked |
+| **5 scan sessions on the phone** | **2 of 5** | `session_2026-09-13_060746` (4 scans, written only) and `session_2026-09-13_081722` (7 scans, 5 pages, **first session where speech and document met**) |
+| `evidence/G3_clauses.png` | **NOT DONE** | needs a human — no screenshot was taken of either session that worked |
 
 **What G3 still requires:** the gate is "expected clauses extracted in ≥4 of 5 scans".
-One session has now done it for **two** clause types, which settles the question the domain
-tests could not — a photograph really does become a clause in the ledger, offline, on this
-phone. What is still missing is four more sessions and **LOCK_IN, LIQUIDITY and CHARGES,
-none of which has ever been read from a photograph**. Those three are the ones on page 6
-and in the charges table, so they are also the ones most exposed to the capture cap
-(decision 49) — if they fail while RETURN_RATE and GUARANTEE keep succeeding, read the
-Red Light note about `MAX_LONG_EDGE` before touching any regex.
+Two sessions have now produced clauses from a photograph, and the second one closed the
+loop end to end: Tamil speech → claim, photograph → clause, reconciler → a state. What is
+still missing is three more sessions and **LOCK_IN, LIQUIDITY and CHARGES, none of which
+has ever been read from a photograph**. Those three are on page 6 and in the charges
+table, so they are also the ones most exposed to the capture cap (decision 49) — if they
+fail while RETURN_RATE and GUARANTEE keep succeeding, read the Red Light note about
+`MAX_LONG_EDGE` before touching any regex.
+
+**But the 081722 session says the cap is probably not the problem.** Its five pages were
+pulled to `evidence/G3_session_081722_pages/` and looked at. Pages 3 and 4 are both
+section 3–4 of the document (Eligibility, Your Policy at a Glance) — page 4 is upright,
+sharp and completely legible, and it yielded nothing because **there is no lock-in,
+surrender or charge clause printed on it**. Page 3 is the same content photographed at
+90°. Page 5 is mostly desk. So the three missing clause types have not failed extraction;
+**they have not yet been photographed**. The next session should start from the page that
+carries them, not from page 1.
+
+**MEASUREMENT — G3, first full session, phone 2026-09-13 08:17:22–08:20:23 IST**
+Session `session_2026-09-13_081722`, 3 min 1 s, 7 `document_scan_completed`, 5 pages,
+3 `spoken_observed`, 9 `written_observed`. Receipt
+`evidence/G3_session_081722_receipt.json` (19,613 B, head `e2532e94239d692f…`).
+
+| Ledger row | State | Reason | What was behind it |
+|---|---|---|---|
+| RETURN_RATE | **MATCHES** | VALUE_IN_SCENARIOS | spoken `8% ASSERTED` @0.763 (`உறுதியான எட்டு சதவீத வருமான`) vs written `{4,8} ILLUSTRATIVE` @0.885 |
+| GUARANTEE | **UNCERTAIN** | SPOKEN_LOW_CONF | spoken `guaranteed=true` @**0.492** vs 6 written observations all `guaranteed=false`, best @0.900 |
+| LOCK_IN | PENDING | NO_SPOKEN | nothing said, nothing on the pages photographed |
+| LIQUIDITY | PENDING | NO_SPOKEN | " |
+| BUNDLING | PENDING | NO_SPOKEN | " |
+| CHARGES | PENDING | NO_SPOKEN | " |
+
+Written observations came from page 1 (1 GUARANTEE) and page 2 (5 GUARANTEE,
+3 RETURN_RATE) at 0.770–0.900 confidence. Pages 3, 4 and 5 produced none.
+
+**Both of those states are correct, and the second one is the product working.**
+RETURN_RATE → MATCHES on a spoken *asserted* 8% against a written *illustrative* 8% looks
+wrong until you read the build plan: line 289 (case A4) and line 486 both specify exactly
+this — "RETURN_RATE: MATCHES (in scenarios); GUARANTEE judged separately". The number was
+in the illustrated set; the asserted-vs-illustrative question belongs to GUARANTEE, and
+`compareRate` ignoring the qualifier is the specification, not an oversight.
+
+And GUARANTEE is where it would have been caught: spoken "guaranteed" against six written
+"not guaranteed" is the DIFFERS this whole app exists to show. It came out **UNCERTAIN**
+instead, because ASR returned 0.492 on `து எப்டி மாதிரிதான் கேரண்ட` — a fragment that has
+lost the word it needed. That is CLAUDE.md #2 working exactly as written: the honest
+answer to a half-heard sentence is silence, not an accusation. It is also the sharpest
+demonstration yet that **the demo stands or falls on ASR confidence**, not on the
+reconciler. Open issue 27.
+
 
 **MEASUREMENT — G3 partial, found on the phone 2026-09-13 08:05 IST**
 Session `session_2026-09-13_060746`, started 2026-09-13 00:37 UTC, 4 `document_scan_completed`
@@ -303,9 +351,10 @@ a missing result.
 ### G4 evidence — P4 privacy masker + NPU (§6.5, §11.5)
 
 Commits `e180d9a` (P4.1 masker), `646916e` (P4.2 benchmark + latency label).
-**Nothing in this section has touched the NPU.** Everything below is code that compiles,
-packages and passes every laptop guard. Not one accelerator rung has been attempted on
-real silicon, so the whole of G4's actual criterion is still outstanding.
+**The NPU is proven.** The Hexagon DSP ran this app's mask model on the phone on
+2026-09-13, twice: on the Dev-menu benchmark at 08:13–08:14 and — the one that
+matters — on the **ordinary scan path of a live session at 08:19:11**. Two of G4's
+three evidence items are in hand; the screenshot is not.
 
 | Item | Status | Path / number |
 |---|---|---|
@@ -323,14 +372,62 @@ real silicon, so the whole of G4's actual criterion is still outstanding.
 | `:app:testDebugUnitTest` | **PASS** | 75 tests |
 | `:app:assembleDebug` | **PASS** | APK 133,032,153 B |
 | `scripts/check_manifest.sh` | **PASS** | still no INTERNET and no ACCESS_NETWORK_STATE with the Qualcomm runtime packaged |
-| **Benchmark CSV (NPU/GPU/CPU)** | **NOT DONE** | needs a human — Dev menu → Mask benchmark |
-| **Logcat excerpt proving NPU dispatch** | **NOT DONE** | needs a human — and this is the only thing that licenses the word "NPU" |
-| **Screenshot of the latency label** | **NOT DONE** | needs a human |
+| **Benchmark CSV (NPU/GPU/CPU)** | **DONE** | `evidence/G4_mask_bench.csv` (run 2) and `evidence/G4_mask_bench_firstrun.csv` (run 1), 50 runs per rung, both rungs of both files measured |
+| **Logcat excerpt proving NPU dispatch** | **DONE** | `evidence/G4_npu_logcat.txt` (curated, annotated) over `evidence/G4_npu_logcat_full.txt` (4,056 lines, unedited) |
+| **Screenshot of the latency label** | **NOT DONE** | needs a human — the one thing G4 still lacks |
 
-**What G4 still requires:** all three of its evidence items. Until the logcat pull exists,
-**no claim that this app uses the NPU may be made anywhere** — not in the demo, not in
-STATUS.md, not in the pitch (CLAUDE.md #8). The label on the scan sheet shows which rung
-LiteRT *accepted*, which is honest and is a different statement.
+**MEASUREMENT — G4 benchmark, run on the phone 2026-09-13 08:13 and 08:14 IST**
+Synthetic 3000×4000 page, 50 timed runs per rung after 5 discarded warm-ups, on
+I2501 / QTI SM8850 / Android 16. Nearest-rank median and p90, in ms.
+
+| Rung | inference median | inference p90 | total median | total p90 |
+|---|---|---|---|---|
+| NPU | **2.59** | 2.87 | 116.8 (run 1) / 159.3 (run 2) | 118.6 / 162.0 |
+| GPU | 10.55 / 11.77 | 10.72 / 11.96 | 143.0 / 166.8 | 145.2 / 170.3 |
+| CPU | 30.06 / 34.69 | 34.35 / 36.59 | 165.1 / 193.0 | 190.3 / 197.8 |
+
+NPU inference is **4.1× faster than GPU and 11.6× faster than CPU** (run 1; 4.6× and
+13.4× in run 2). §11.5 budgets 10 ms for `model.run`; the NPU comes in at 2.59 ms.
+
+**Two things in that table are worth more than the headline.**
+
+*First, the two runs disagree, and only in `total_ms`.* Inference is flat across both
+runs (NPU 2.597 → 2.585) while total rises on every rung at once (NPU 116.8 → 159.3,
+GPU 143.0 → 166.8, CPU 165.1 → 193.0). A uniform slowdown that spares the accelerator
+is the CPU-side work — scaling a 3000×4000 page, normalising it, painting it — getting
+slower, which is what thermal throttling looks like 35 seconds into back-to-back runs.
+Run 1 is the number to quote; run 2 is the number to expect on demo day, after the
+phone has been working.
+
+*Second, the accelerator is not what dominates the wall clock.* Whichever rung runs,
+~114 ms of scale-normalise-paint happens on the CPU. NPU is 12× faster than CPU at
+inference and about **1.4× faster end to end**. Both numbers are true; only the second
+one is what a person holding the phone feels. Do not quote the 12× without it.
+
+**MEASUREMENT — NPU dispatch proven, live session 2026-09-13 08:19:11 IST**
+From `evidence/G4_npu_logcat.txt`, every line verbatim from the phone:
+
+- `BackendType : Htp(2)` — Hexagon Tensor Processor, asked for by name
+- `Loading qnn shared library from "libQnnHtp.so"` → `QnnBackend_create done successfully`
+- `QnnDevice_create done. device = 0x1. status 0x0`
+- `htpPerfInfrastructureCreatePowerConfigId` — a call that exists on no other backend
+- `Setting libnative architecture to v85 (requested arch is v81)` · `STAT: soc_type=SM8850`
+- `VTCM: total_sz=8388608` — Hexagon's tightly-coupled vector memory; CPU and GPU have none
+- `Partitioned subgraph<0>, selected 175 ops, from a total of 175 ops` — **no CPU fallback**
+- `1 compiler plugins were applied successfully: Qualcomm compiler plugin (ver 0.1.0)`
+- `graph qnn_partition_0 is loaded 1` → `Mask model loaded on NPU`
+
+This licenses the word "NPU" under CLAUDE.md #8, and it does so from the **live scan
+path** rather than from a debug screen — the app a buyer would use put the mask model
+on the Hexagon DSP.
+
+**A cost the demo has to plan for: `STAT: prepare_ms=1543`.** The QNN graph is compiled
+on the device, once per process, the first time the masker is built — 1.5 seconds, and
+it lands on the buyer's **first scan**, inside the tap. (This is what the 86 MB
+`libQnnHtpPrepare.so` is for; the resulting context binary is 10,452,992 B.) At 08:19:11
+a human waited through it without knowing what it was. Either warm the masker when the
+session screen opens, or accept a 1.5 s first scan and never demo the first scan cold.
+Open issue 26.
 
 **The size this costs.** The Qualcomm runtime is 119,595,560 B uncompressed across 12
 `.so` files, of which `libQnnHtpPrepare.so` alone is 86,301,344 B — that is the on-device
@@ -347,6 +444,19 @@ on the in-memory capture, mask before the write) is what delivers that — a pre
 would be a second, cosmetic implementation of the same idea. It also means the ImageAnalysis
 stub in `DocumentCamera` is still a stub. The screenshot G4 asks for will show the latency
 label under the viewfinder, not a hatched overlay.
+
+**The mask paints, and it is not always right.** `page_5.jpg` of session
+`session_2026-09-13_081722` has several regions filled with `FILL_COLOR` (`0xFFFAF7F0`,
+the paper tone) with the hard pixelated edges of a 256×256 mask upscaled to 2448×3264.
+There is **no person in that frame** — the painted regions sit over a cable and a dark
+desk. The argmax in `MaskMath` is not the suspect: it asks only "did a non-background
+channel win", which is the formulation that survives a channel reordering. What this
+shows is the *model* calling dark clutter "not background" on a frame it was never meant
+to see. Harmless here (it covers desk, not text) but it is the first real evidence about
+mask behaviour, and it points the other way from the risk in open issue 22: the mask
+over-paints rather than under-paints. Still unanswered: whether it covers an actual
+person. Open issue 22 stands.
+
 
 ### P5 evidence — session runtime + session UI (§6.6, §6.7)
 
@@ -1083,6 +1193,28 @@ an unrendered one.
     one column into two — in the export that is supposed to *be* the evidence. The
     on-screen figures use the same formatter, so a screenshot and the CSV show the same
     characters.
+80. **G4's NPU proof is taken from the live session, not from the benchmark.** Both ran
+    on Hexagon, and the benchmark is the screen built to measure it — but the benchmark
+    is a debug screen, and a debug screen proving its own point is the weaker claim. The
+    08:19:11 lines in `evidence/G4_npu_logcat.txt` come from the ordinary scan path: a
+    human tapped "Scan document" in a real session and the mask model went to the DSP.
+    A second reason: the 4 MiB ring buffer had already discarded the benchmark's model
+    creation by the time anything was pulled, and creation is where the backend names
+    itself (`BackendType : Htp(2)`, `libQnnHtp.so`). The buffer is now at 16 MiB.
+81. **Curated evidence files carry the filter that produced them and what they lack.**
+    `evidence/G4_npu_logcat.txt` is 94 lines chosen out of 4,056, which is an editorial
+    act on a file whose only job is to be trustworthy. It therefore states the exact
+    filter, names `G4_npu_logcat_full.txt` as the unedited source beside it, marks which
+    lines came from which run when timestamps jump, and ends with a "WHAT THIS DOES NOT
+    PROVE" section. An excerpt that hides its own selection rule is not evidence.
+82. **The empty `document_scan_completed` objects are correct and were left alone.**
+    Seven of them in the 081722 receipt, each `{"event":"document_scan_completed"}` and
+    nothing more. §6.4 and §7.1 define it as a bare marker that gates `NOT_IN_DOCUMENT`;
+    `ReceiptJson.event` serialises exactly the one key. It fired seven times for five
+    pages because the human tapped "Done scanning" repeatedly, and the reconciler sets a
+    boolean, so repeats cost a line in the receipt and nothing else. The temptation was
+    to put the page id and OCR confidence in it — that is issue 28, and it changes the
+    schema and the hash chain, so it is not a change to make while chasing a gate.
 
 ## Measurements
 
@@ -1332,18 +1464,17 @@ measurement of the cable, so it is not recorded).
     fails if they diverge.** The Tamil is safe because there is only one copy of it. Fix
     when P7 touches either file: have `strings.js` read `free_look_note_en` by name too,
     and delete `PACKET.freeLookEn`.
-19. **Page images in the export are masked only if an accelerator loaded, and no run has
-    ever proven one does.** P4 landed, so `PageScanner` now runs every capture through
-    `PrivacyMask` before `SessionEvidence` writes it, and a page that fails while masking
-    is running is not written at all (decision 74). **But the masker has never been built
-    on the phone.** If no rung loads, the outcome is `Unmasked`: the raw photograph is
-    written and the scan screen says plainly that no mask is running — the same behaviour
-    as before P4. So the old warning still stands in its weaker form: **an export must not
-    be shared with anyone until the scan screen has been seen saying the mask is active**,
-    because until then it is unknown which of the two cases the files are. The prop pages
-    5+6 are synthetic, so demo exports are fine either way; a real document scanned in a
-    test is not. `ReceiptExport`'s KDoc says the same thing and deliberately never calls
-    the exported pages masked, because that code cannot inspect a JPEG and tell.
+19. **RESOLVED — page images in the export are masked, and the mask has been seen
+    painting.** P4 landed, so `PageScanner` runs every capture through `PrivacyMask`
+    before `SessionEvidence` writes it, and a page that fails while masking is running
+    is not written at all (decision 74). On 2026-09-13 at 08:19:11 the masker was built
+    on the phone **on NPU** during a live session (`evidence/G4_npu_logcat.txt`), and
+    `page_5.jpg` of `session_2026-09-13_081722` carries visible `FILL_COLOR` regions —
+    so the masker loaded, ran, and wrote a painted file. The `Unmasked` fallback still
+    exists for a phone where no rung loads, and the scan screen still says plainly when
+    no mask is running, so the operational rule is unchanged and cheap: **look at the
+    scan screen before sharing an export.** What remains unknown is whether the mask
+    lands on a *person*; that is issue 22, now narrowed.
 20. **`adb` on this laptop truncates a *derived* destination name by one character.**
     platform-tools 36.0.1, Windows, Git Bash. `adb pull <remote>/x.zip ./dir/` writes
     `x.zi`; a directory pull loses the last character of the directory name; `adb push
@@ -1361,16 +1492,23 @@ measurement of the cable, so it is not recorded).
     actually failed on the device. The cheap way to force one is to rename a model
     directory under `/sdcard/Android/data/app.vaakku/files/models/` and start a
     session; **rename it back afterwards** (CLAUDE.md forbids deleting `models/`).
-22. **The masker has never been constructed on the phone, so three things are unknown at
-    once.** Whether the NPU rung loads; whether the mask is *correct* (the model could
-    load, run, and paint the wrong pixels — `MaskMathTest` proves the arithmetic against
-    hand-built tensors, but nothing has checked the arithmetic against a real photograph
-    of a person); and whether `totalMs` at the capture size is tolerable. The benchmark
-    screen answers the first and third. **The second needs a human to look at a masked
-    page of a person and say whether the person is gone.** A mask that is subtly wrong —
-    off by a transpose, say — would still report a plausible coverage figure and still
-    paint something. Until that look happens, the `Active` line on the scan screen is a
-    promise the app has not earned.
+22. **NARROWED — the mask has never been checked against a photograph of a person.**
+    This issue used to hold three unknowns. Two are now closed: the NPU rung loads
+    (`evidence/G4_npu_logcat.txt`, 08:19:11) and `totalMs` at capture size is 117–159 ms
+    (`evidence/G4_mask_bench.csv`). **The third stands, and is the one that matters.**
+    `MaskMathTest` proves the arithmetic against hand-built tensors; nothing has checked
+    it against a real photograph of a real person. A mask off by a transpose would still
+    report a plausible coverage figure and still paint something.
+
+    What is new is a first data point, and it points *away* from silent under-painting:
+    `page_5.jpg` of `session_2026-09-13_081722` has painted regions over a cable and a
+    dark desk with **no person in the frame** — the model is willing to call dark clutter
+    "not background". Over-painting fails safe for privacy (it covers more, not less) and
+    unsafe for OCR (it could cover text). Neither is proof about a person.
+
+    **Still needs a human to point the camera at a person holding a page, scan it, and
+    look at the written file.** Until that look happens, the `Active` line on the scan
+    screen is a promise the app has not earned.
 23. **The APK is 133 MB, and 86 MB of that is one file.** `libQnnHtpPrepare.so` is the
     on-device JIT compiler the §6.5 sample's `android_jit` path requires. If a submission
     rule or a transfer constraint makes this a problem, the fix is to drop the Qualcomm
@@ -1392,6 +1530,42 @@ measurement of the cable, so it is not recorded).
     gate, check the device: `adb shell ls -lt /sdcard/Download/Vaakku/` costs one command
     and would have caught this. The same risk applies to G4 — after the benchmark run, pull
     the CSV before concluding anything.
+
+    **It happened again, same day, 08:28.** STATUS.md said all three G4 items were NOT
+    DONE. Two of them were already on the phone: both benchmark CSVs, and a logcat buffer
+    holding complete proof of Hexagon dispatch from a live session. The rule above was
+    written before this and was not followed. Check the device *first*.
+
+26. **The NPU's first scan costs 1.5 seconds, and it lands inside the buyer's tap.**
+    `STAT: prepare_ms=1543` — the QNN graph is JIT-compiled on the device, once per
+    process, when the masker is first built. At 08:19:11 a human waited through it mid
+    session. It does not recur, and it is the price of the `android_jit` path (and of the
+    86 MB `libQnnHtpPrepare.so`), but a demo that scans cold will show a 1.5 s pause at
+    the worst possible moment. Two fixes, neither built: warm the masker when the session
+    screen opens, so the cost is paid while the buyer is still lifting the phone; or cache
+    the 10,452,992 B context binary between runs. The zero-code option is to never demo
+    the first scan cold — scan once before the audience arrives.
+
+27. **The demo's weakest link is ASR confidence, not the reconciler.** In
+    `session_2026-09-13_081722` the GUARANTEE row — the row that carries the whole point
+    of the product — came out UNCERTAIN because ASR returned **0.492** on
+    `து எப்டி மாதிரிதான் கேரண்ட`, a fragment missing the word it needed. The reconciler was
+    right to stay silent (CLAUDE.md #2) and the written side was flawless: six observations,
+    all `guaranteed=false`, up to 0.900. The gap is entirely on the spoken side. Before the
+    demo, the sentence that carries GUARANTEE needs to be spoken slowly and cleanly enough
+    to clear `spokenMin`, and that should be rehearsed against the Live ASR screen rather
+    than discovered on stage. Related: G2's bake-off numbers describe clips, not a person
+    speaking across a table in a noisy hall.
+
+28. **Mask coverage is computed, shown for a moment, and then lost.** `MaskMath.personCoverage`
+    produces the fraction of each page painted out; it reaches `PrivacyMask.MaskSummary.Ran`
+    and the scan screen, and then nothing. It is not logged, and it is not in the receipt —
+    `DocumentScanCompleted` is a bare marker by design (§6.4/§7.1) and carries no payload.
+    So after the fact a page masked at 40% and a page masked at 0% are indistinguishable,
+    which is exactly the question issue 22 needs answered and exactly the question an export
+    recipient would ask. The cheap fix is one `Log.i` beside the existing "Mask model loaded
+    on …" line; the honest fix is a field in the receipt, which changes the schema and the
+    hash chain and so is not a P7 decision to take lightly.
 
 ## On-device verification status (P0)
 
@@ -1425,18 +1599,17 @@ or a file in `evidence/`:
 
 ## Next Red Light test list
 
-**The installed build predates P4.** The phone currently has the build with the
-viewfinder, topics-count, plural and zip-line fixes (decisions 69–72) and the models are
-pushed, but it has no masker, no benchmark screen and no latency label. **Every P4 item
-below needs `adb install -r` of the current APK first** — and that install must not land
-in the middle of a G3 scan run, because it restarts the app. `adb install -r` is safe for
-`models/`; `adb uninstall` is what wipes them, and CLAUDE.md forbids it.
+**The current build is installed and P4 has run on it.** The APK on the phone contains the
+masker, the benchmark screen and the latency label, and all three have executed —
+`adb install -r` succeeded on 2026-09-13 and the 08:19 live session dispatched the mask
+model to the Hexagon DSP. No install is needed before the items below. If one becomes
+necessary, it must not land in the middle of a G3 scan run, because it restarts the app;
+`adb install -r` is safe for `models/`, `adb uninstall` is what wipes them, and CLAUDE.md
+forbids it.
 
-**Checked 2026-09-13 08:05 IST: nothing is in flight.** The newest session directory on
-the phone is from 06:26, ~100 minutes earlier, and no session has been written since. The
-app process is alive but idle. An install now loses nothing. (Re-check before installing
-if time has passed: `adb shell run-as app.vaakku ls -lt files/sessions/` and compare the
-newest timestamp with `adb shell date`.)
+**Before installing anything, re-check nothing is in flight:**
+`adb shell run-as app.vaakku ls -lt files/sessions/` and compare the newest timestamp with
+`adb shell date`.
 
 What is left:
 
@@ -1454,10 +1627,14 @@ What is left:
       NOT_IN_DOCUMENT can appear, and BUNDLING = NOT_IN_DOCUMENT is one of the six expected
       demo outcomes. Record for each session which of the five clauses appeared. The gate is
       ≥4 of 5. Screenshot one good session to `evidence/G3_clauses.png`.
-      **One session already counts** (`session_2026-09-13_060746`, 06:07 IST) — it read
-      RETURN_RATE and GUARANTEE. **The thing to watch in the next four is LOCK_IN,
-      LIQUIDITY and CHARGES**, which have never been read from a photograph and are the
-      three most exposed to the capture cap.
+      **Two sessions already count** (`session_2026-09-13_060746` at 06:07 and
+      `session_2026-09-13_081722` at 08:17) — both read RETURN_RATE and GUARANTEE and
+      nothing else. **The thing to fix in the next two is which page is in front of the
+      camera.** The 08:17 session's five pages are saved under
+      `evidence/G3_session_081722_pages/` and page 4 is upright and perfectly legible — it
+      simply does not carry LOCK_IN, LIQUIDITY or CHARGES. Those clauses have not failed
+      to extract; they have never been photographed. **Start the next session on the page
+      that carries §7 and §8**, and only then judge the capture cap.
 - [ ] **P3 / first scan only: does the shutter click?** `takePicture` can trigger the platform
       shutter sound on some devices and locales, and the app cannot always suppress it.
       CLAUDE.md #9 is "no sound, ever". If it clicks, we handle it at the device (media volume
@@ -1466,31 +1643,46 @@ What is left:
       (decision 49). If the §7 charges table's 5% row or the §8 lock-in line fails to read
       while larger text reads fine, that is the cap, not the extractor — raise `MAX_LONG_EDGE`
       in `DocumentCamera.kt` and re-scan before concluding anything about the regexes.
+      **Do not raise it pre-emptively.** The 08:17 pages are evidence against the cap being
+      the current problem: page 4 is legible at the capped resolution and the missing
+      clauses are simply not on it. Photograph the right page first; only if §7/§8 are in
+      frame, in focus, and still unread does the cap become the suspect.
 - [ ] Watch the phone's temperature during a bake-off re-run if one is needed.
       §11.5 budgets thermal at ≤ MODERATE after 15 minutes.
-- [ ] **P4 / G4: Dev menu → Mask benchmark → Run.** One tap. It builds the model on NPU,
-      then GPU, then CPU, times each 50×, and writes a CSV to `Download/`. **The single
-      most informative line is whichever rung refuses and why** — that message is LiteRT's
-      own, and it is the difference between "this chip has no NPU", "the runtime libraries
-      are not in the APK" and "this model cannot be compiled for the Hexagon". Pull the CSV
-      to `evidence/G4_mask_bench.csv` **with an explicit destination path** (open issue 20).
-- [ ] **P4 / G4: the logcat pull, immediately after the benchmark run.**
-      `adb logcat -d | grep -iE "litert|qnn|dispatch|htp" > evidence/G4_npu_logcat.txt`.
-      **Nothing anywhere may say this app uses the NPU until this file shows Hexagon
-      dispatch** (CLAUDE.md #8). Also grep for `VaakkuNpu` — the app logs the provider's
-      `deviceSupported` / `libraryReady` answers before it tries anything, which is what
-      separates the three failure modes above.
+- [x] **P4 / G4: Dev menu → Mask benchmark → Run.** Done twice on 2026-09-13, 08:13:31 and
+      08:14:06. **No rung refused** — NPU, GPU and CPU all loaded and all ran 50×. Both
+      CSVs are pulled: `evidence/G4_mask_bench.csv` and `evidence/G4_mask_bench_firstrun.csv`.
+      NPU 2.60 ms vs CPU 35.3 ms at inference; see the MEASUREMENT table in the G4 section
+      for why the end-to-end figure is only ~1.4× and must always be quoted alongside it.
+- [x] **P4 / G4: the logcat pull.** Done — `evidence/G4_npu_logcat_full.txt` (4056 lines,
+      unedited, filtered to pid 12257 and tags qnn/litert/tflite/VaakkuNpu) and the curated
+      excerpt `evidence/G4_npu_logcat.txt`. **Hexagon dispatch is proven**: `BackendType :
+      Htp(2)`, `libQnnHtp.so` loaded, `QnnDevice_create done`, `htpPerfInfrastructure*`,
+      VTCM `total_sz=8388608`, `soc_type=SM8850`, **175 of 175 ops in 1 partition**, and
+      `graph qnn_partition_0 is loaded 1`. The proof is taken from the **live session at
+      08:19:11**, not the benchmark — see decision 80. `VaakkuNpu` answered
+      `deviceSupported=true libraryReady=true` before anything was tried, so none of the
+      three failure modes applies. **The 4 MiB ring buffer had already rolled** when this
+      was pulled; it is now raised to 16 MiB (`adb logcat -G 16M`) so a future capture
+      keeps a whole run.
 - [ ] **P4: scan one page with a person in frame, then open the saved `page_*.jpg`.**
       This is the only test that checks the mask is *correct* rather than merely present
       (open issue 22). A mask that is off by a transpose still reports a plausible coverage
       figure and still paints something. Look at the file, not at the coverage number.
+      **Partly answered and still open:** `evidence/G3_session_081722_pages/page_5.jpg`
+      shows the masker painting `FILL_COLOR` over a cable and a dark desk **with no person
+      in frame** — so it over-paints dark clutter, which fails safe for privacy and unsafe
+      for OCR. That says nothing about whether it covers an actual person. Still needs a
+      human in the picture.
       Screenshot the latency label under the viewfinder to `evidence/G4_latency_label.png` —
-      that is G4's third evidence item.
+      that is G4's third and last evidence item, and it can be captured during the same
+      session as the G3 scans above.
 - [ ] **P4: check the scan screen's mask line says the right one of three things.** Before
       any scan it should be silent (warm-up unfinished) or say masking is running; if no
-      rung loaded it must say the saved image is the raw capture. If it says masking is
-      running while the benchmark showed every rung refusing, that is a bug and not a
-      wording problem.
+      rung loaded it must say the saved image is the raw capture. **The benchmark settles
+      which branch is correct on this phone**: every rung loaded, so the line must say
+      masking is running and must name NPU. If it says the saved image is the raw capture,
+      that is a bug and not a wording problem.
 - [x] **P6 / G7: end one session and save the receipt.** Done on the phone — see M3 and
       the P6 evidence table. `INTEGRITY: PASSED`, `SIGNATURE: verified`, exit 0, from both
       the folder and the zip; `strongBox: true`; the hex-vs-bytes signing trap this test

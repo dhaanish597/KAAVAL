@@ -1,0 +1,101 @@
+# VAAKKU G4 — proof of Hexagon NPU dispatch (build plan §6.5 / line 582; CLAUDE.md #8)
+#
+# WHAT THIS IS
+#   A curated excerpt. Every line below is copied verbatim from
+#   evidence/G4_npu_logcat_full.txt, which is the unedited `adb logcat -d`
+#   output filtered to pid 12257 (app.vaakku) and the tags qnn/litert/tflite/
+#   VaakkuNpu. Nothing here is paraphrased, reordered or reconstructed. The
+#   full file is 4056 lines, mostly repeated per-tensor and per-inference
+#   chatter; this excerpt drops that noise and keeps the lines that carry
+#   the claim.
+#
+# WHICH RUN
+#   These lines are from the LIVE SESSION at 08:19:11, not from the Dev-menu
+#   benchmark. That is the stronger evidence: it is the ordinary scan path a
+#   buyer would exercise, the one that produced session_2026-09-13_08* — not
+#   a debug screen built to make the NPU look good.
+#
+#   The benchmark's own NPU rung (08:13-08:14, evidence/G4_mask_bench.csv) ran
+#   earlier and its creation lines had already rolled out of the 4 MiB ring
+#   buffer before this was pulled. What survives of it — htpPerfInfrastructure*
+#   and QnnGraph_execute on graph qnn_partition_0 — is the same HTP backend
+#   seen here. The buffer has since been raised to 16 MiB (`adb logcat -G 16M`)
+#   so a future capture keeps the whole run.
+#
+# ---------------------------------------------------------------------------
+# 1. THE PROVIDER ANSWERS, BEFORE ANYTHING IS LOADED
+09-13 08:19:11.119 12257 12497 I VaakkuNpu: NPU provider: deviceSupported=true libraryReady=true soc=QTI/SM8850 libDir=/data/app/~~Hgu8hyMVpdWEF88bQF8ZZQ==/app.vaakku-PcHaHou-ge8re7ehROFl3A==/lib/arm64
+#
+# ---------------------------------------------------------------------------
+# 2. THE BACKEND IS ASKED FOR BY NAME: Htp(2) = Hexagon Tensor Processor
+09-13 08:19:11.142 12257 12497 I litert  :   BackendType              : Htp(2)
+09-13 08:19:11.142 12257 12497 I litert  :   UseConvHMX               : true
+09-13 08:19:11.142 12257 12497 I litert  :   HtpPerformanceMode       : HighPerformance(3)
+09-13 08:19:11.142 12257 12497 I litert  :   OptimizationLevel        : HtpOptimizeForInferenceO3(2)
+#
+# ---------------------------------------------------------------------------
+# 3. THE HEXAGON LIBRARY IS LOADED AND THE DEVICE IS OPENED
+09-13 08:19:11.142 12257 12497 I litert  : [qnn_manager.cc:143] Loading qnn shared library from "libQnnHtp.so"
+09-13 08:19:11.143 12257 12497 I litert  : [qnn_manager.cc:166] Loaded qnn shared library
+09-13 08:19:11.143 12257 12497 I qnn     : QnnDsp <I> QnnBackend_create started. backend = 0xed39f6d8
+09-13 08:19:11.144 12257 12497 I qnn     : QnnDsp <I> QnnBackend_create done successfully. backend = 0xed39f6d8
+09-13 08:19:11.144 12257 12497 I qnn     : QnnDsp <I> QnnDevice_create started
+09-13 08:19:11.144 12257 12497 I qnn     : QnnDsp <I> QnnDevice_create done. device = 0x1. status 0x0
+#
+# ---------------------------------------------------------------------------
+# 4. HEXAGON-ONLY CALLS. htpPerfInfrastructure* exists on no other backend.
+#    The 08:14 line is the BENCHMARK's NPU rung being torn down — it is the
+#    one fragment of that run the ring buffer still held, and it is kept here
+#    deliberately: it ties the CSV's NPU column to the same HTP backend the
+#    08:19 live session used.
+09-13 08:14:17.240 12257 12447 I qnn     : QnnDsp <I> htpPerfInfrastructureSetPowerConfig started for powerConfigId: -683726766
+09-13 08:19:11.144 12257 12497 I qnn     : QnnDsp <I> htpPerfInfrastructureCreatePowerConfigId started for deviceId: 0, coreId: 0
+09-13 08:19:11.144 12257 12497 I qnn     : QnnDsp <I> htpPerfInfrastructureCreatePowerConfigId done. status 0x0
+#
+# ---------------------------------------------------------------------------
+# 5. THE COMPILER TARGETS THIS CHIP. v81 is the Hexagon arch CLAUDE.md names;
+#    the runtime reports the phone's actual v85. SM8850 is the Snapdragon.
+09-13 08:19:11.149 12257 12497 I litert  : [compiler_plugin.cc:939] Applying plugin with SDK version: v2.47.0.260601114230
+09-13 08:19:11.194 12257 12497 I qnn     : os_linux.cc:55:Setting libnative architecture to v85 (requested arch is v81)
+09-13 08:19:11.194 12257 12497 I qnn     : prepare_options.cc:342:STAT: soc_type=SM8850
+#
+# ---------------------------------------------------------------------------
+# 6. VTCM — Hexagon's tightly-coupled vector memory. CPU and GPU have none.
+09-13 08:19:11.194 12257 12497 I qnn     : vtcm_wrapper.cc:180:VTCM: total_sz=8388608, sz=8388608, off=0, req=0xb400007298d2a588, ctx=0 (0xb4000070a4200000-0xb4000070a4a00000)
+09-13 08:19:11.195 12257 12497 I qnn     : vtcm_wrapper.cc:278:0x70ed39e720 Acquired Cache, ctx = 0x0, ptr=0xb4000070a4200000
+#
+# ---------------------------------------------------------------------------
+# 7. THE WHOLE MODEL WENT TO THE NPU — 175 of 175 ops, no CPU fallback.
+09-13 08:19:11.163 12257 12497 I litert  : [compiler_plugin.cc:740] Partitioned subgraph<0>, selected 175 ops, from a total of 175 ops. resulted in 1 partitions.
+09-13 08:19:12.787 12257 12497 I litert  : [compiled_model.cc:1129] 1 compiler plugins were applied successfully: Qualcomm compiler plugin (ver 0.1.0)
+#
+# ---------------------------------------------------------------------------
+# 8. THE ON-DEVICE JIT COST. 1543 ms, paid once, the first time the masker is
+#    built in a process. This is what libQnnHtpPrepare.so (86 MB of the APK)
+#    is for. It is a real number the demo has to live with: see STATUS.md.
+09-13 08:19:12.737 12257 12497 I qnn     : graph_prepare.cc:2279:STAT: prepare_ms=1543
+09-13 08:19:12.774 12257 12497 I litert  : [qnn_manager.cc:399] Serialized a context bin of size (bytes): 10452992
+#
+# ---------------------------------------------------------------------------
+# 9. THE COMPILED GRAPH IS LOADED AND RUNS ON THE DSP
+09-13 08:19:12.788 12257 12497 I tflite  : Replacing 1 out of 1 node(s) with delegate (DispatchDelegate) node, yielding 1 partitions for subgraph 0.
+09-13 08:19:12.799 12257 12497 I qnn     : QnnDsp <I> graph qnn_partition_0 is loaded 1
+09-13 08:19:12.799 12257 12497 I qnn     : QnnDsp <I> QnnContext_createFromBinary done successfully. context = 0x1
+09-13 08:19:12.799 12257 12497 I VaakkuNpu: Mask model loaded on NPU; environment reports [NPU, GPU, CPU]
+#
+# ---------------------------------------------------------------------------
+# 10. EXECUTION ON THE HEXAGON GRAPH (first and last visible in the buffer)
+#     First line is the tail of the benchmark's NPU rung; last is the live
+#     session. The count below is only what survived the 4 MiB buffer — the
+#     benchmark alone ran 55 NPU inferences (50 measured + 5 warmup).
+09-13 08:14:13.730 12257 12447 I qnn     : QnnDsp <I> Graph qnn_partition_0 execution finished with result 0
+09-13 08:20:14.520 12257 12497 I qnn     : QnnDsp <I> Graph qnn_partition_0 execution finished with result 0
+#   total visible executions of qnn_partition_0 in the full capture:
+#   27
+#
+# ---------------------------------------------------------------------------
+# WHAT THIS DOES NOT PROVE
+#   That the mask is geometrically correct. Nothing above says the mask lands
+#   on the person rather than beside them; a transposed mask would produce
+#   these same lines. That is open issue 22 and needs a human to look at a
+#   masked page of an actual person.
