@@ -18,16 +18,21 @@ VTCM acquired, **175 of 175 ops** placed on the DSP with no CPU fallback, on the
 benchmark runs are in `evidence/G4_mask_bench*.csv`: NPU **2.60 ms** vs CPU 35.3 ms at
 inference — but only ~1.4× end to end, because ~114 ms of CPU-side scale/normalise/paint
 runs whichever rung is chosen. **Never quote the 12× without the 1.4×.**
-**What is still unproven:** **G3 is part-measured** — two recorded sessions have put
-camera-read clauses into the ledger (06:07 IST: RETURN_RATE {4,8} ILLUSTRATIVE at 0.861,
-GUARANTEE false at 0.909; 08:17 IST: six ledger rows, `evidence/G3_session_081722_receipt.json`),
-so the camera→OCR→ledger path is not in doubt. The gate wants ≥4 of 5 sessions and five
-clause types; LOCK_IN, LIQUIDITY and CHARGES have still never been read from a photograph —
-and the 08:17 pages show why: **those clauses were never in front of the camera**, which
-is a different problem from the capture-resolution cap we assumed (see G3 below). **Whether
-the mask lands on a person is still untested** — it paints, and on page 5 it painted a
-cable and a dark desk with no person in frame (open issue 22). P6's *failure* path — a
-session that starts with a model missing — has never run (open issue 21).
+**What is still unproven:** **G3's OCR half is proven; its ledger half is not.** Session
+`session_2026-09-13_082931` read **all five expected clause types from photographs in one
+session, at exactly the expected values** (RATE {4,8} ILLUSTRATIVE 0.882 · GUARANTEE false
+0.898 · LOCK_IN 60 0.873 · LIQUIDITY nil-before-60 0.886 · CHARGES 5% 0.848), with
+BUNDLING correctly absent. LOCK_IN, LIQUIDITY and CHARGES were read for the first time
+here, all three from one page — and **the capture cap is exonerated**: that page is fully
+legible at the capped resolution, those clauses had simply never been photographed. The
+gate needs **all five together in ≥4 of 5 scans** (build plan line 578), so three more
+complete sessions are required. **But no DIFFERS has ever reached a ledger row**, because
+in that same session two of three spoken observations scored exactly 0.000000 and the
+third 0.352, all under `spokenMin` — the demo's remaining blocker is the audio side, not
+the document side (open issue 29). **Whether the mask lands on a person is still
+untested**, though three pages from 082931 show it painting a hand-shaped region at the
+page edge and touching no clause text (open issue 22). P6's *failure* path — a session
+that starts with a model missing — has never run (open issue 21).
 
 Red Light ruling: **unknown** — no organizer statement recorded yet.
 Name ruling: **unknown** — displayed name is VAAKKU, changed by editing the single
@@ -44,7 +49,7 @@ This assumption has not been confirmed by an organizer.
 | G0 Bootstrap | **PASS** | see below | H0–H1 |
 | G1 Domain | **PASS** | see below | H1–H5 |
 | G2 ASR decision | **DECISION TAKEN — 2 of 3 evidence items** | `evidence/asr_prescreen/`, `evidence/G2_asr_bakeoff.csv`; live-mic scorecard still needs a human | H5– |
-| G3 OCR | **PART-MEASURED — 2 sessions, 2 of 5 clause types** | `evidence/G3_partial_session_060746_receipt.json`, `evidence/G3_session_081722_receipt.json` + `_pages/` — camera→OCR→ledger proven twice. Needs 2 more sessions and the other three clause types, which have not yet been photographed. | H6– |
+| G3 OCR | **1 COMPLETE SESSION OF THE 4 THE GATE NEEDS** | `evidence/G3_session_082931_receipt.json` + `_pages/` — **all five clause types read from photographs in one session, at the expected values**. Plus two partial sessions (`060746`, `081722`). Gate is all five per scan in ≥4 of 5: needs 3 more. | H6– |
 | G4 NPU | **PROVEN ON THE PHONE — 2 of 3 evidence items** | `evidence/G4_npu_logcat.txt` (Htp(2), VTCM, 175/175 ops, live session 08:19:11) + `evidence/G4_npu_logcat_full.txt`; `evidence/G4_mask_bench.csv` + `_firstrun.csv` (NPU 2.60 ms vs CPU 35.3 ms inference). Missing: screenshot of the latency label. | H6– |
 | G5 End-to-end | **BOTH HALVES HAVE NOW RUN ON THE PHONE** | `evidence/P5_*.png`, `evidence/P6_*.png`; Setup→mic→scan→end→receipt→save. The camera half reached `page_1.jpg` (2448 × 3264) and ML Kit read it offline. Still unproven: a *clause* extracted from a real prop page (that is G3). | H6– |
 | G6 Go/No-Go | NOT STARTED | — | — |
@@ -253,9 +258,10 @@ The budget is not the constraint here — accuracy is.
 
 Commits `70f8ba5`, `e113d78`, `c8e2ff7`, `ee8e3af`, `a706688`, `1026250`, `b7b7c85`, `d4513de`.
 Built with three subagents under review; every task was reviewed and four fix rounds were
-run. **One session has now reached the ledger from the camera** — found on the phone
-2026-09-13 08:05 IST while checking whether an install would disturb anything, not
-recorded at the time it happened. See the measurement block below the table.
+run. **All five clause types have now been read from photographs in a single session** —
+`session_2026-09-13_082931`, found on the phone at 09:05 IST, not recorded at the time it
+happened. See the first measurement block below the table. Two earlier partial sessions
+(`060746`, `081722`) are recorded under it.
 
 | Item | Status | Path / number |
 |---|---|---|
@@ -275,28 +281,77 @@ recorded at the time it happened. See the measurement block below the table.
 | `:app:testDebugUnitTest` | **PASS** | 23 tests incl. 8 new `SessionEvidenceTest` crop-clamp cases |
 | `:app:assembleDebug` | **PASS** | — |
 | `scripts/check_manifest.sh` | **PASS** | no INTERNET, no ACCESS_NETWORK_STATE, in merged manifest and APK; `SessionService` still absent |
-| **5 scan sessions on the phone** | **2 of 5** | `session_2026-09-13_060746` (4 scans, written only) and `session_2026-09-13_081722` (7 scans, 5 pages, **first session where speech and document met**) |
-| `evidence/G3_clauses.png` | **NOT DONE** | needs a human — no screenshot was taken of either session that worked |
+| **5 scan sessions on the phone** | **1 complete + 2 partial** | `session_2026-09-13_082931` (11 pages, **all five clause types**), `session_2026-09-13_081722` (7 scans, 5 pages, first session where speech and document met), `session_2026-09-13_060746` (4 scans, written only) |
+| **All five clause types from one photographed session** | **done once** | `session_2026-09-13_082931` — RATE {4,8} ILLUSTRATIVE · GUARANTEE false · LOCK_IN 60 · LIQUIDITY nil-before 60 · CHARGES 5%, every value as expected |
+| `evidence/G3_clauses.png` | **NOT DONE** | needs a human — no screenshot was taken of any session that worked |
 
-**What G3 still requires:** the gate is "expected clauses extracted in ≥4 of 5 scans".
-Two sessions have now produced clauses from a photograph, and the second one closed the
-loop end to end: Tamil speech → claim, photograph → clause, reconciler → a state. What is
-still missing is three more sessions and **LOCK_IN, LIQUIDITY and CHARGES, none of which
-has ever been read from a photograph**. Those three are on page 6 and in the charges
-table, so they are also the ones most exposed to the capture cap (decision 49) — if they
-fail while RETURN_RATE and GUARANTEE keep succeeding, read the Red Light note about
-`MAX_LONG_EDGE` before touching any regex.
+**What G3 still requires: three more complete sessions.** Build plan line 578 defines the
+gate as "all expected clauses (RATE {4,8} ILLUSTRATIVE, GUARANTEE false, LOCK_IN 60,
+LIQUIDITY nil-before 60, CHARGES 5%) extracted in ≥ 4 of 5 scans" — **all five together in
+one scan**, four times over, not five clause types scattered across five sessions. That is
+a stricter bar than this file previously recorded, and the 082931 session is the first
+scan that clears it. The recipe is now known and reproducible: its page sequence works.
 
-**But the 081722 session says the cap is probably not the problem.** Its five pages were
-pulled to `evidence/G3_session_081722_pages/` and looked at. Pages 3 and 4 are both
-section 3–4 of the document (Eligibility, Your Policy at a Glance) — page 4 is upright,
-sharp and completely legible, and it yielded nothing because **there is no lock-in,
-surrender or charge clause printed on it**. Page 3 is the same content photographed at
-90°. Page 5 is mostly desk. So the three missing clause types have not failed extraction;
-**they have not yet been photographed**. The next session should start from the page that
-carries them, not from page 1.
+**The capture cap (decision 49) is exonerated — do not raise `MAX_LONG_EDGE`.** This file
+previously warned that LOCK_IN, LIQUIDITY and CHARGES were the clause types most exposed
+to the cap. They were not. All three came off **page_7** of the 082931 session at the
+capped resolution, and that page has been pulled and looked at: the §7 Charges table's 5%
+row and the §8 lock-in line are both fully legible. The three clause types had never
+failed extraction — **they had never been photographed**. The 081722 reading (pages 3 and
+4 are Eligibility and Your Policy at a Glance, which print no lock-in, surrender or charge
+clause) turns out to have been right for the right reason.
 
-**MEASUREMENT — G3, first full session, phone 2026-09-13 08:17:22–08:20:23 IST**
+
+**MEASUREMENT — G3, first COMPLETE session, phone 2026-09-13 08:29:31–08:33:47 IST**
+Session `session_2026-09-13_082931`, 4 min 16 s, 11 pages, 24 events
+(20 `written_observed`, 3 `spoken_observed`, 1 `document_scan_completed`). Receipt
+`evidence/G3_session_082931_receipt.json` (33,056 B, head `0db68a8a30ff556e…`).
+Pages 3, 6 and 7 pulled to `evidence/G3_session_082931_pages/`.
+
+**All five expected clause types, at exactly the expected values:**
+
+| Type | n | Best conf | Value read from the photograph |
+|---|---|---|---|
+| RETURN_RATE | 5 | 0.882 | `{percents: [4, 8], qualifier: ILLUSTRATIVE}` |
+| GUARANTEE | 11 | 0.898 | `{guaranteed: false}` |
+| LOCK_IN | 1 | 0.873 | `{months: 60}` |
+| LIQUIDITY | 1 | 0.886 | `{surrenderNilBeforeMonths: 60}` |
+| CHARGES | 2 | 0.848 | `{label: "Premium Allocation Charge", percent: 5}` |
+| BUNDLING | — | — | **absent, as expected** — NOT_IN_DOCUMENT is a designed demo outcome |
+
+Every value matches what `RealPropDocumentTest` asserts from the document's own text, now
+arrived at from a camera instead of a string. **LOCK_IN, LIQUIDITY and CHARGES were read
+for the first time in this project here**, all three from page_7.
+
+**The spoken side of this session was silent, and not because nothing was said.** Three
+`spoken_observed` events: RETURN_RATE at **0.352**, GUARANTEE and CHARGES at **exactly
+0.000000**. Both spans carry real transcribed Tamil (`கேரண்டி`, `எட்டு பர்சன்ட்`), so a
+human was audibly speaking into the mic. Under `spokenMin` (0.55) every row therefore
+stayed silent, and the DIFFERS this session was set up to show never appeared. **The OCR
+half of G3 is now proven; the ledger half still is not**, and the blocker is on the audio
+side, not the document side. See open issue 29 — the arithmetic points at
+`segmentQuality`, not at the matcher.
+
+**Open issue 22 advanced — the mask is behaving like it finds hands, not clutter.** Pages
+3, 6 and 7 all show `FILL_COLOR` painted at the bottom or bottom-left edge, which is
+exactly where a hand grips a page held up to a camera, and page 6's region is distinctly
+finger-shaped. **No masked region touches clause text on any of the three pages**, and all
+five clause types extracted successfully from these same pages. That is the opposite of
+the page_5 reading from 081722, where the mask looked like it might be painting dark desk
+clutter. Held as **inference, not proof**: the unmasked originals do not exist by design,
+and these sessions predate the coverage logging (decision 84), so there is no recorded
+coverage number to check them against. The settling test is still the one in the Red Light
+list — point the camera at a person holding a page, then read the `VaakkuNpu` log line.
+
+**Independent live-mic confirmation of the ASR truncation cap.** Both spoken spans land at
+exactly 6.0 transcribed characters per second — 6.98 s / 42 chars = 6.02, and
+6.47 s / 39 chars = 6.03. That is the peer session's
+`num_possible_tokens = num_feature_frames / 100.0 * 6` decoder budget, now corroborated
+**from the live mic** rather than from a WAV file. Open issue 28.
+
+
+**MEASUREMENT — G3, first session where speech and document met, phone 2026-09-13 08:17:22–08:20:23 IST**
+
 Session `session_2026-09-13_081722`, 3 min 1 s, 7 `document_scan_completed`, 5 pages,
 3 `spoken_observed`, 9 `written_observed`. Receipt
 `evidence/G3_session_081722_receipt.json` (19,613 B, head `e2532e94239d692f…`).
@@ -1240,6 +1295,24 @@ an unrendered one.
     engineering task into a demo-day step. Recorded because "we could cache it" is the kind
     of plausible half-idea that gets re-proposed every session until someone writes down
     that it was checked.
+86. **G3's bar is five clauses per scan, four scans over — not five clause types collected
+    across a project.** Build plan line 578 reads "all expected clauses (RATE {4,8}
+    ILLUSTRATIVE, GUARANTEE false, LOCK_IN 60, LIQUIDITY nil-before 60, CHARGES 5%)
+    extracted in ≥ 4 of 5 scans". This file had been tracking it the looser way — counting
+    sessions and clause types on separate axes and calling it "2 of 5 sessions, 2 of 5
+    clause types". Under the real definition, the score before 082931 was **zero**, and it
+    is now **one of four**. Written down because the loose reading makes the gate look
+    two-fifths done when it has not started, and the build plan wins over every other
+    document (CLAUDE.md).
+87. **The capture cap stays at its current `MAX_LONG_EDGE`, and the reasoning that
+    suspected it is now retracted.** Decision 49 capped capture resolution; this file then
+    carried a standing suspicion that the cap was why LOCK_IN, LIQUIDITY and CHARGES never
+    appeared. Page 7 of session 082931 disproves it: at the capped resolution the §7
+    Charges table's 5% row reads at 0.848 and the §8 lock-in line at 0.873, both correct.
+    The clauses had never been in front of the camera. **Do not raise the cap** — it exists
+    to stop a tens-of-MB bitmap per page, the failure it prevents is an OutOfMemoryError
+    mid-demo, and the evidence that motivated raising it was an inference we had not
+    checked against a photograph.
 
 ## Measurements
 
@@ -1630,7 +1703,44 @@ measurement of the cable, so it is not recorded).
     G4 and the demo. Logcat is enough to answer issue 22; the receipt question can wait
     for a phase that can afford a schema revision.
 
-## On-device verification status (P0)
+29. **The live mic is ~18 dB quieter than the corpus `segmentQuality` was calibrated on,
+    and it is silencing the spoken side.** In `session_2026-09-13_082931` two spoken
+    observations (GUARANTEE, CHARGES) came out at **exactly `0.000000`** and a third
+    (RETURN_RATE) at **0.352**. The two zeros are from one span and the third from another,
+    and `confidence = matchQuality × segmentQuality`, so two different word lists scoring
+    exactly zero can only mean `segmentQuality` itself was zero — not a matching failure.
+
+    Back-calculating the span that *did* score: `segmentQuality ≈ 0.35–0.39`, which across
+    every plausible `matchQuality` (0.90–1.00) and `meanSpeechProb` (0.80–1.00) puts the
+    segment between **−40 and −43 dBFS**. Decision 31 calibrated `FULL_CREDIT_DBFS = −30`
+    and `NO_CREDIT_DBFS = −50` against a corpus whose *quietest* segment was −22.5 dBFS,
+    with ~7 dB of deliberate margin for exactly this difference. The live mic is ~18 dB
+    below that floor — roughly 8× in amplitude — so the margin does not cover it. The span
+    that scored zero was presumably at or below −50.
+
+    **This is the failure decision 31 predicted in writing**: "an energy curve that is
+    pessimistic by a couple of tenths does not lower confidence a little — it silences the
+    product". A segment at 0.37 caps confidence at ~0.35, under `spokenMin` (0.55), so the
+    claim never enters the ledger as anything but UNCERTAIN however clearly it was said.
+    Both spans contain real Tamil words that Whisper transcribed — `கேரண்டி`, `எட்டு
+    பர்சன்ட்` — so a human was audibly speaking.
+
+    **Two causes are consistent with the receipt and it does not distinguish them:**
+    (a) the capture really is that quiet — `MicAudioSource` reads `AudioRecord` directly
+    while the calibration clips came from a phone recorder app with its own gain control,
+    which is the difference decision 31 flagged and under-budgeted; or (b) the metering VAD
+    returned zeros for that segment, since `SegmentQuality.meanProbability` returns 0.0 for
+    an empty window list and `VadSegmenter` uses a *second* `Vad` instance to meter. The
+    0.352 on the neighbouring span argues against a dead meter but does not rule out a
+    per-segment failure.
+
+    **Do not retune the anchors on this arithmetic.** It is inference from two spans in one
+    receipt, and the constants are load-bearing in the direction that produces false
+    DIFFERS if loosened (CLAUDE.md #2). **The measurement that settles it is one log line**:
+    `rmsDbfs` and `meanSpeechProb` per segment from the live mic, which is `app/src/main/
+    java/app/vaakku/asr/` — the package the peer session is editing. It has been asked for.
+    With real numbers this is either a one-constant change or a VAD bug; without them it is
+    a guess.
 
 Verified on the iQOO 15 by driving the real app over adb, each backed by a screenshot
 or a file in `evidence/`:
@@ -1681,35 +1791,46 @@ What is left:
       as a MEASUREMENT line. **This is the last G2 evidence item** and the only one that
       tests the microphone path rather than the WAV path. Expect it to be poor — see
       decision 40 — and record what it actually is, not what we hoped.
+      **Read the `q=` number on the Live ASR screen while speaking, not just the text.**
+      Open issue 29: in session 082931 two of three spoken observations scored exactly
+      0.000000 and the third 0.352, which back-calculates to roughly −42 dBFS — about 18 dB
+      below the quietest clip `segmentQuality` was calibrated against. If `q=` is low while
+      the transcript looks correct, the problem is the energy curve or the metering VAD,
+      not the recogniser, and the numbers to capture are `rmsDbfs` and `meanSpeechProb` per
+      segment. **This is currently the single thing standing between the app and a DIFFERS
+      on screen.**
 - [ ] **Listen to `T07_selfcorrect.wav` and `T06_honest_lockin.wav`** and answer open
       issue 11: does T07 end on the same number of years that T06 states? The label
       arithmetic depends on it and no ASR output can settle it.
 - [x] **P3: prop pages 5+6 printed** (human confirmed).
-- [ ] **P3 / G3: five scan sessions.** Each session is BOTH printed pages, then "Done
-      scanning" — not five single photos. `DocumentScanCompleted` must fire before any
-      NOT_IN_DOCUMENT can appear, and BUNDLING = NOT_IN_DOCUMENT is one of the six expected
-      demo outcomes. Record for each session which of the five clauses appeared. The gate is
-      ≥4 of 5. Screenshot one good session to `evidence/G3_clauses.png`.
-      **Two sessions already count** (`session_2026-09-13_060746` at 06:07 and
-      `session_2026-09-13_081722` at 08:17) — both read RETURN_RATE and GUARANTEE and
-      nothing else. **The thing to fix in the next two is which page is in front of the
-      camera.** The 08:17 session's five pages are saved under
-      `evidence/G3_session_081722_pages/` and page 4 is upright and perfectly legible — it
-      simply does not carry LOCK_IN, LIQUIDITY or CHARGES. Those clauses have not failed
-      to extract; they have never been photographed. **Start the next session on the page
-      that carries §7 and §8**, and only then judge the capture cap.
+- [ ] **P3 / G3: three more COMPLETE sessions.** The gate is **all five clauses in one
+      scan**, in ≥4 of 5 scans (build plan line 578, decision 86) — not five clause types
+      collected across different sessions. **The score is 1 of 4**, and the recipe is now
+      known: `session_2026-09-13_082931` (11 pages, 08:29 IST) did it, reading RATE
+      {4,8} ILLUSTRATIVE 0.882 · GUARANTEE false 0.898 · LOCK_IN 60 0.873 · LIQUIDITY
+      nil-before-60 0.886 · CHARGES 5% 0.848, with BUNDLING correctly absent. **Repeat
+      that page sequence** — printed pages 5, 6 and 7, the last of which carries §7 Charges
+      and §8 Surrender Value & Lock-in, then "Done scanning". `DocumentScanCompleted` must
+      fire before any NOT_IN_DOCUMENT can appear, and BUNDLING = NOT_IN_DOCUMENT is one of
+      the six expected demo outcomes. Record for each session which of the five appeared.
+      **Screenshot one good session to `evidence/G3_clauses.png`** — no screenshot exists
+      of any session that worked, and that is a separate outstanding G3 item.
+      **Speak the claims during at least one of them.** OCR is the half that is proven; no
+      session has yet put a DIFFERS on screen, because the spoken side keeps scoring under
+      `spokenMin` (open issue 29). A fourth silent session advances the clause count and
+      proves nothing about the demo.
 - [ ] **P3 / first scan only: does the shutter click?** `takePicture` can trigger the platform
       shutter sound on some devices and locales, and the app cannot always suppress it.
       CLAUDE.md #9 is "no sound, ever". If it clicks, we handle it at the device (media volume
       / silent mode) and record that as a demo-day step — we do not pretend the code fixed it.
-- [ ] **P3 / first scan only: is 4000 px enough for the small print?** The capture is capped
-      (decision 49). If the §7 charges table's 5% row or the §8 lock-in line fails to read
-      while larger text reads fine, that is the cap, not the extractor — raise `MAX_LONG_EDGE`
-      in `DocumentCamera.kt` and re-scan before concluding anything about the regexes.
-      **Do not raise it pre-emptively.** The 08:17 pages are evidence against the cap being
-      the current problem: page 4 is legible at the capped resolution and the missing
-      clauses are simply not on it. Photograph the right page first; only if §7/§8 are in
-      frame, in focus, and still unread does the cap become the suspect.
+- [x] **P3: is 4000 px enough for the small print? — ANSWERED, yes.** The capture is capped
+      (decision 49) and this file long suspected the cap was hiding §7 and §8. It is not.
+      `evidence/G3_session_082931_pages/page_7.jpg` carries both the §7 Charges table and
+      the §8 Surrender Value & Lock-in line, photographed at the capped resolution and
+      fully legible: the 5% row read at 0.848 and the lock-in line at 0.873. **Do not raise
+      `MAX_LONG_EDGE`** — decision 87. The cap exists to stop a tens-of-MB bitmap per page,
+      and raising it trades a proven-adequate resolution for an OutOfMemoryError risk
+      mid-demo.
 - [ ] Watch the phone's temperature during a bake-off re-run if one is needed.
       §11.5 budgets thermal at ≤ MODERATE after 15 minutes.
 - [x] **P4 / G4: Dev menu → Mask benchmark → Run.** Done twice on 2026-09-13, 08:13:31 and
@@ -1732,11 +1853,16 @@ What is left:
       This is the only test that checks the mask is *correct* rather than merely present
       (open issue 22). A mask that is off by a transpose still reports a plausible coverage
       figure and still paints something. Look at the file, not at the coverage number.
-      **Partly answered and still open:** `evidence/G3_session_081722_pages/page_5.jpg`
-      shows the masker painting `FILL_COLOR` over a cable and a dark desk **with no person
-      in frame** — so it over-paints dark clutter, which fails safe for privacy and unsafe
-      for OCR. That says nothing about whether it covers an actual person. Still needs a
-      human in the picture.
+      **Partly answered, and the evidence now leans the other way.** Three pages from
+      session 082931 (`evidence/G3_session_082931_pages/page_{3,6,7}.jpg`) all show
+      `FILL_COLOR` at the bottom or bottom-left edge — where a hand grips a held page —
+      and page 6's region is distinctly finger-shaped. **No masked region touches clause
+      text on any of them**, and all five clause types extracted from those same pages.
+      That argues the masker finds hands rather than over-painting dark clutter, which is
+      what `evidence/G3_session_081722_pages/page_5.jpg` had suggested (`FILL_COLOR` over
+      a cable and a dark desk, no person in frame). **Neither reading is proof**: the
+      unmasked originals do not exist by design, and both sessions predate the coverage
+      log. Still needs a human in the picture.
       **This test is now instrumented** (issue 28, decision 83): every page logs its
       coverage. Pull it straight after the scan with
       `adb logcat -d --pid=$(adb shell pidof -s app.vaakku) | grep VaakkuNpu`
@@ -1821,10 +1947,16 @@ What is left:
   accuracy (39% at best on the laptop, against a 70% threshold). Do not quote a laptop
   RTF as if it settled the gate, and do not set a default engine before the phone
   numbers exist.
-- **`segmentQuality` under 0.842 silences a single-mention DIFFERS.** That arithmetic
-  (decision 31) is the reason `SegmentQuality`'s dBFS anchors were calibrated against
-  real recordings instead of picked. If a live-mic test shows claims registering but no
-  DIFFERS cards, check `q=` on the Live ASR screen before suspecting the reconciler.
+- **`segmentQuality` under 0.842 silences a single-mention DIFFERS — and it is now
+  happening on the real phone.** That arithmetic (decision 31) is the reason
+  `SegmentQuality`'s dBFS anchors were calibrated against real recordings instead of
+  picked. **It has stopped being a hypothetical:** session `082931` produced two spoken
+  observations at exactly 0.000000 and one at 0.352, which back-calculates to ~−42 dBFS
+  against a calibration corpus whose quietest clip was −22.5. Open issue 29 has the
+  arithmetic and both candidate causes. **Do not retune the anchors from that inference** —
+  the measurement that settles it is `rmsDbfs` and `meanSpeechProb` logged per segment
+  from the live mic, and `app/src/main/java/app/vaakku/asr/` is the package the peer
+  session is editing.
 
 - **The Rung-0 question is answered — do not re-litigate it.** See M1.
   `isOnDeviceRecognitionAvailable()` is *true*, but the on-device recognizer does not
@@ -1928,16 +2060,18 @@ What is left:
   verifier's own failure text, unrelated to the ledger's `ReasonCode`, and genuinely
   needed on paper. The fix was to copy that sub-object field by field under a different
   name, **not** to add an exception to the guard. Do the same.
-- **P4's code is written, compiles and is in the APK — and it has never met the NPU.**
-  `app/src/main/java/app/vaakku/npu/` holds the masker (`MaskMath`, `MaskAccelerator`,
-  `PersonMasker`), `ocr/PrivacyMask.kt` holds the three-outcome policy, and
-  `dev/MaskBenchmarkScreen.kt` produces G4's CSV. **Start with one Dev-menu run and one
-  logcat pull, not by reading the code again** — the code cannot tell you what the NPU
-  rung will say, and that message is the whole of what P4 does not yet know (open issue
-  22). The build plan's §6.5 snippet does not compile as written: it omits the
-  `Environment`, and the real call is
-  `Environment.create(BuiltinNpuAcceleratorProvider(context))` then
-  `CompiledModel.create(assets, path, options, env)`.
+- ~~**P4's code is written, compiles and is in the APK — and it has never met the NPU.**~~
+  **Stale — P4 has run on the Hexagon DSP and G4 is proven.** See the G4 evidence section:
+  `BackendType : Htp(2)`, `libQnnHtp.so` loaded, VTCM acquired, **175 of 175 ops** placed
+  with no CPU fallback, on the ordinary scan path of a live session. What the code notes
+  below are still worth keeping: `app/src/main/java/app/vaakku/npu/` holds the masker
+  (`MaskMath`, `MaskAccelerator`, `PersonMasker`), `ocr/PrivacyMask.kt` holds the
+  three-outcome policy, and `dev/MaskBenchmarkScreen.kt` produced G4's CSVs. The build
+  plan's §6.5 snippet does not compile as written: it omits the `Environment`, and the
+  real call is `Environment.create(BuiltinNpuAcceleratorProvider(context))` then
+  `CompiledModel.create(assets, path, options, env)`. **What P4 still does not know is
+  whether the mask lands on a person** (open issue 22) — that is a human looking at a
+  file, not a code question.
 - **Never request more than one accelerator in `CompiledModel.Options`.** It takes a set
   and resolves it internally, so `Options(NPU, GPU)` gives you a working model and
   destroys the ability to say honestly which one ran (decision 75). If you find yourself
