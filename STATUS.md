@@ -1215,6 +1215,31 @@ an unrendered one.
     boolean, so repeats cost a line in the receipt and nothing else. The temptation was
     to put the page id and OCR confidence in it — that is issue 28, and it changes the
     schema and the hash chain, so it is not a change to make while chasing a gate.
+83. **Mask coverage goes to logcat, not to the receipt.** Issue 28 offered a cheap fix and
+    an honest one. The honest one — a coverage field in the receipt — is the right long-run
+    answer and was rejected *for now* on timing: it changes the receipt schema and therefore
+    the hash chain, and G7 is already PASS against the current schema with a verified export
+    (M3). Re-opening a passed gate to add a diagnostic field, days before a demo, trades a
+    proven property for a convenience. Logcat answers the question that is actually blocking
+    — issue 22, does the mask land on the person — and answers it today. **The deferral is
+    recorded rather than quietly dropped**: if the packet's recipient ever needs to know how
+    much of a page was painted, the receipt is where it belongs and this decision should be
+    revisited, not treated as settled.
+84. **All three mask outcomes log, not just the successful one.** The obvious
+    implementation logs coverage where coverage exists, i.e. only on `Masked`. That makes
+    an absent line ambiguous between "the masker never ran", "it was withheld" and "it ran
+    and painted nothing" — three states with completely different meanings, one of which
+    (Withheld) means a page is missing from the evidence folder on purpose. Logging all
+    three makes silence in logcat mean exactly one thing: the scan path did not execute.
+85. **LiteRT 2.1.6 cannot cache the QNN context binary, and that was established by
+    reading the API, not by trying.** `javap` over `litert-api-2.1.6.aar` (the method that
+    produced `evidence/sherpa_api_1.13.8.txt`) shows `Environment.Option` with three
+    entries and `QualcommOptions.Key` with fourteen, and no key anywhere takes a cache
+    directory — `IR_JSON_DIR` and `DLC_DIR` are debug dumps. The 1543 ms JIT therefore has
+    no code fix available at this dependency version, which turns issue 26 from an
+    engineering task into a demo-day step. Recorded because "we could cache it" is the kind
+    of plausible half-idea that gets re-proposed every session until someone writes down
+    that it was checked.
 
 ## Measurements
 
@@ -1541,10 +1566,29 @@ measurement of the cable, so it is not recorded).
     process, when the masker is first built. At 08:19:11 a human waited through it mid
     session. It does not recur, and it is the price of the `android_jit` path (and of the
     86 MB `libQnnHtpPrepare.so`), but a demo that scans cold will show a 1.5 s pause at
-    the worst possible moment. Two fixes, neither built: warm the masker when the session
-    screen opens, so the cost is paid while the buyer is still lifting the phone; or cache
-    the 10,452,992 B context binary between runs. The zero-code option is to never demo
-    the first scan cold — scan once before the audience arrives.
+    the worst possible moment.
+
+    **Narrowed 2026-09-13 by reading the API rather than guessing.** Three fixes were on
+    the table; one is now ruled out and one is already built:
+
+    - *Cache the 10,452,992 B context binary* — **not available in LiteRT 2.1.6.** Read
+      from the AAR with `javap` (`litert-api-2.1.6.aar`, the same method that produced
+      `evidence/sherpa_api_1.13.8.txt`): `Environment.Option` has exactly three entries —
+      `CompilerPluginLibraryDir`, `DispatchLibraryDir`, `SystemRuntimeHandle` — and
+      `CompiledModel.QualcommOptions.Key` has fourteen, of which the only path-valued two
+      are `IR_JSON_DIR` and `DLC_DIR`, both debug dumps rather than a context-binary
+      cache. There is no key that takes a cache directory. LiteRT *does* serialise the
+      binary (`qnn_manager.cc:399` in the logcat proves it) but exposes no way to keep it.
+      Building this would mean going below the Kotlin API, and CLAUDE.md forbids upgrading
+      the dependency to look for a newer one.
+    - *Warm the masker earlier* — **already built, and it is why the cost was survivable.**
+      `ScanSheet.kt` calls `privacyMask.warmUp()` in a `LaunchedEffect` when the sheet
+      opens, so the compile overlaps the seconds the human spends aiming. Moving it to
+      session-screen open would buy a few more seconds at the cost of compiling a model on
+      every session whether or not anyone scans.
+    - *Never demo the first scan cold* — the remaining zero-code option, and now the
+      recommended one. **Scan once before the audience arrives.** This is a demo-day step,
+      not a fix, and it belongs in the P8 runbook.
 
 27. **The demo's weakest link is ASR confidence, not the reconciler.** In
     `session_2026-09-13_081722` the GUARANTEE row — the row that carries the whole point
@@ -1557,15 +1601,34 @@ measurement of the cable, so it is not recorded).
     than discovered on stage. Related: G2's bake-off numbers describe clips, not a person
     speaking across a table in a noisy hall.
 
-28. **Mask coverage is computed, shown for a moment, and then lost.** `MaskMath.personCoverage`
-    produces the fraction of each page painted out; it reaches `PrivacyMask.MaskSummary.Ran`
-    and the scan screen, and then nothing. It is not logged, and it is not in the receipt —
-    `DocumentScanCompleted` is a bare marker by design (§6.4/§7.1) and carries no payload.
-    So after the fact a page masked at 40% and a page masked at 0% are indistinguishable,
-    which is exactly the question issue 22 needs answered and exactly the question an export
-    recipient would ask. The cheap fix is one `Log.i` beside the existing "Mask model loaded
-    on …" line; the honest fix is a field in the receipt, which changes the schema and the
-    hash chain and so is not a P7 decision to take lightly.
+28. **Mask coverage is computed, shown for a moment, and then lost.** — **FIXED (the cheap
+    half), 2026-09-13.** `MaskMath.personCoverage` produced the fraction of each page
+    painted out; it reached `PrivacyMask.MaskSummary.Ran` and the scan screen, and then
+    nothing. It was not logged and it is not in the receipt, so after the fact a page
+    masked at 40% and a page masked at 0% were indistinguishable — exactly the question
+    issue 22 needs answered.
+
+    `PrivacyMask.apply` now takes the page's frame id and logs one line per page under tag
+    `VaakkuNpu`, the same tag as "Mask model loaded on …", so one grep tells the whole
+    masking story of a session:
+
+    ```
+    page_3 2448x3264: masked coverage=0.0000 on NPU (inference 7.9 ms, total 121.4 ms)
+    page_5 2448x3264: masked coverage=0.1837 on NPU (inference 7.6 ms, total 118.2 ms)
+    ```
+
+    All three outcomes log, not just the successful one — a withheld page and a page that
+    ran with no masker are both recorded, because "nothing appeared in logcat" must not be
+    ambiguous between "it did not run" and "it ran and painted nothing". The pixel size
+    travels with the line because coverage alone cannot tell a mask that landed on the
+    person from one that landed beside them, and `width×height` is the input to
+    `MaskMath.maskIndexFor`'s mapping — which is the geometry issue 22 is actually about.
+
+    **The honest fix is still not done and is deliberately deferred.** A coverage field in
+    the receipt changes the schema and the hash chain, and `DocumentScanCompleted` is a
+    bare marker by design (§6.4/§7.1, decision 82). That is not a change to make between
+    G4 and the demo. Logcat is enough to answer issue 22; the receipt question can wait
+    for a phase that can afford a schema revision.
 
 ## On-device verification status (P0)
 
@@ -1674,6 +1737,13 @@ What is left:
       in frame** — so it over-paints dark clutter, which fails safe for privacy and unsafe
       for OCR. That says nothing about whether it covers an actual person. Still needs a
       human in the picture.
+      **This test is now instrumented** (issue 28, decision 83): every page logs its
+      coverage. Pull it straight after the scan with
+      `adb logcat -d --pid=$(adb shell pidof -s app.vaakku) | grep VaakkuNpu`
+      and read the `coverage=` figure beside each `page_<n>`. **Look at the image anyway** —
+      a transposed mask still reports a plausible coverage number, which is exactly why
+      the log line carries `width×height` and why the file is still the evidence. The
+      number tells you *whether* something was painted; only the file tells you *where*.
       Screenshot the latency label under the viewfinder to `evidence/G4_latency_label.png` —
       that is G4's third and last evidence item, and it can be captured during the same
       session as the G3 scans above.

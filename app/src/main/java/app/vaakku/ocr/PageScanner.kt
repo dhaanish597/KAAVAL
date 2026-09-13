@@ -133,7 +133,7 @@ class PageScanner(
         // written at all — see PrivacyMask, which owns that decision. Crops are
         // cut from the same bitmap, because a crop goes into the grievance
         // packet exactly like the page does.
-        val outcome = privacyMask.apply(page)
+        val outcome = privacyMask.apply(page, frameId)
         val writable = outcome.safeToWrite
         onMasked(writable)
 

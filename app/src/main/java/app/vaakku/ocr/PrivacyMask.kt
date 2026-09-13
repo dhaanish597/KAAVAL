@@ -2,6 +2,7 @@ package app.vaakku.ocr
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.util.Log
 import app.vaakku.npu.MaskAccelerator
 import app.vaakku.npu.PersonMasker
 import java.io.Closeable
@@ -99,13 +100,29 @@ class PrivacyMask(context: Context) : Closeable {
      *
      * [page] is never modified and never recycled here — `PageScanner` owns it
      * and recycles it, along with any bitmap this returns.
+     *
+     * [label] identifies the page in the log line below; `PageScanner` passes
+     * its frame id, so a logcat line can be matched to a `page_<n>.jpg` on disk.
      */
-    suspend fun apply(page: Bitmap): Outcome {
+    suspend fun apply(page: Bitmap, label: String): Outcome {
         val active = ensureBuilt()
             ?: return Outcome.Unmasked(page, unavailableReason ?: NO_ACCELERATOR)
+                .also { log(label, page, "not-masked: ${it.reason}") }
 
         val masked = active.mask(page)
             ?: return Outcome.Withheld(MASK_FAILED)
+                .also { log(label, page, "withheld: ${it.reason}") }
+
+        log(
+            label,
+            page,
+            "masked coverage=%.4f on %s (inference %.1f ms, total %.1f ms)".format(
+                masked.coverage,
+                masked.accelerator.label,
+                masked.inferenceMs,
+                masked.totalMs,
+            ),
+        )
 
         return Outcome.Masked(
             page = masked.bitmap,
@@ -114,6 +131,30 @@ class PrivacyMask(context: Context) : Closeable {
             totalMs = masked.totalMs,
             coverage = masked.coverage,
         )
+    }
+
+    /**
+     * Records what masking did to one page, so it is still answerable afterwards.
+     *
+     * Open issue 28: coverage was computed, shown for a moment and then lost, so
+     * a page masked at 40% and a page masked at 0% were indistinguishable once
+     * the screen moved on — which is exactly the question open issue 22 asks. The
+     * receipt is the wrong place for it (`DocumentScanCompleted` is a bare marker
+     * by §6.4/§7.1, and adding a field changes the schema and the hash chain), so
+     * this goes to logcat under the same tag as "Mask model loaded on …": one
+     * grep then tells the whole masking story of a session.
+     *
+     * The page's pixel size travels with it because a coverage figure alone
+     * cannot distinguish a mask that landed on the person from one that landed
+     * beside them — the geometry is what open issue 22 needs, and `width×height`
+     * is the input to [app.vaakku.npu.MaskMath.maskIndexFor]'s mapping.
+     *
+     * Diagnostics only. Nothing here reaches a user-facing surface, and it says
+     * what was painted, never anything about the person or the document
+     * (CLAUDE.md #1).
+     */
+    private fun log(label: String, page: Bitmap, what: String) {
+        Log.i(TAG, "$label ${page.width}x${page.height}: $what")
     }
 
     override fun close() {
@@ -202,6 +243,9 @@ class PrivacyMask(context: Context) : Closeable {
     }
 
     companion object {
+        /** Shared with `PersonMasker`, so one grep covers the whole mask path. */
+        private const val TAG = "VaakkuNpu"
+
         /**
          * Diagnostics, not user copy. These reach the debug screen and logcat;
          * what the buyer reads is a Tamil string chosen by the screen from the
